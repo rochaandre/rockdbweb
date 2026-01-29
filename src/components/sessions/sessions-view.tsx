@@ -2,6 +2,7 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { ControlBar, type FilterState } from '@/components/sessions/control-bar'
 import { SessionsTable } from '@/components/sessions/sessions-table'
 import { BlockingTable } from '@/components/sessions/blocking-table'
+import { LongOpsTable } from '@/components/sessions/long-ops-table'
 import { DetailSidebar } from '@/components/sessions/detail-sidebar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useState, useMemo } from 'react'
@@ -100,6 +101,13 @@ export function SessionsView() {
                                     Blocking and Waiting Sessions - 13
                                 </TabsTrigger>
                                 <TabsTrigger
+                                    value="longops"
+                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
+                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                                >
+                                    Long Operations
+                                </TabsTrigger>
+                                <TabsTrigger
                                     value="filters"
                                     className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
                     data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
@@ -119,6 +127,13 @@ export function SessionsView() {
                         </TabsContent>
                         <TabsContent value="blocking" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
                             <BlockingTable onAction={handleAction} />
+                        </TabsContent>
+                        <TabsContent value="longops" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+                            <LongOpsTable
+                                onSelect={handleSelect}
+                                onAction={handleAction}
+                                selectedId={selectedSid}
+                            />
                         </TabsContent>
                         <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface">
                             <div className="text-sm text-muted-foreground">Filters configuration...</div>

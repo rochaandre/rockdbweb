@@ -1,0 +1,110 @@
+import { twMerge } from 'tailwind-merge'
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
+import { Skull, FileText, Activity } from "lucide-react"
+import { LONG_OPS_DATA } from './sessions-data'
+
+export interface LongOpsTableProps {
+    onSelect?: (sid: number) => void
+    onAction?: (action: string, session: any) => void
+    selectedId?: number | null
+}
+
+export function LongOpsTable({ onSelect, onAction, selectedId }: LongOpsTableProps) {
+
+    // Helper to calculate percentage and render progress bar
+    const renderProgressBar = (sofar: number, totalwork: number) => {
+        if (totalwork === 0) return <div className="h-2 w-full bg-gray-100 rounded-full" />
+
+        const pct = Math.min(100, Math.max(0, (sofar / totalwork) * 100))
+        const pctStr = pct.toFixed(1) + '%'
+
+        return (
+            <div className="flex flex-col gap-1 w-full max-w-[140px]">
+                <div className="flex justify-between text-[10px] text-muted-foreground leading-none">
+                    <span>{pctStr}</span>
+                    <span>{sofar} / {totalwork}</span>
+                </div>
+                <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden dark:bg-gray-800">
+                    <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                        style={{ width: pctStr }}
+                    />
+                </div>
+            </div>
+        )
+    }
+
+    // Helper to format remaining time
+    const formatTimeRemaining = (seconds: number) => {
+        if (seconds < 60) return `${seconds}s`
+        const mins = Math.floor(seconds / 60)
+        return `${mins}m`
+    }
+
+    return (
+        <div className="flex-1 overflow-auto bg-surface">
+            <div className="min-w-[1000px] border-b border-border">
+                {/* Header */}
+                <div className="flex h-8 w-full items-center bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10 border-b border-border">
+                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">SID</div>
+                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">Serial#</div>
+                    <div className="w-32 px-2 shrink-0 border-r border-border/50">Username</div>
+                    <div className="w-40 px-2 shrink-0 border-r border-border/50">OpName</div>
+                    <div className="w-40 px-2 shrink-0 border-r border-border/50">Target</div>
+                    <div className="w-40 px-2 shrink-0 border-r border-border/50">Progress</div>
+                    <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center">Remaining</div>
+                    <div className="flex-1 px-2 shrink-0 min-w-[200px]">Message</div>
+                </div>
+
+                {/* Rows */}
+                {LONG_OPS_DATA.map((op) => {
+                    const isSelected = selectedId === op.sid
+
+                    return (
+                        <ContextMenu
+                            key={`${op.sid}-${op.serial}`}
+                            trigger={
+                                <div
+                                    className={twMerge(
+                                        "group flex h-9 items-center border-b border-border/50 text-xs transition-colors hover:bg-muted/50 cursor-pointer select-none",
+                                        isSelected ? "bg-blue-50/80 dark:bg-blue-950/30" : "bg-surface"
+                                    )}
+                                    onClick={() => onSelect?.(op.sid)}
+                                >
+                                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.sid}</div>
+                                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.serial}</div>
+                                    <div className="w-32 px-2 shrink-0 border-r border-border/50 font-medium truncate" title={op.username}>{op.username}</div>
+                                    <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate" title={op.opname}>{op.opname}</div>
+                                    <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate font-mono text-[11px]" title={op.target}>{op.target}</div>
+                                    <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center">
+                                        {renderProgressBar(op.sofar, op.totalwork)}
+                                    </div>
+                                    <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center font-mono">
+                                        {formatTimeRemaining(op.time_remaining)}
+                                    </div>
+                                    <div className="flex-1 px-2 shrink-0 truncate text-muted-foreground" title={op.message}>
+                                        {op.message}
+                                    </div>
+                                </div>
+                            }
+                        >
+                            <ContextMenuItem onClick={() => onAction?.('Kill Session', op)}>
+                                <Skull className="mr-2 h-4 w-4 text-destructive" />
+                                <span className="text-destructive">Kill Session</span>
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={() => onAction?.('Show SQL', op)}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Show SQL
+                            </ContextMenuItem>
+                            <ContextMenuItem onClick={() => onAction?.('Trace Session', op)}>
+                                <Activity className="mr-2 h-4 w-4" />
+                                Trace Session
+                            </ContextMenuItem>
+                        </ContextMenu>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}

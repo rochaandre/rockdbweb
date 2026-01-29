@@ -8,6 +8,7 @@ import {
     ChevronRight,
     Activity
 } from "lucide-react"
+import { useNavigate, useLocation } from 'react-router-dom'
 
 interface SidebarProps {
     collapsed: boolean
@@ -15,11 +16,14 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+    const navigate = useNavigate()
+    const location = useLocation()
+
     const navItems = [
-        { icon: LayoutDashboard, label: 'Dashboard', active: false },
-        { icon: Activity, label: 'Sessions', active: true },
-        { icon: Database, label: 'Databases', active: false },
-        { icon: Settings, label: 'Settings', active: false },
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: Activity, label: 'Sessions', path: '/sessions' },
+        { icon: Database, label: 'Databases', path: '/databases' },
+        { icon: Settings, label: 'Settings', path: '/settings' },
     ]
 
     return (
@@ -40,22 +44,30 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </Button>
 
             <div className="flex-1 py-4 flex flex-col gap-1 px-2">
-                {navItems.map((item) => (
-                    <button
-                        key={item.label}
-                        className={twMerge(
-                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                            item.active
-                                ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                            collapsed && "justify-center px-0"
-                        )}
-                        title={collapsed ? item.label : undefined}
-                    >
-                        <item.icon className="size-5 shrink-0" />
-                        {!collapsed && <span>{item.label}</span>}
-                    </button>
-                ))}
+                {navItems.map((item) => {
+                    // Check if path is root, then strict match, otherwise startsWith
+                    const isActive = item.path === '/'
+                        ? location.pathname === '/'
+                        : location.pathname.startsWith(item.path)
+
+                    return (
+                        <button
+                            key={item.label}
+                            onClick={() => navigate(item.path)}
+                            className={twMerge(
+                                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors w-full",
+                                isActive
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                                collapsed && "justify-center px-0"
+                            )}
+                            title={collapsed ? item.label : undefined}
+                        >
+                            <item.icon className="size-5 shrink-0" />
+                            {!collapsed && <span>{item.label}</span>}
+                        </button>
+                    )
+                })}
             </div>
 
             <div className="p-4 border-t border-border">
