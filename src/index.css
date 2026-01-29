@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+/*
+  Based on "Sessions - PRD" screenshot:
+  - Classic desktop app look (light grays, blues)
+  - Tables with white background
+  - Active rows in blue/cyan
+  - Header roughly #e0e0e0 or light gradient
+*/
+:root {
+  /* Base */
+  --background: #f0f2f5; /* Light gray app background */
+  --foreground: #0f172a; /* Slate 900 */
+  
+  /* Surface (Cards, White areas) */
+  --surface: #ffffff;
+  --surface-raised: #f8fafc; /* Slate 50 */
+  
+  /* Primary (Active selection Blue) */
+  --primary: #0066cc; /* Standard Enterprise Blue */
+  --primary-foreground: #ffffff;
+  --primary-hover: #0052a3;
+  
+  /* Secondary (Gray buttons, inactive tabs) */
+  --secondary: #e2e8f0; /* Slate 200 */
+  --secondary-foreground: #1e293b; /* Slate 800 */
+  
+  /* Muted */
+  --muted: #f1f5f9; /* Slate 100 */
+  --muted-foreground: #64748b; /* Slate 500 */
+  
+  /* Destructive */
+  --destructive: #ef4444; /* Red 500 */
+  --destructive-foreground: #ffffff;
+  
+  /* Borders */
+  --border: #cbd5e1; /* Slate 300 */
+  --input: #cbd5e1;
+  --ring: #0066cc;
+  
+  /* Radius */
+  --radius: 0.5rem;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
