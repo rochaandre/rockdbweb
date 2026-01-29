@@ -1,4 +1,4 @@
-import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { MainLayout } from '@/components/layout/main-layout'
 import { ControlBar, type FilterState } from '@/components/sessions/control-bar'
 import { SessionsTable } from '@/components/sessions/sessions-table'
 import { BlockingTable } from '@/components/sessions/blocking-table'
@@ -6,9 +6,10 @@ import { DetailSidebar } from '@/components/sessions/detail-sidebar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useState, useMemo } from 'react'
 import { SESSIONS_DATA } from './sessions-data'
+import { useApp } from '@/context/app-context'
 
 export function SessionsView() {
-    const [lastAction, setLastAction] = useState<string>('')
+    const { logAction } = useApp()
     const [selectedSid, setSelectedSid] = useState<number | null>(1644)
 
     const [filters, setFilters] = useState<FilterState>({
@@ -51,12 +52,13 @@ export function SessionsView() {
 
 
     const handleAction = (action: string, session: any) => {
-        setLastAction(`Clicked ${action} on SID ${session.sid}`)
+        // Note: session might be missing if just passing a string, but our logic handles it.
+        logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
     }
 
     const handleSelect = (sid: number) => {
         setSelectedSid(sid)
-        setLastAction(`Selected Session SID: ${sid}`)
+        logAction('Row Select', 'SessionsView', `Loading data for SID: ${sid} ...`)
     }
 
     const handleFilterChange = (key: keyof FilterState, checked: boolean) => {
@@ -66,17 +68,21 @@ export function SessionsView() {
     const selectedSession = SESSIONS_DATA.find(s => s.sid === selectedSid) as any || null
 
     return (
-        <DashboardLayout statusMessage={lastAction}>
+        <MainLayout>
             <ControlBar
                 filters={filters}
                 counts={counts}
                 onFilterChange={handleFilterChange}
             />
 
-            <div className="flex flex-1 gap-2 overflow-hidden">
+            <div className="flex flex-1 gap-2 overflow-hidden h-full">
                 <div className="flex flex-1 flex-col overflow-hidden gap-2">
                     {/* Main Tabs Area */}
-                    <Tabs defaultValue="sessions" className="flex-1 flex flex-col overflow-hidden">
+                    <Tabs
+                        defaultValue="sessions"
+                        className="flex-1 flex flex-col overflow-hidden"
+                        onValueChange={(val) => logAction('Tab Change', 'SessionsView', `Tab: ${val}`)}
+                    >
                         <div className="flex items-center gap-1 border-b border-border bg-muted/40 px-2 pt-1">
                             <TabsList className="h-8 bg-transparent p-0 gap-1">
                                 <TabsTrigger
@@ -122,6 +128,6 @@ export function SessionsView() {
 
                 <DetailSidebar session={selectedSession} />
             </div>
-        </DashboardLayout>
+        </MainLayout>
     )
 }

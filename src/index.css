@@ -4,24 +4,24 @@
   /* Colors */
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
-  
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
-  
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 }
@@ -35,37 +35,91 @@
 */
 :root {
   /* Base */
-  --background: #f0f2f5; /* Light gray app background */
-  --foreground: #0f172a; /* Slate 900 */
-  
+  --background: #f0f2f5;
+  /* Light gray app background */
+  --foreground: #0f172a;
+  /* Slate 900 */
+
   /* Surface (Cards, White areas) */
   --surface: #ffffff;
-  --surface-raised: #f8fafc; /* Slate 50 */
-  
+  --surface-raised: #f8fafc;
+  /* Slate 50 */
+
   /* Primary (Active selection Blue) */
-  --primary: #0066cc; /* Standard Enterprise Blue */
+  --primary: #0066cc;
+  /* Standard Enterprise Blue */
   --primary-foreground: #ffffff;
   --primary-hover: #0052a3;
-  
+
   /* Secondary (Gray buttons, inactive tabs) */
-  --secondary: #e2e8f0; /* Slate 200 */
-  --secondary-foreground: #1e293b; /* Slate 800 */
-  
+  --secondary: #e2e8f0;
+  /* Slate 200 */
+  --secondary-foreground: #1e293b;
+  /* Slate 800 */
+
   /* Muted */
-  --muted: #f1f5f9; /* Slate 100 */
-  --muted-foreground: #64748b; /* Slate 500 */
-  
+  --muted: #f1f5f9;
+  /* Slate 100 */
+  --muted-foreground: #64748b;
+  /* Slate 500 */
+
   /* Destructive */
-  --destructive: #ef4444; /* Red 500 */
+  --destructive: #ef4444;
+  /* Red 500 */
   --destructive-foreground: #ffffff;
-  
+
   /* Borders */
-  --border: #cbd5e1; /* Slate 300 */
+  --border: #cbd5e1;
+  /* Slate 300 */
   --input: #cbd5e1;
   --ring: #0066cc;
-  
+
   /* Radius */
   --radius: 0.5rem;
+}
+
+.dark {
+  /* Base */
+  --background: #0f172a;
+  /* Slate 900 */
+  --foreground: #f8fafc;
+  /* Slate 50 */
+
+  /* Surface */
+  --surface: #1e293b;
+  /* Slate 800 */
+  --surface-raised: #334155;
+  /* Slate 700 */
+
+  /* Primary */
+  --primary: #3b82f6;
+  /* Blue 500 */
+  --primary-foreground: #ffffff;
+  --primary-hover: #2563eb;
+
+  /* Secondary */
+  --secondary: #1e293b;
+  /* Slate 800 */
+  --secondary-foreground: #f8fafc;
+  /* Slate 50 */
+
+  /* Muted */
+  --muted: #334155;
+  /* Slate 700 */
+  --muted-foreground: #94a3b8;
+  /* Slate 400 */
+
+  /* Destructive */
+  --destructive: #7f1d1d;
+  /* Red 900 */
+  --destructive-foreground: #fecaca;
+  /* Red 100 */
+
+  /* Borders */
+  --border: #334155;
+  /* Slate 700 */
+  --input: #334155;
+  --ring: #3b82f6;
 }
 
 body {
