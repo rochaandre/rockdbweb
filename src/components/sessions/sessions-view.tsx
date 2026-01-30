@@ -12,7 +12,9 @@ export function SessionsView() {
     const { logAction } = useApp()
     const [sessions, setSessions] = useState<any[]>([])
     const [selectedSid, setSelectedSid] = useState<number | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
+    const [blockingSessions, setBlockingSessions] = useState<any[]>([])
+    const [selectedInstance, setSelectedInstance] = useState<string>("both")
+    const [refreshKey, setRefreshKey] = useState(0)
 
     // Refresh Control State
     const [isPaused, setIsPaused] = useState(false)
@@ -27,17 +29,24 @@ export function SessionsView() {
     })
 
     const fetchSessions = async () => {
-        setIsLoading(true)
         try {
-            const res = await fetch(`${API_URL}/sessions`)
+            const instParam = selectedInstance !== "both" ? `?inst_id=${selectedInstance}` : ""
+
+            // Fetch main sessions
+            const res = await fetch(`${API_URL}/sessions${instParam}`)
             if (res.ok) {
                 const data = await res.json()
                 setSessions(data)
             }
+
+            // Fetch blocking sessions for count
+            const blockRes = await fetch(`${API_URL}/sessions/blocking${instParam}`)
+            if (blockRes.ok) {
+                const blockData = await blockRes.json()
+                setBlockingSessions(blockData)
+            }
         } catch (error) {
             console.error('Error fetching sessions:', error)
-        } finally {
-            setIsLoading(false)
         }
     }
 
@@ -131,9 +140,11 @@ export function SessionsView() {
     // Handlers
     const handleAction = async (action: string, session: any) => {
         if (action === 'KILL_SESSION') {
-            if (confirm(`Are you sure you want to kill session ${session.sid},${session['serial#']}?`)) {
+            const serial = session['serial#'] || session.serial
+            if (confirm(`Are you sure you want to kill session ${session.sid},${serial}?`)) {
                 try {
-                    const res = await fetch(`${API_URL}/sessions/kill/${session.sid}/${session['serial#']}`, {
+                    const inst_id = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+                    const res = await fetch(`${API_URL}/sessions/kill/${session.sid}/${serial}?inst_id=${inst_id}`, {
                         method: 'POST'
                     })
                     if (res.ok) {
@@ -155,7 +166,8 @@ export function SessionsView() {
         const session = sessions.find(s => s.sid === sid)
         if (session && session.sql_id) {
             try {
-                const res = await fetch(`${API_URL}/sessions/sql/${session.sql_id}`)
+                const instParam = session.inst_id ? `?inst_id=${session.inst_id}` : ""
+                const res = await fetch(`${API_URL}/sessions/sql/${session.sql_id}${instParam}`)
                 if (res.ok) {
                     const data = await res.json()
                     setSessionSql(data.sql_text)
@@ -175,8 +187,9 @@ export function SessionsView() {
     }
 
     const handleUpdate = () => {
+        setRefreshKey(prev => prev + 1)
         fetchSessions()
-        logAction('Manual Update', 'ControlBar', 'Forcing data refresh...')
+        logAction('Manual Update', 'ControlBar', 'Forcing data refresh across all tabs...')
     }
 
     const handleSearch = () => {
@@ -202,6 +215,8 @@ export function SessionsView() {
                 onIntervalChange={setRefreshInterval}
                 onSearch={handleSearch}
                 onSettings={handleSettings}
+                selectedInstance={selectedInstance}
+                onInstanceChange={setSelectedInstance}
             />
 
             <div className="flex flex-1 gap-2 overflow-hidden h-full">
@@ -226,7 +241,7 @@ export function SessionsView() {
                                     className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
                     data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
                                 >
-                                    Blocking and Waiting Sessions - 13
+                                    Blocking and Waiting Sessions - {blockingSessions.length}
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="longops"
@@ -254,13 +269,19 @@ export function SessionsView() {
                             />
                         </TabsContent>
                         <TabsContent value="blocking" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                            <BlockingTable onAction={handleAction} />
+                            <BlockingTable
+                                onAction={handleAction}
+                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
+                                refreshKey={refreshKey}
+                            />
                         </TabsContent>
                         <TabsContent value="longops" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
                             <LongOpsTable
                                 onSelect={handleSelect}
                                 onAction={handleAction}
                                 selectedId={selectedSid}
+                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
+                                refreshKey={refreshKey}
                             />
                         </TabsContent>
                         <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface font-mono text-sm">

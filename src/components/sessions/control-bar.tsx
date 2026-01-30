@@ -1,7 +1,14 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Pause, Play, RefreshCw, Filter, Settings, Search, Skull, Split } from "lucide-react"
+import { Pause, Play, RefreshCw, Filter, Settings, Search, Skull, Split, Server } from "lucide-react"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 export interface FilterState {
     active: boolean
@@ -27,9 +34,11 @@ interface ControlBarProps {
     onFilterChange: (key: keyof FilterState, checked: boolean) => void
     onPauseToggle: () => void
     onUpdate: () => void
-    onIntervalChange: (val: number) => void
+    selectedInstance?: string
+    onInstanceChange?: (val: string) => void
     onSearch?: () => void
     onSettings?: () => void
+    onIntervalChange: (val: number) => void
 }
 
 export function ControlBar({
@@ -42,7 +51,9 @@ export function ControlBar({
     onUpdate,
     onIntervalChange,
     onSearch,
-    onSettings
+    onSettings,
+    selectedInstance = "both",
+    onInstanceChange
 }: ControlBarProps) {
     return (
         <div className="flex shrink-0 flex-col gap-2 bg-gradient-to-r from-gray-50 to-gray-100 p-2 border-b border-border shadow-sm">
@@ -83,6 +94,24 @@ export function ControlBar({
                         />
                         <span className="absolute right-2 top-1.5 text-xs text-muted-foreground">s</span>
                     </div>
+                </div>
+
+                <div className="h-5 w-px bg-border mx-1" />
+
+                <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                        <Server className="size-3" /> Instance:
+                    </label>
+                    <Select value={selectedInstance} onValueChange={onInstanceChange}>
+                        <SelectTrigger className="h-7 w-[100px] text-xs bg-white shadow-sm">
+                            <SelectValue placeholder="All Nodes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="both">Both (RAC)</SelectItem>
+                            <SelectItem value="1">Node 1</SelectItem>
+                            <SelectItem value="2">Node 2</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="flex-1" />

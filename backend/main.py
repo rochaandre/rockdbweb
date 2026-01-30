@@ -10,7 +10,10 @@ from .db_connections import (
 )
 from .oracle_connectivity import discover_database_info
 from .dashboard_mod import get_dashboard_metrics, get_tablespace_summary
-from .sessions_mod import get_sessions, kill_session, get_session_sql
+from .sessions_mod import (
+    get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
+    get_long_ops, get_blocker_details, get_object_ddl
+)
 from .storage_mod import get_tablespaces_detailed, get_data_files, get_segments
 from .logs_mod import get_alert_logs, get_db_parameters, get_outstanding_alerts
 from .backups_mod import get_backup_jobs, get_backup_summary, get_backup_sets, get_backup_datafiles
@@ -148,32 +151,75 @@ def read_tablespace_summary():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sessions")
-def read_sessions():
+def read_sessions(inst_id: Optional[int] = None):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_sessions(active)
+        return get_sessions(active, inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/sessions/kill/{sid}/{serial}")
-def kill_db_session(sid: str, serial: str):
+def kill_db_session(sid: str, serial: str, inst_id: int = 1):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return kill_session(active, sid, serial)
+        return kill_session(active, sid, serial, inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sessions/sql/{sql_id}")
-def read_session_sql(sql_id: str):
+def read_session_sql(sql_id: str, inst_id: Optional[int] = None):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_session_sql(active, sql_id)
+        return get_session_sql(active, sql_id, inst_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/blocking")
+def read_blocking_sessions(inst_id: Optional[int] = None):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_blocking_sessions(active, inst_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/longops")
+def read_long_ops(inst_id: Optional[int] = None):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_long_ops(active, inst_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/blocker/{sid}")
+def read_blocker_details(sid: int, inst_id: Optional[int] = 1):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        details = get_blocker_details(active, sid, inst_id)
+        if not details:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return details
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/ddl/{obj_type}/{owner}/{name}")
+def read_object_ddl(obj_type: str, owner: str, name: str):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return {"ddl": get_object_ddl(active, owner, name, obj_type)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1,15 +1,40 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
-import { Skull, FileText, Activity } from "lucide-react"
-import { LONG_OPS_DATA } from './sessions-data'
+import { Skull, FileText, Activity, Loader2 } from "lucide-react"
+import { useState, useEffect } from 'react'
+import { API_URL } from '@/context/app-context'
 
 export interface LongOpsTableProps {
     onSelect?: (sid: number) => void
     onAction?: (action: string, session: any) => void
     selectedId?: number | null
+    instId?: number
+    refreshKey?: number
 }
 
-export function LongOpsTable({ onSelect, onAction, selectedId }: LongOpsTableProps) {
+export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKey }: LongOpsTableProps) {
+    const [data, setData] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+
+    const fetchLongOps = async () => {
+        setIsLoading(true)
+        try {
+            const instParam = instId ? `?inst_id=${instId}` : ""
+            const res = await fetch(`${API_URL}/sessions/longops${instParam}`)
+            if (res.ok) {
+                const json = await res.json()
+                setData(json)
+            }
+        } catch (error) {
+            console.error('Error fetching long ops:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchLongOps()
+    }, [instId, refreshKey])
 
     // Helper to calculate percentage and render progress bar
     const renderProgressBar = (sofar: number, totalwork: number) => {
@@ -46,6 +71,7 @@ export function LongOpsTable({ onSelect, onAction, selectedId }: LongOpsTablePro
             <div className="min-w-[1000px] border-b border-border">
                 {/* Header */}
                 <div className="flex h-8 w-full items-center bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10 border-b border-border">
+                    <div className="w-12 px-2 text-center shrink-0 border-r border-border/50">INST</div>
                     <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">SID</div>
                     <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">Serial#</div>
                     <div className="w-32 px-2 shrink-0 border-r border-border/50">Username</div>
@@ -57,53 +83,65 @@ export function LongOpsTable({ onSelect, onAction, selectedId }: LongOpsTablePro
                 </div>
 
                 {/* Rows */}
-                {LONG_OPS_DATA.map((op) => {
-                    const isSelected = selectedId === op.sid
+                {isLoading ? (
+                    <div className="py-20 text-center text-muted-foreground">
+                        <Loader2 className="mx-auto size-8 animate-spin mb-4" />
+                        <p>Loading long operations...</p>
+                    </div>
+                ) : data.length === 0 ? (
+                    <div className="py-20 text-center text-muted-foreground">
+                        <p>No active long operations found.</p>
+                    </div>
+                ) : (
+                    data.map((op, idx) => {
+                        const isSelected = selectedId === op.sid
 
-                    return (
-                        <ContextMenu
-                            key={`${op.sid}-${op.serial}`}
-                            trigger={
-                                <div
-                                    className={twMerge(
-                                        "group flex h-9 items-center border-b border-border/50 text-xs transition-colors hover:bg-muted/50 cursor-pointer select-none",
-                                        isSelected ? "bg-blue-50/80 dark:bg-blue-950/30" : "bg-surface"
-                                    )}
-                                    onClick={() => onSelect?.(op.sid)}
-                                >
-                                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.sid}</div>
-                                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.serial}</div>
-                                    <div className="w-32 px-2 shrink-0 border-r border-border/50 font-medium truncate" title={op.username}>{op.username}</div>
-                                    <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate" title={op.opname}>{op.opname}</div>
-                                    <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate font-mono text-[11px]" title={op.target}>{op.target}</div>
-                                    <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center">
-                                        {renderProgressBar(op.sofar, op.totalwork)}
+                        return (
+                            <ContextMenu
+                                key={`${op.sid}-${op.serial}-${idx}`}
+                                trigger={
+                                    <div
+                                        className={twMerge(
+                                            "group flex h-9 items-center border-b border-border/50 text-xs transition-colors hover:bg-muted/50 cursor-pointer select-none",
+                                            isSelected ? "bg-blue-50/80 dark:bg-blue-950/30" : "bg-surface"
+                                        )}
+                                        onClick={() => onSelect?.(op.sid)}
+                                    >
+                                        <div className="w-12 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground opacity-60">{op.inst_id}</div>
+                                        <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.sid}</div>
+                                        <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.serial}</div>
+                                        <div className="w-32 px-2 shrink-0 border-r border-border/50 font-medium truncate" title={op.username}>{op.username}</div>
+                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate" title={op.opname}>{op.opname}</div>
+                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate font-mono text-[11px]" title={op.target}>{op.target}</div>
+                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center">
+                                            {renderProgressBar(op.sofar, op.totalwork)}
+                                        </div>
+                                        <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center font-mono">
+                                            {formatTimeRemaining(op.time_remaining)}
+                                        </div>
+                                        <div className="flex-1 px-2 shrink-0 truncate text-muted-foreground" title={op.message}>
+                                            {op.message}
+                                        </div>
                                     </div>
-                                    <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center font-mono">
-                                        {formatTimeRemaining(op.time_remaining)}
-                                    </div>
-                                    <div className="flex-1 px-2 shrink-0 truncate text-muted-foreground" title={op.message}>
-                                        {op.message}
-                                    </div>
-                                </div>
-                            }
-                        >
-                            <ContextMenuItem onClick={() => onAction?.('Kill Session', op)}>
-                                <Skull className="mr-2 h-4 w-4 text-destructive" />
-                                <span className="text-destructive">Kill Session</span>
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem onClick={() => onAction?.('Show SQL', op)}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                Show SQL
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => onAction?.('Trace Session', op)}>
-                                <Activity className="mr-2 h-4 w-4" />
-                                Trace Session
-                            </ContextMenuItem>
-                        </ContextMenu>
-                    )
-                })}
+                                }
+                            >
+                                <ContextMenuItem onClick={() => onAction?.('KILL_SESSION', op)}>
+                                    <Skull className="mr-2 h-4 w-4 text-destructive" />
+                                    <span className="text-destructive">Kill Session</span>
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
+                                <ContextMenuItem onClick={() => onAction?.('SHOW_SQL', op)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Show SQL
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => onAction?.('TRACE_SESSION', op)}>
+                                    <Activity className="mr-2 h-4 w-4" />
+                                    Trace Session
+                                </ContextMenuItem>
+                            </ContextMenu>
+                        )
+                    })
+                )}
             </div>
         </div>
     )

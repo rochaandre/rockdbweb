@@ -1,42 +1,106 @@
 
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Database, Lock, Activity, FileText, Table, AlertTriangle, Code } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, Database, Lock, Activity, FileText, Table, AlertTriangle, Code, Skull, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useApp, API_URL } from '@/context/app-context'
 
-// Mock Data for Block Explorer
-const MOCK_BLOCKER_DETAILS = {
-    sid: 105,
-    serial: 4521,
-    username: 'SYSTEM',
-    status: 'ACTIVE',
-    sqlText: `UPDATE employees SET salary = salary * 1.05 WHERE department_id = 10;`,
-    plan: [
-        { id: 0, operation: 'UPDATE STATEMENT', object: '', cost: 15 },
-        { id: 1, operation: 'UPDATE', object: 'EMPLOYEES', cost: '' },
-        { id: 2, operation: 'TABLE ACCESS FULL', object: 'EMPLOYEES', cost: 15 },
-    ],
-    objects: [
-        { type: 'TABLE', owner: 'HR', name: 'EMPLOYEES', ddl: `CREATE TABLE "HR"."EMPLOYEES" \n   (	"EMPLOYEE_ID" NUMBER(6,0), \n	"FIRST_NAME" VARCHAR2(20), \n	"LAST_NAME" VARCHAR2(25) CONSTRAINT "EMP_LAST_NAME_NN" NOT NULL ENABLE, \n	"EMAIL" VARCHAR2(25) CONSTRAINT "EMP_EMAIL_NN" NOT NULL ENABLE, \n	"PHONE_NUMBER" VARCHAR2(20), \n	"HIRE_DATE" DATE CONSTRAINT "EMP_HIRE_DATE_NN" NOT NULL ENABLE, \n	"JOB_ID" VARCHAR2(10) CONSTRAINT "EMP_JOB_NN" NOT NULL ENABLE, \n	"SALARY" NUMBER(8,2), \n	"COMMISSION_PCT" NUMBER(2,2), \n	"MANAGER_ID" NUMBER(6,0), \n	"DEPARTMENT_ID" NUMBER(4,0), \n	 CONSTRAINT "EMP_SAL_CHK" CHECK (salary > 0) ENABLE, \n	 CONSTRAINT "EMP_EMP_ID_PK" PRIMARY KEY ("EMPLOYEE_ID")\n  USING INDEX  ENABLE\n   ) ;` },
-        { type: 'TRIGGER', owner: 'HR', name: 'EMP_SALARY_TRG', ddl: `CREATE OR REPLACE TRIGGER "HR"."EMP_SALARY_TRG" \nBEFORE UPDATE OF salary ON employees\nFOR EACH ROW\nBEGIN\n  IF :new.salary < :old.salary THEN\n    RAISE_APPLICATION_ERROR(-20001, 'Salary cannot be decreased');\n  END IF;\nEND;` },
-    ],
-    lockStats: {
-        usersInLock: 3,
-        openedCursors: 42,
-        lockedTableSize: '2.5 GB'
-    }
+// Initial state for details
+const INITIAL_DETAILS = {
+    sid: 0,
+    serial: 0,
+    username: 'Loading...',
+    status: 'UNKNOWN',
+    sql_text: 'Fetching SQL...',
+    plan: [],
+    objects: [],
+    users_in_lock: 0,
+    opened_cursors: 0,
+    lockedTableSize: '0 B'
 }
 
 export function BlockExplorerView() {
     const { sid } = useParams()
+    const [searchParams] = useSearchParams()
+    const inst_id = searchParams.get('inst_id') || '1'
     const navigate = useNavigate()
-    const [selectedObject, setSelectedObject] = useState<any | null>(null)
+    const { logAction } = useApp()
 
-    // In a real app, fetch details by SID
-    const details = MOCK_BLOCKER_DETAILS
+    const [details, setDetails] = useState<any>(INITIAL_DETAILS)
+    const [selectedObject, setSelectedObject] = useState<any | null>(null)
+    const [objectDdl, setObjectDdl] = useState<string>('')
+    const [isLoading, setIsLoading] = useState(true)
+    const [isKilling, setIsKilling] = useState(false)
+    const [isDdlLoading, setIsDdlLoading] = useState(false)
+
+    const fetchDetails = async () => {
+        setIsLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions/blocker/${sid}?inst_id=${inst_id}`)
+            if (res.ok) {
+                const json = await res.json()
+                setDetails(json)
+            } else {
+                console.error("Failed to fetch blocker details")
+            }
+        } catch (error) {
+            console.error("Error fetching blocker details:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const fetchDDL = async (obj: any) => {
+        setSelectedObject(obj)
+        setIsDdlLoading(true)
+        setObjectDdl('')
+        try {
+            const res = await fetch(`${API_URL}/sessions/ddl/${obj.type}/${obj.owner}/${obj.name}`)
+            if (res.ok) {
+                const json = await res.json()
+                setObjectDdl(json.ddl)
+            }
+        } catch (error) {
+            console.error("Error fetching DDL:", error)
+            setObjectDdl("-- Error fetching DDL")
+        } finally {
+            setIsDdlLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        if (sid) {
+            fetchDetails()
+        }
+    }, [sid, inst_id])
+
+    const handleKillSession = async () => {
+        if (!sid) return
+        const serial = details.serial
+        if (confirm(`Are you sure you want to kill session ${sid},${serial}?`)) {
+            setIsKilling(true)
+            try {
+                const res = await fetch(`${API_URL}/sessions/kill/${sid}/${serial}?inst_id=${inst_id}`, {
+                    method: 'POST'
+                })
+                if (res.ok) {
+                    logAction('Action', 'BlockExplorer', `Session ${sid} killed successfully`)
+                    alert(`Session ${sid} killed successfully.`)
+                    navigate('/sessions')
+                } else {
+                    const err = await res.json()
+                    alert(`Error killing session: ${err.detail || 'Unknown error'}`)
+                }
+            } catch (error) {
+                console.error('Error killing session:', error)
+            } finally {
+                setIsKilling(false)
+            }
+        }
+    }
 
     return (
         <MainLayout>
@@ -47,10 +111,24 @@ export function BlockExplorerView() {
                         <ArrowLeft className="h-4 w-4 mr-1" />
                         Back
                     </Button>
-                    <h1 className="text-sm font-semibold flex items-center gap-2">
+                    <h1 className="text-sm font-semibold flex items-center gap-2 flex-1">
                         <Lock className="h-4 w-4 text-amber-600" />
                         Block Explorer - SID {sid}
                     </h1>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-7 gap-1"
+                        onClick={handleKillSession}
+                        disabled={isKilling}
+                    >
+                        {isKilling ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                            <Skull className="h-3.5 w-3.5" />
+                        )}
+                        Kill Session
+                    </Button>
                 </div>
 
                 <div className="flex-1 overflow-auto p-4">
@@ -82,15 +160,15 @@ export function BlockExplorerView() {
                             <CardContent className="pt-2 space-y-1">
                                 <div className="flex justify-between text-sm">
                                     <span>Users in Lock:</span>
-                                    <span className="font-bold">{details.lockStats.usersInLock}</span>
+                                    <span className="font-bold">{details.users_in_lock}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span>Open Cursors:</span>
-                                    <span className="font-bold">{details.lockStats.openedCursors}</span>
+                                    <span className="font-bold">{details.opened_cursors}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span>Locked Table Size:</span>
-                                    <span className="font-bold">{details.lockStats.lockedTableSize}</span>
+                                    <span>Schema:</span>
+                                    <span className="font-bold">{details.schemaname}</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -103,8 +181,8 @@ export function BlockExplorerView() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-2">
-                                <div className="bg-muted/10 border border-border rounded p-2 font-mono text-xs overflow-auto max-h-32">
-                                    {details.sqlText}
+                                <div className="bg-muted/10 border border-border rounded p-2 font-mono text-xs overflow-auto max-h-32 whitespace-pre-wrap">
+                                    {details.sql_text}
                                 </div>
                             </CardContent>
                         </Card>
@@ -117,25 +195,34 @@ export function BlockExplorerView() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-2">
-                                <div className="border border-border rounded-md overflow-hidden">
+                                <div className="border border-border rounded-md overflow-hidden min-h-[100px]">
                                     <table className="w-full text-xs text-left">
                                         <thead className="bg-muted/20 text-muted-foreground">
                                             <tr>
                                                 <th className="px-2 py-1 w-12">ID</th>
                                                 <th className="px-2 py-1">Operation</th>
+                                                <th className="px-2 py-1">Options</th>
                                                 <th className="px-2 py-1">Object</th>
                                                 <th className="px-2 py-1 w-20">Cost</th>
                                             </tr>
                                         </thead>
                                         <tbody className="font-mono">
-                                            {details.plan.map((row) => (
+                                            {details.plan.map((row: any) => (
                                                 <tr key={row.id} className="border-t border-border">
                                                     <td className="px-2 py-1">{row.id}</td>
-                                                    <td className="px-2 py-1" style={{ paddingLeft: `${(row.id * 10) + 8}px` }}>{row.operation}</td>
+                                                    <td className="px-2 py-1" style={{ paddingLeft: `${(row.id * 10) + 8}px` }}>
+                                                        {row.operation}
+                                                    </td>
+                                                    <td className="px-2 py-1 text-muted-foreground">{row.options}</td>
                                                     <td className="px-2 py-1">{row.object}</td>
                                                     <td className="px-2 py-1">{row.cost}</td>
                                                 </tr>
                                             ))}
+                                            {!isLoading && details.plan.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="py-8 text-center text-muted-foreground">No execution plan available</td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -160,17 +247,22 @@ export function BlockExplorerView() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {details.objects.map((obj, i) => (
+                                            {details.objects.map((obj: any, i: number) => (
                                                 <tr
                                                     key={i}
                                                     className={`border-t border-border cursor-pointer hover:bg-muted/50 ${selectedObject === obj ? 'bg-primary/10' : ''}`}
-                                                    onClick={() => setSelectedObject(obj)}
+                                                    onClick={() => fetchDDL(obj)}
                                                 >
                                                     <td className="px-2 py-1">{obj.type}</td>
                                                     <td className="px-2 py-1">{obj.owner}</td>
                                                     <td className="px-2 py-1 font-medium">{obj.name}</td>
                                                 </tr>
                                             ))}
+                                            {!isLoading && details.objects.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={3} className="py-10 text-center text-muted-foreground italic">No locked objects found for this session</td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -186,14 +278,19 @@ export function BlockExplorerView() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-2 flex-1 min-h-0">
-                                <ScrollArea className="h-40 w-full rounded-md border border-border bg-muted/10 p-2">
+                                <ScrollArea className="h-40 w-full rounded-md border border-border bg-muted/10 p-2 relative">
+                                    {isDdlLoading && (
+                                        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                                            <Loader2 className="animate-spin h-5 w-5 text-muted-foreground" />
+                                        </div>
+                                    )}
                                     {selectedObject ? (
                                         <pre className="font-mono text-xs whitespace-pre-wrap text-foreground">
-                                            {selectedObject.ddl}
+                                            {objectDdl || 'No DDL available'}
                                         </pre>
                                     ) : (
                                         <div className="text-xs text-muted-foreground flex items-center justify-center h-full">
-                                            Select an object to view details
+                                            Select an object to view DDL
                                         </div>
                                     )}
                                 </ScrollArea>
