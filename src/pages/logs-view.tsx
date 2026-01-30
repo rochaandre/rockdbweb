@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LogViewer, OutstandingAlertsTable } from '@/components/logs/logs-components'
@@ -9,6 +10,7 @@ import { twMerge } from 'tailwind-merge'
 import { API_URL } from '@/context/app-context'
 
 export function LogsView() {
+    const [activeTab, setActiveTab] = usePersistentState('logs', 'activeTab', 'alerts')
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [logs, setLogs] = useState<any[]>([])
     const [outstandingAlerts, setOutstandingAlerts] = useState<any[]>([])
@@ -54,7 +56,7 @@ export function LogsView() {
                     </Button>
                 </div>
 
-                <Tabs defaultValue="alerts" className="flex-1 flex flex-col overflow-hidden">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
                     <div className="border-b border-border shrink-0">
                         <TabsList className="bg-transparent p-0 gap-6">
                             <TabsTrigger

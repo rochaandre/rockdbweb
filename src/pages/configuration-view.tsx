@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { HostInfoPanel, ParametersPanel, ResourceLimitsPanel } from '@/components/configuration/config-panels'
 import { API_URL } from '@/context/app-context'
 
 export function ConfigurationView() {
+    const [activeTab, setActiveTab] = usePersistentState('configuration', 'activeTab', 'host')
     const [parameters, setParameters] = useState<any[]>([])
 
     useEffect(() => {
@@ -28,7 +30,7 @@ export function ConfigurationView() {
                     <h1 className="text-xl font-semibold tracking-tight">Configuration</h1>
                 </div>
 
-                <Tabs defaultValue="host" className="flex-1 flex flex-col overflow-hidden">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
                     <div className="border-b border-border shrink-0">
                         <TabsList className="bg-transparent p-0 gap-6">
                             <TabsTrigger

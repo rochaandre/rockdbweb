@@ -56,6 +56,10 @@ class ConnectionResponse(ConnectionBase):
     is_rac: Optional[bool] = None
     inst_name: Optional[str] = None
 
+class PreferenceSave(BaseModel):
+    screen_id: str
+    data: dict
+
 # Routes
 @app.get("/api/connections", response_model=List[ConnectionResponse])
 def read_connections():
@@ -322,6 +326,57 @@ def read_storage_segments(tablespace_name: str):
         return get_segments(active, tablespace_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# User Preferences Endpoints
+@app.get("/api/preferences/{screen_id}")
+def get_preferences(screen_id: str):
+    active = get_active_connection()
+    if not active:
+        return {} # No preferences if no connection
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT data FROM user_preferences WHERE connection_id = ? AND screen_id = ?",
+            (active['id'], screen_id)
+        )
+        row = cursor.fetchone()
+        if row:
+            import json
+            return json.loads(row[0])
+        return {}
+    except Exception as e:
+        print(f"Error getting preferences: {e}")
+        return {}
+    finally:
+        conn.close()
+
+@app.post("/api/preferences")
+def save_preferences(pref: PreferenceSave):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    
+    conn = get_db_connection()
+    try:
+        import json
+        data_str = json.dumps(pref.data)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_preferences (connection_id, screen_id, data, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(connection_id, screen_id) DO UPDATE SET
+                data = excluded.data,
+                updated_at = CURRENT_TIMESTAMP
+        """, (active['id'], pref.screen_id, data_str))
+        conn.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Error saving preferences: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     import uvicorn

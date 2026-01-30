@@ -51,7 +51,16 @@ def init_db():
             log_mode TEXT,
             is_rac BOOLEAN,
             inst_name TEXT
-        )
+        );
+
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            connection_id INTEGER NOT NULL,
+            screen_id TEXT NOT NULL,
+            data TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (connection_id, screen_id),
+            FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE CASCADE
+        );
     """)
     
     # Check for missing columns and add them if necessary

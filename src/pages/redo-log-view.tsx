@@ -1,15 +1,14 @@
-import { useState } from 'react'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { History, ArrowRight, FileTerminal } from 'lucide-react'
-import { twMerge } from 'tailwind-merge'
+import { History } from 'lucide-react'
 
 export function RedoLogView() {
-    const [activeTab, setActiveTab] = useState("groups")
-    const [newSize, setNewSize] = useState("600")
+    const [activeTab, setActiveTab] = usePersistentState('redolog', 'activeTab', 'groups')
+    const [newSize, setNewSize] = usePersistentState('redolog', 'newSize', '600')
 
     const generateResizeScript = (size: string) => {
         return `ALTER SYSTEM SET log_file_name_convert='/u02/oradata/dbpro_01/','/u02/oradata/dbpro_01/';

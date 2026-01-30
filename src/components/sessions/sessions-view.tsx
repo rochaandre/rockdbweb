@@ -7,26 +7,29 @@ import { DetailSidebar } from '@/components/sessions/detail-sidebar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useState, useMemo, useEffect } from 'react'
 import { useApp, API_URL } from '@/context/app-context'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 
 export function SessionsView() {
     const { logAction } = useApp()
     const [sessions, setSessions] = useState<any[]>([])
     const [selectedSid, setSelectedSid] = useState<number | null>(null)
     const [blockingSessions, setBlockingSessions] = useState<any[]>([])
-    const [selectedInstance, setSelectedInstance] = useState<string>("both")
     const [refreshKey, setRefreshKey] = useState(0)
 
-    // Refresh Control State
-    const [isPaused, setIsPaused] = useState(false)
-    const [refreshInterval, setRefreshInterval] = useState(10) // default 10s
-
-    const [filters, setFilters] = useState<FilterState>({
+    // Persistent States
+    const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'sessions')
+    const [selectedInstance, setSelectedInstance] = usePersistentState('sessions', 'selectedInstance', 'both')
+    const [refreshInterval, setRefreshInterval] = usePersistentState('sessions', 'refreshInterval', 10)
+    const [filters, setFilters] = usePersistentState<FilterState>('sessions', 'filters', {
         active: true,
         inactive: true,
         background: true,
         killed: true,
         parallel: true
     })
+
+    // Refresh Control State
+    const [isPaused, setIsPaused] = useState(false)
 
     const fetchSessions = async () => {
         try {
@@ -183,7 +186,7 @@ export function SessionsView() {
     }
 
     const handleFilterChange = (key: keyof FilterState, checked: boolean) => {
-        setFilters(prev => ({ ...prev, [key]: checked }))
+        setFilters((prev: FilterState) => ({ ...prev, [key]: checked }))
     }
 
     const handleUpdate = () => {
@@ -223,9 +226,9 @@ export function SessionsView() {
                 <div className="flex flex-1 flex-col overflow-hidden gap-2">
                     {/* Main Tabs Area */}
                     <Tabs
-                        defaultValue="sessions"
+                        value={activeTab}
+                        onValueChange={setActiveTab}
                         className="flex-1 flex flex-col overflow-hidden"
-                        onValueChange={(val) => logAction('Tab Change', 'SessionsView', `Tab: ${val}`)}
                     >
                         <div className="flex items-center gap-1 border-b border-border bg-muted/40 px-2 pt-1">
                             <TabsList className="h-8 bg-transparent p-0 gap-1">

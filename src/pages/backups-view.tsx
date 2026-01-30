@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BackupJobsTable, BackupSetsTable, DatafilesTable, ExpdpGenerator, BackupSummaryTable, RmanGenerator } from '@/components/backups/backup-components'
@@ -8,6 +9,7 @@ import { RefreshCw } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 
 export function BackupsView() {
+    const [activeTab, setActiveTab] = usePersistentState('backups', 'activeTab', 'progress')
     const { logAction } = useApp()
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [jobs, setJobs] = useState<any[]>([])
@@ -95,9 +97,9 @@ export function BackupsView() {
                 </div>
 
                 <Tabs
-                    defaultValue="progress"
+                    value={activeTab}
+                    onValueChange={setActiveTab}
                     className="flex-1 flex flex-col overflow-hidden"
-                    onValueChange={(val) => logAction('Tab Change', 'BackupsView', `Tab: ${val}`)}
                 >
                     <div className="border-b border-border shrink-0">
                         <TabsList className="bg-transparent p-0 gap-6">
