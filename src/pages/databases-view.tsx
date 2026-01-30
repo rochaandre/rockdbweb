@@ -1,49 +1,300 @@
+import { useState, useEffect } from "react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Database, Plus } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { DatabaseForm, type DatabaseConnection } from "@/components/databases/database-form"
+import { Database, Plus, Loader2, Edit2, Play, CheckCircle2, History } from "lucide-react"
+import { useApp } from "@/context/app-context"
+import { twMerge } from "tailwind-merge"
+import { Badge } from "@/components/ui/badge"
+
+const API_URL = 'http://localhost:8000/api'
 
 export function DatabasesView() {
-    const connections = [
-        { name: "Oracle PROD (19c)", host: "db-prod-01", type: "PROD", status: "Connected" },
-        { name: "Oracle DEV (21c)", host: "db-dev-01", type: "DEV", status: "Offline" },
-        { name: "Reporting DB", host: "db-rep-01", type: "TEST", status: "Online" },
-    ]
+    const { logAction, setConnection, connection } = useApp()
+    const [connections, setConnections] = useState<DatabaseConnection[]>([])
+    const [isDialogOpen, setIsDialogOpen] = useState(false)
+    const [editingConn, setEditingConn] = useState<DatabaseConnection | undefined>(undefined)
+    const [loading, setLoading] = useState(true)
+
+    const fetchConnections = async () => {
+        try {
+            setLoading(true)
+            const res = await fetch(`${API_URL}/connections`)
+            const data = await res.json()
+
+            // Map connections and set initial status based on global app context
+            const mapped = data.map((c: any) => ({
+                ...c,
+                status: c.id === connection.id ? connection.status : 'Offline'
+            }))
+
+            setConnections(mapped)
+
+            // Auto-trigger verification if we have a selected connection but it's not verified yet
+            if (connection.id && connection.status !== 'Connected') {
+                const connToTest = mapped.find((c: any) => c.id === connection.id)
+                if (connToTest) {
+                    // Trigger test without an event object
+                    handleTestAndConnect(null, connToTest)
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch connections:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchConnections()
+    }, [connection.id])
+
+    const handleSelect = (conn: DatabaseConnection) => {
+        if (conn.status === 'Connecting...') return
+        // Just set the active metadata in state and localStorage
+        setConnection({
+            ...conn,
+            status: 'Online',
+            user: conn.username
+        })
+        logAction('System', 'Databases', `Selected connection: ${conn.name}`)
+    }
+
+    const handleTestAndConnect = async (e: React.MouseEvent | null, conn: DatabaseConnection) => {
+        if (e) e.stopPropagation() // Prevent triggering select
+        if (conn.status === 'Connecting...') return
+
+        logAction('Connection', 'Databases', `Testing and activating ${conn.name}...`)
+        setConnections(prev => prev.map(c => c.id === conn.id ? { ...c, status: 'Connecting...' } : c))
+
+        try {
+            const res = await fetch(`${API_URL}/connections/${conn.id}/activate`, {
+                method: 'POST'
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                const discovery = data.discovery || {}
+
+                setConnection({
+                    ...conn,
+                    ...discovery,
+                    status: 'Connected',
+                    user: conn.username
+                })
+                logAction('Connection', 'Databases', `Connected to ${conn.name}`)
+
+                setConnections(prev => prev.map(c => c.id === conn.id ? {
+                    ...c,
+                    ...discovery,
+                    status: 'Connected'
+                } : { ...c, status: 'Offline' }))
+            } else {
+                const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }))
+                logAction('Error', 'Databases', `Failed to connect: ${errorData.detail}`)
+                setConnections(prev => prev.map(c => c.id === conn.id ? { ...c, status: 'Offline' } : c))
+            }
+        } catch (error) {
+            console.error('Activation failed:', error)
+            logAction('Error', 'Databases', 'Connection error (Server unreachable)')
+            setConnections(prev => prev.map(c => c.id === conn.id ? { ...c, status: 'Offline' } : c))
+        }
+    }
+
+    const handleSave = async (data: DatabaseConnection) => {
+        try {
+            const isUpdate = !!editingConn
+            const url = isUpdate ? `${API_URL}/connections/${editingConn.id}` : `${API_URL}/connections`
+            const method = isUpdate ? 'PUT' : 'POST'
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+
+            if (res.ok) {
+                logAction('Database', isUpdate ? 'Update' : 'Create', `${isUpdate ? 'Updated' : 'Created'} ${data.name}`)
+                await fetchConnections()
+            }
+        } catch (error) {
+            console.error('Save failed:', error)
+        } finally {
+            setIsDialogOpen(false)
+            setEditingConn(undefined)
+        }
+    }
+
+    const openNewResult = () => {
+        setEditingConn(undefined)
+        setIsDialogOpen(true)
+    }
+
+    const openEdit = (e: React.MouseEvent, conn: DatabaseConnection) => {
+        e.stopPropagation() // Prevent triggering connect
+        setEditingConn(conn)
+        setIsDialogOpen(true)
+    }
 
     return (
         <MainLayout>
             <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold tracking-tight">Databases</h1>
-                    <Button className="gap-2">
+                    <Button className="gap-2" onClick={openNewResult}>
                         <Plus className="size-4" />
                         New Connection
                     </Button>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {connections.map((conn) => (
-                        <Card key={conn.name} className="cursor-pointer hover:border-primary/50 transition-colors">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">
-                                    {conn.type}
-                                </CardTitle>
-                                <Database className="size-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{conn.name}</div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Host: {conn.host}
-                                </p>
-                                <div className="mt-4 flex items-center gap-2">
-                                    <span className={`flex h-2 w-2 rounded-full ${conn.status === 'Connected' ? 'bg-green-500' : conn.status === 'Online' ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                                    <span className="text-sm font-medium">{conn.status}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    {loading ? (
+                        <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground">
+                            <Loader2 className="size-8 animate-spin mb-4" />
+                            <p>Loading database connections...</p>
+                        </div>
+                    ) : connections.length === 0 ? (
+                        <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-lg">
+                            <Database className="size-12 mb-4 opacity-20" />
+                            <p>No connections found. Create your first one!</p>
+                        </div>
+                    ) : (
+                        connections.map((conn) => (
+                            <Card
+                                key={conn.id}
+                                className={twMerge(
+                                    "cursor-pointer transition-all hover:shadow-md border-border relative group",
+                                    conn.status === 'Connected' ? "border-primary ring-1 ring-primary/20 bg-primary/5" :
+                                        connection.id === conn.id ? "border-blue-400 bg-blue-50/50" : "hover:border-primary/50"
+                                )}
+                                onClick={() => handleSelect(conn)}
+                            >
+                                {localStorage.getItem('last_connection_id') === conn.id?.toString() && (
+                                    <Badge variant="secondary" className="absolute -top-2 -right-2 gap-1 px-1.5 py-0 shadow-sm z-10 bg-background border-border">
+                                        <History className="size-3" />
+                                        Last Used
+                                    </Badge>
+                                )}
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">
+                                        <span className={twMerge(
+                                            "px-2 py-0.5 rounded text-[10px] font-bold border",
+                                            conn.type === 'PROD' ? "bg-red-100 text-red-700 border-red-200" :
+                                                conn.type === 'DEV' ? "bg-green-100 text-green-700 border-green-200" : "bg-blue-100 text-blue-700 border-blue-200"
+                                        )}>
+                                            {conn.type}
+                                        </span>
+                                    </CardTitle>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => openEdit(e, conn)}
+                                        >
+                                            <Edit2 className="size-3 text-muted-foreground" />
+                                        </Button>
+                                        <Database className={twMerge("size-4",
+                                            conn.status === 'Connected' ? "text-green-500" :
+                                                connection.id === conn.id ? "text-blue-500" : "text-muted-foreground"
+                                        )} />
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-xl font-bold truncate" title={conn.name}>{conn.name}</div>
+                                    <div className="flex flex-col gap-0.5 mt-2">
+                                        <p className="text-xs text-muted-foreground font-mono">
+                                            {conn.username}@{conn.host}:{conn.port}/{conn.service}
+                                        </p>
+                                    </div>
+
+                                    {/* Metadata Badges */}
+                                    <div className="flex flex-wrap gap-1 mt-3">
+                                        {conn.db_type && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                                {conn.db_type}
+                                            </span>
+                                        )}
+                                        {conn.role && (
+                                            <span className={twMerge(
+                                                "px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                                                conn.role === 'PRIMARY' ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-purple-100 text-purple-700 border-purple-200"
+                                            )}>
+                                                {conn.role}
+                                            </span>
+                                        )}
+                                        {conn.log_mode && (
+                                            <span className={twMerge(
+                                                "px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                                                conn.log_mode === 'ARCHIVELOG' ? "bg-green-100 text-green-700 border-green-200" : "bg-amber-100 text-amber-700 border-amber-200"
+                                            )}>
+                                                {conn.log_mode}
+                                            </span>
+                                        )}
+                                        {conn.is_rac && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-700 border-cyan-200">
+                                                RAC {conn.inst_name ? `(${conn.inst_name})` : ''}
+                                            </span>
+                                        )}
+                                        {conn.apply_status && conn.apply_status !== 'N/A' && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border-indigo-200">
+                                                {conn.apply_status}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-4 flex items-center gap-2">
+                                        <span className={twMerge(
+                                            "text-sm font-medium",
+                                            conn.status === 'Connected' ? "text-green-600" :
+                                                conn.status === 'Connecting...' ? "text-primary" :
+                                                    connection.id === conn.id ? "text-blue-600" : "text-muted-foreground"
+                                        )}>
+                                            {conn.status === 'Connected' ? 'Active & Verified' :
+                                                connection.id === conn.id ? 'Selected' : conn.status}
+                                        </span>
+                                        {conn.status !== 'Connected' && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="ml-auto h-7 gap-1 text-[10px] font-bold"
+                                                onClick={(e) => handleTestAndConnect(e, conn)}
+                                                disabled={conn.status === 'Connecting...'}
+                                            >
+                                                {conn.status === 'Connecting...' ? (
+                                                    <Loader2 className="size-3 animate-spin" />
+                                                ) : (
+                                                    <Play className="size-3" />
+                                                )}
+                                                TEST & CONNECT
+                                            </Button>
+                                        )}
+                                        {conn.status === 'Connected' && (
+                                            <CheckCircle2 className="size-4 text-green-500 ml-auto" />
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))
+                    )}
                 </div>
+
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{editingConn ? "Edit Connection" : "New Connection"}</DialogTitle>
+                            <DialogDescription>Enter the details for your Oracle Database.</DialogDescription>
+                        </DialogHeader>
+                        <DatabaseForm
+                            initialData={editingConn}
+                            onSave={handleSave}
+                            onCancel={() => setIsDialogOpen(false)}
+                        />
+                    </DialogContent>
+                </Dialog>
             </div>
-        </MainLayout>
+        </MainLayout >
     )
 }

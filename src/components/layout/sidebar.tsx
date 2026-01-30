@@ -6,7 +6,12 @@ import {
     Settings,
     ChevronLeft,
     ChevronRight,
-    Activity
+    Activity,
+    Archive,
+    HardDrive,
+    FileText,
+    Terminal,
+    History
 } from "lucide-react"
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -22,9 +27,22 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: Activity, label: 'Sessions', path: '/sessions' },
+        { icon: Archive, label: 'Backups', path: '/backups' },
         { icon: Database, label: 'Databases', path: '/databases' },
+        { icon: HardDrive, label: 'Storage', path: '/storage' },
+        { icon: FileText, label: 'Logs', path: '/logs' },
+        { icon: Settings, label: 'Configuration', path: '/configuration' },
+        { icon: Terminal, label: 'SQL Central', path: '/sql-central' },
+        { icon: History, label: 'Redo Log Explorer', path: '/redo-log' },
+
         { icon: Settings, label: 'Settings', path: '/settings' },
     ]
+
+    // Conditional ASM
+    if (!!true) { // Mock check: MOCK_ASM_DATA.isAsmEnabled
+        // Insert before Settings
+        navItems.splice(navItems.length - 1, 0, { icon: Database, label: 'ASM Explorer', path: '/asm-explorer' })
+    }
 
     return (
         <aside

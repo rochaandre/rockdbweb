@@ -24,6 +24,12 @@
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 }
 
 /*
@@ -76,6 +82,15 @@
 
   /* Radius */
   --radius: 0.5rem;
+
+  /* Popover */
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  /* Accent */
+  --accent: #f1f5f9;
+  /* Slate 100 */
+  --accent-foreground: #0f172a;
 }
 
 .dark {
@@ -120,6 +135,16 @@
   /* Slate 700 */
   --input: #334155;
   --ring: #3b82f6;
+
+  /* Popover */
+  --popover: #1e293b;
+  /* Slate 800 */
+  --popover-foreground: #f8fafc;
+
+  /* Accent */
+  --accent: #334155;
+  /* Slate 700 */
+  --accent-foreground: #f8fafc;
 }
 
 body {

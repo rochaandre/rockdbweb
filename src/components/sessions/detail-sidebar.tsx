@@ -1,5 +1,17 @@
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuPortal,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export interface SessionDetail {
     sid: number
@@ -19,10 +31,13 @@ export interface SessionDetail {
 }
 
 interface DetailSidebarProps {
-    session?: SessionDetail | null
+    session?: any | null;
+    sqlText?: string;
 }
 
-export function DetailSidebar({ session }: DetailSidebarProps) {
+export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
+    const navigate = useNavigate()
+
     if (!session) {
         return (
             <div className="flex w-80 flex-col gap-2 shrink-0">
@@ -43,34 +58,85 @@ export function DetailSidebar({ session }: DetailSidebarProps) {
                         <span>{session.sid}</span>
 
                         <span className="font-bold text-right">Serial #:</span>
-                        <span>{session.serial}</span>
+                        <span>{session.serial || session['serial#']}</span>
 
                         <span className="font-bold text-right">User Name:</span>
                         <span className="font-mono">{session.username}</span>
 
-                        <span className="font-bold text-right">Schema:</span>
-                        <span>{session.schema}</span>
+                        <span className="font-bold text-right">Program:</span>
+                        <span>{session.program}</span>
 
-                        <span className="font-bold text-right">Logon Time:</span>
-                        <span>{session.logonTime}</span>
-
-                        <span className="font-bold text-right">PID:</span>
-                        <span>{session.pid}</span>
-
-                        <span className="font-bold text-right">OS PID:</span>
-                        <span>{session.osPid}</span>
-
-                        <span className="font-bold text-right">PGA:</span>
-                        <span>{session.pga}</span>
+                        <span className="font-bold text-right">Machine:</span>
+                        <span>{session.machine}</span>
 
                         <span className="font-bold text-right">Last Call ET:</span>
-                        <span>{session.lastCallEt}</span>
+                        <span>{session.lastCallEt || session.last_call_et}</span>
+
 
                         <span className="font-bold text-right">SQL ID:</span>
-                        <span className="text-blue-600 underline cursor-pointer">{session.sqlId}</span>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">
+                                    {session.sqlId || session.sql_id || 'None'}
+                                </span>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="start">
+                                <DropdownMenuItem onClick={() => navigate(`/sql-central/${session.sqlId}`)}>
+                                    Show in SQL Central
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/block-explorer/${session.sid}`)}>
+                                    Block Explorer
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>Reports</DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/statistics/${session.sqlId}`)}>
+                                                SQL Statistics
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/bind-capture/${session.sqlId}`)}>
+                                                Bind Variables Capture
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/optimizer-env/${session.sqlId}`)}>
+                                                Optimizer Environment
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/plan-history/${session.sqlId}`)}>
+                                                Plan Switch History
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem disabled>
+                                                SQL Monitor (External)
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-all/${session.sqlId}`)}>
+                                                XPlan All
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sqlId}`)}>
+                                                XPlan AllStats Last
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sqlId}`)}>
+                                                XPlan AllStats
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem disabled>AWR SQL Report (text)</DropdownMenuItem>
+                                            <DropdownMenuItem disabled>AWR SQL Report (HTML)</DropdownMenuItem>
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+
+                                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(session.sqlId)}>
+                                    Copy Text
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                    Close This Menu
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
                         <span className="font-bold text-right">Child:</span>
-                        <span className="text-blue-600 underline cursor-pointer">{session.child}</span>
+                        <span className="text-blue-600 underline cursor-pointer">{session.child || 0}</span>
                     </div>
                 </div>
             </Card>
@@ -81,7 +147,9 @@ export function DetailSidebar({ session }: DetailSidebarProps) {
                     {session.event}
                 </div>
                 <CardContent className="p-2 text-xs font-mono text-foreground h-full overflow-auto bg-white">
-                    {session.waitInfo.map((line, i) => (
+                    {session.wait_class && <p>Wait Class: {session.wait_class}</p>}
+                    {session.seconds_in_wait !== undefined && <p>Seconds in wait: {session.seconds_in_wait}</p>}
+                    {session.waitInfo?.map((line: string, i: number) => (
                         <p key={i}>{line}</p>
                     ))}
                 </CardContent>
@@ -96,11 +164,18 @@ export function DetailSidebar({ session }: DetailSidebarProps) {
                     Curr-&gt;
                 </div>
                 <CardContent className="p-2 text-xs font-mono text-foreground flex-1 overflow-auto bg-white whitespace-pre-wrap">
-                    {session.sqlText}
+                    {sqlText || session.sqlText}
                 </CardContent>
                 <div className="flex gap-1 p-1 bg-surface-raised border-t border-border">
                     <Button size="sm" variant="secondary" className="h-6 text-xs flex-1">Expand</Button>
-                    <Button size="sm" variant="secondary" className="h-6 text-xs flex-1">Explain Plan</Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 text-xs flex-1"
+                        onClick={() => navigate(`/explain-plan/${session.sqlId}`)}
+                    >
+                        Explain Plan
+                    </Button>
                 </div>
             </Card>
         </div>

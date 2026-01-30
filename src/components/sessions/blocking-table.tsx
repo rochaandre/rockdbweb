@@ -1,6 +1,7 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, FileCode } from 'lucide-react'
+import { Skull, Activity, FileCode, Lock } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 interface BlockingSession {
     id: string
@@ -35,6 +36,8 @@ interface BlockingTableProps {
 }
 
 export function BlockingTable({ onAction }: BlockingTableProps) {
+    const navigate = useNavigate()
+
     return (
         <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm">
             <table className="w-full text-xs text-left border-collapse">
@@ -44,7 +47,8 @@ export function BlockingTable({ onAction }: BlockingTableProps) {
                         <th className="border-b border-r border-border px-1 py-1 w-16">SERIAL#</th>
                         <th className="border-b border-r border-border px-1 py-1">USERNAME</th>
                         <th className="border-b border-r border-border px-1 py-1 w-20">STATUS</th>
-                        <th className="border-b border-border px-1 py-1">EVENT</th>
+                        <th className="border-b border-r border-border px-1 py-1">EVENT</th>
+                        <th className="border-b border-border px-1 py-1 w-24">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,25 +56,37 @@ export function BlockingTable({ onAction }: BlockingTableProps) {
                         <tr
                             key={session.id}
                         >
-                            <td colSpan={5} className="p-0 border-0">
+                            <td colSpan={6} className="p-0 border-0">
                                 <ContextMenu
                                     trigger={
                                         <div
                                             className={twMerge(
-                                                "grid grid-cols-[3rem_4rem_1fr_5rem_1fr] w-full border-b border-border cursor-context-menu hover:brightness-95 transition-colors",
+                                                "grid grid-cols-[3rem_4rem_1fr_5rem_1fr_6rem] w-full border-b border-border cursor-context-menu hover:brightness-95 transition-colors items-center",
                                                 session.type === 'blocker'
                                                     ? "bg-red-100 text-red-900 font-medium"
                                                     : "bg-yellow-50 text-foreground"
                                             )}
                                         >
-                                            <div className={twMerge("px-1 py-0.5 border-r border-border/50 flex items-center", session.level > 0 && "pl-4")}>
+                                            <div className={twMerge("px-1 py-0.5 border-r border-border/50 flex items-center h-full", session.level > 0 && "pl-4")}>
                                                 {session.level > 0 && <span className="text-muted-foreground mr-1">└</span>}
                                                 {session.sid}
                                             </div>
-                                            <div className="px-1 py-0.5 border-r border-border/50">{session.serial}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50">{session.username}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50">{session.status}</div>
-                                            <div className="px-1 py-0.5">{session.event}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.serial}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.username}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.status}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.event}</div>
+                                            <div className="px-1 py-0.5 h-full flex items-center justify-center">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/block-explorer/${session.sid}`);
+                                                    }}
+                                                    className="p-1 hover:bg-black/10 rounded flex items-center gap-1 text-[10px] border border-black/20"
+                                                    title="Open Block Explorer"
+                                                >
+                                                    <Lock className="w-3 h-3" /> Explorer
+                                                </button>
+                                            </div>
                                         </div>
                                     }
                                 >
@@ -83,6 +99,10 @@ export function BlockingTable({ onAction }: BlockingTableProps) {
                                         Trace Session
                                     </ContextMenuItem>
                                     <ContextMenuSeparator />
+                                    <ContextMenuItem onClick={() => navigate(`/block-explorer/${session.sid}`)}>
+                                        <Lock className="mr-2 size-3.5 text-amber-600" />
+                                        Block Explorer
+                                    </ContextMenuItem>
                                     <ContextMenuItem onClick={() => onAction('Show SQL', session)}>
                                         <FileCode className="mr-2 size-3.5" />
                                         Show SQL

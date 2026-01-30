@@ -22,19 +22,31 @@ function useDarkMode() {
     return { theme, toggleTheme: () => setTheme(prev => prev === 'light' ? 'dark' : 'light') }
 }
 
+import { useApp } from "@/context/app-context"
+// ... (imports)
+
 export function TopBar() {
     const { theme, toggleTheme } = useDarkMode()
+    const { connection } = useApp()
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const [isLoggedIn, setIsLoggedIn] = useState(true) // Mock login state
 
     return (
         <header className="h-14 border-b border-border bg-surface px-4 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
                 {/* Breadcrumbs or Title could go here */}
                 <div className="font-semibold text-foreground flex items-center gap-2">
                     <div className="size-6 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-xs font-bold">R</div>
                     RockDB Manager
                 </div>
+                {connection && (
+                    <div className="flex items-center gap-2 text-xs border-l border-border pl-4 text-muted-foreground">
+                        <span className="font-bold text-foreground">{connection.name}</span>
+                        {connection.version && <span>v{connection.version}</span>}
+                        {connection.patch && <span>({connection.patch})</span>}
+                        {connection.os && <span className="hidden md:inline-block">- {connection.os}</span>}
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-2">

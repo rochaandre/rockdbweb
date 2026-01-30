@@ -73,19 +73,19 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                             )}
                         >
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.sid}</td>
-                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.serial}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session['serial#']}</td>
                             <td className="border-r border-border px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.username}</td>
-                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.fileIO}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.file_io}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.cpu}</td>
                             <td className="border-r border-border px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.command}</td>
-                            <td className="border-r border-border px-1 py-0.5 text-center overflow-hidden text-ellipsis whitespace-nowrap">{session.lckObj}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-center overflow-hidden text-ellipsis whitespace-nowrap">{session.lck_obj}</td>
                             <td className="border-r border-border px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.status}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.pqs}</td>
                             <td className="border-r border-border px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.owner}</td>
-                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.completed}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.completed || 0}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.elapsed}</td>
-                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.remain}</td>
-                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.temp}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.remain || 0}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.temp || 0}</td>
                             <td className="px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.event}</td>
                         </tr>
                     ))}
@@ -104,7 +104,7 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                         <MenuPrimitive.Popup
                             className="z-50 min-w-[8rem] overflow-hidden rounded-md border border-border bg-surface p-1 text-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
                         >
-                            <ContextMenuItem onClick={() => menuSession && onAction('Kill Session', menuSession)}>
+                            <ContextMenuItem onClick={() => menuSession && onAction('KILL_SESSION', menuSession)}>
                                 <Skull className="mr-2 size-3.5 text-destructive" />
                                 Kill Session
                             </ContextMenuItem>

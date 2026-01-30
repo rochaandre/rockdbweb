@@ -5,13 +5,18 @@ import { BlockingTable } from '@/components/sessions/blocking-table'
 import { LongOpsTable } from '@/components/sessions/long-ops-table'
 import { DetailSidebar } from '@/components/sessions/detail-sidebar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { useState, useMemo } from 'react'
-import { SESSIONS_DATA } from './sessions-data'
-import { useApp } from '@/context/app-context'
+import { useState, useMemo, useEffect } from 'react'
+import { useApp, API_URL } from '@/context/app-context'
 
 export function SessionsView() {
     const { logAction } = useApp()
-    const [selectedSid, setSelectedSid] = useState<number | null>(1644)
+    const [sessions, setSessions] = useState<any[]>([])
+    const [selectedSid, setSelectedSid] = useState<number | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
+
+    // Refresh Control State
+    const [isPaused, setIsPaused] = useState(false)
+    const [refreshInterval, setRefreshInterval] = useState(10) // default 10s
 
     const [filters, setFilters] = useState<FilterState>({
         active: true,
@@ -21,44 +26,147 @@ export function SessionsView() {
         parallel: true
     })
 
+    const fetchSessions = async () => {
+        setIsLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions`)
+            if (res.ok) {
+                const data = await res.json()
+                setSessions(data)
+            }
+        } catch (error) {
+            console.error('Error fetching sessions:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Auto-Refresh Effect
+    useEffect(() => {
+        fetchSessions()
+        if (isPaused) return
+
+        const intervalId = setInterval(() => {
+            fetchSessions()
+            logAction('Auto-Update', 'System', `Refreshing sessions (Interval: ${refreshInterval}s)...`)
+        }, refreshInterval * 1000)
+
+        return () => clearInterval(intervalId)
+    }, [isPaused, refreshInterval, logAction])
+
     // Calculate counts on unfiltered data
     const counts = useMemo(() => {
         return {
-            active: SESSIONS_DATA.filter(s => s.status === 'ACTIVE').length,
-            inactive: SESSIONS_DATA.filter(s => s.status === 'INACTIVE').length,
-            background: SESSIONS_DATA.filter(s => s.schema === 'SYS' || !s.username).length,
-            killed: SESSIONS_DATA.filter(s => s.status === 'KILLED').length,
-            parallel: SESSIONS_DATA.filter(s => s.pqs && s.pqs !== '' && s.pqs !== '0').length
+            active: sessions.filter(s => s.status === 'ACTIVE').length,
+            inactive: sessions.filter(s => s.status === 'INACTIVE').length,
+            background: sessions.filter(s => s.type === 'BACKGROUND').length,
+            killed: sessions.filter(s => s.status === 'KILLED').length,
+            parallel: 0 // TODO: backend should return parallel info
         }
-    }, [])
+    }, [sessions])
 
-    // Filter Logic
+    // Filter Logic (Client-Side)
     const filteredData = useMemo(() => {
-        return SESSIONS_DATA.filter(s => {
+        return sessions.filter(s => {
             // Status Filters
             if (!filters.active && s.status === 'ACTIVE') return false
             if (!filters.inactive && s.status === 'INACTIVE') return false
             if (!filters.killed && s.status === 'KILLED') return false
 
             // Type Filters
-            const isBackground = s.schema === 'SYS' || !s.username
+            const isBackground = s.type === 'BACKGROUND'
             if (!filters.background && isBackground) return false
 
-            const isParallel = s.pqs && s.pqs !== '' && s.pqs !== '0'
-            if (!filters.parallel && isParallel) return false
+            // Parallel
+            // if (!filters.parallel && isParallel) return false
 
             return true
         })
+    }, [filters, sessions])
+
+    // Generate SQL WHERE Clause for Filters Tab
+    const filtersSql = useMemo(() => {
+        const conditions: string[] = []
+
+        // Status
+        const statusIn: string[] = []
+        if (filters.active) statusIn.push("'ACTIVE'")
+        if (filters.inactive) statusIn.push("'INACTIVE'")
+        if (filters.killed) statusIn.push("'KILLED'")
+
+        if (statusIn.length > 0) {
+            conditions.push(`status IN (${statusIn.join(', ')})`)
+        } else {
+            conditions.push("1=0") // No status selected
+        }
+
+        // Background
+        if (!filters.background) {
+            conditions.push("type != 'BACKGROUND'")
+        }
+
+        // Parallel (simplified logic for demo)
+        if (!filters.parallel) {
+            conditions.push("degree = 1")
+        }
+
+        return conditions.length > 0
+            ? `SELECT * FROM v$session\nWHERE ${conditions.join('\n  AND ')}`
+            : `SELECT * FROM v$session`
     }, [filters])
 
 
-    const handleAction = (action: string, session: any) => {
-        // Note: session might be missing if just passing a string, but our logic handles it.
+    // Auto-Refresh Effect
+    useEffect(() => {
+        if (isPaused) return
+
+        const intervalId = setInterval(() => {
+            logAction('Auto-Update', 'System', `Refreshing data (Interval: ${refreshInterval}s)...`)
+        }, refreshInterval * 1000)
+
+        return () => clearInterval(intervalId)
+    }, [isPaused, refreshInterval, logAction])
+
+
+    // Handlers
+    const handleAction = async (action: string, session: any) => {
+        if (action === 'KILL_SESSION') {
+            if (confirm(`Are you sure you want to kill session ${session.sid},${session['serial#']}?`)) {
+                try {
+                    const res = await fetch(`${API_URL}/sessions/kill/${session.sid}/${session['serial#']}`, {
+                        method: 'POST'
+                    })
+                    if (res.ok) {
+                        logAction('Action', 'SessionsTable', `Session ${session.sid} killed successfully`)
+                        fetchSessions()
+                    }
+                } catch (error) {
+                    console.error('Error killing session:', error)
+                }
+            }
+        }
         logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
     }
 
-    const handleSelect = (sid: number) => {
+    const [sessionSql, setSessionSql] = useState<string>('')
+
+    const handleSelect = async (sid: number) => {
         setSelectedSid(sid)
+        const session = sessions.find(s => s.sid === sid)
+        if (session && session.sql_id) {
+            try {
+                const res = await fetch(`${API_URL}/sessions/sql/${session.sql_id}`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setSessionSql(data.sql_text)
+                }
+            } catch (error) {
+                console.error('Error fetching session SQL:', error)
+                setSessionSql('Error fetching SQL text')
+            }
+        } else {
+            setSessionSql('No SQL active for this session')
+        }
         logAction('Row Select', 'SessionsView', `Loading data for SID: ${sid} ...`)
     }
 
@@ -66,7 +174,20 @@ export function SessionsView() {
         setFilters(prev => ({ ...prev, [key]: checked }))
     }
 
-    const selectedSession = SESSIONS_DATA.find(s => s.sid === selectedSid) as any || null
+    const handleUpdate = () => {
+        fetchSessions()
+        logAction('Manual Update', 'ControlBar', 'Forcing data refresh...')
+    }
+
+    const handleSearch = () => {
+        logAction('Navigation', 'ControlBar', 'Opening Search Dialog...')
+    }
+
+    const handleSettings = () => {
+        logAction('Navigation', 'ControlBar', 'Opening Settings Dialog...')
+    }
+
+    const selectedSession = sessions.find(s => s.sid === selectedSid) || null
 
     return (
         <MainLayout>
@@ -74,6 +195,13 @@ export function SessionsView() {
                 filters={filters}
                 counts={counts}
                 onFilterChange={handleFilterChange}
+                isPaused={isPaused}
+                refreshInterval={refreshInterval}
+                onPauseToggle={() => setIsPaused(p => !p)}
+                onUpdate={handleUpdate}
+                onIntervalChange={setRefreshInterval}
+                onSearch={handleSearch}
+                onSettings={handleSettings}
             />
 
             <div className="flex flex-1 gap-2 overflow-hidden h-full">
@@ -135,13 +263,18 @@ export function SessionsView() {
                                 selectedId={selectedSid}
                             />
                         </TabsContent>
-                        <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface">
-                            <div className="text-sm text-muted-foreground">Filters configuration...</div>
+                        <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface font-mono text-sm">
+                            <div className="rounded-md bg-muted p-4 border border-border">
+                                <pre className="whitespace-pre-wrap text-foreground">{filtersSql}</pre>
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                This SQL clause represents the current active filters applied to the session list.
+                            </p>
                         </TabsContent>
                     </Tabs>
                 </div>
 
-                <DetailSidebar session={selectedSession} />
+                <DetailSidebar session={selectedSession} sqlText={sessionSql} />
             </div>
         </MainLayout>
     )
