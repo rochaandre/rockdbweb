@@ -14,7 +14,16 @@ from .sessions_mod import (
     get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
     get_long_ops, get_blocker_details, get_object_ddl
 )
-from .storage_mod import get_tablespaces_detailed, get_data_files, get_segments
+from .storage_mod import (
+    get_tablespaces_detailed, get_data_files, get_segments, 
+    get_control_files, get_sysaux_occupants, get_undo_stats, get_temp_usage,
+    resize_datafile, add_datafile, get_checkpoint_progress, force_checkpoint
+)
+from .redo_logs_mod import (
+    get_redo_groups, get_redo_switch_history, get_redo_threads,
+    add_redo_group, drop_redo_group, add_redo_member, drop_redo_member,
+    switch_logfile, get_standby_redo_groups, get_archived_logs, get_log_buffer_stats
+)
 from .logs_mod import get_alert_logs, get_db_parameters, get_outstanding_alerts
 from .backups_mod import get_backup_jobs, get_backup_summary, get_backup_sets, get_backup_datafiles
 
@@ -59,6 +68,30 @@ class ConnectionResponse(ConnectionBase):
 class PreferenceSave(BaseModel):
     screen_id: str
     data: dict
+
+class DatafileResize(BaseModel):
+    file_id: int
+    new_size_mb: int
+
+class DatafileAdd(BaseModel):
+    tablespace_name: str
+    file_name: str
+    size_mb: int
+
+class RedoGroupAdd(BaseModel):
+    thread: int = 1
+    size_mb: int
+    member_path: Optional[str] = None
+
+class RedoGroupDrop(BaseModel):
+    group_id: int
+
+class RedoMemberAdd(BaseModel):
+    group_id: int
+    member_path: str
+
+class RedoMemberDrop(BaseModel):
+    member_path: str
 
 # Routes
 @app.get("/api/connections", response_model=List[ConnectionResponse])
@@ -324,6 +357,204 @@ def read_storage_segments(tablespace_name: str):
         raise HTTPException(status_code=404, detail="No active connection")
     try:
         return get_segments(active, tablespace_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo")
+def read_redo_groups():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_redo_groups(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/history")
+def read_redo_history(days: int = 7, inst_id: Optional[int] = None):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_redo_switch_history(active, days=days, inst_id=inst_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/threads")
+def read_redo_threads():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_redo_threads(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/control")
+def read_control_files():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_control_files(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/sysaux")
+def read_sysaux_occupants():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_sysaux_occupants(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/undo")
+def read_undo_stats():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_undo_stats(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/temp")
+def read_temp_usage():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_temp_usage(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/checkpoint")
+def read_checkpoint_progress():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_checkpoint_progress(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/checkpoint/force")
+def force_ckpt():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        force_checkpoint(active)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/standby")
+def read_standby_redo():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_standby_redo_groups(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/archives")
+def read_redo_archives():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_archived_logs(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/logbuffer")
+def read_redo_logbuffer():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_log_buffer_stats(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/files/resize")
+def resize_file(req: DatafileResize):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        resize_datafile(active, req.file_id, req.new_size_mb)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/files/add")
+def add_file(req: DatafileAdd):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        add_datafile(active, req.tablespace_name, req.file_name, req.size_mb)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/redo/group/add")
+def add_redo(req: RedoGroupAdd):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        add_redo_group(active, req.thread, req.size_mb, req.member_path)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/redo/group/drop")
+def drop_redo(req: RedoGroupDrop):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        drop_redo_group(active, req.group_id)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/redo/member/add")
+def add_redo_mem(req: RedoMemberAdd):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        add_redo_member(active, req.group_id, req.member_path)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/redo/member/drop")
+def drop_redo_mem(req: RedoMemberDrop):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        drop_redo_member(active, req.member_path)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/redo/switch")
+def switch_redo():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        switch_logfile(active)
+        return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

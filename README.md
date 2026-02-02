@@ -1,42 +1,65 @@
-# RockDB Sessions Manager
+# RockDB: Advanced Oracle DBA Dashboard
 
-**RockDB Sessions Manager** is a high-performance, modern dashboard designed to streamline Oracle Database session monitoring and troubleshooting. Built with **React 19** and **Tailwind CSS v4**, it provides a lightning-fast interface for DBAs to identify bottlenecks, analyze blocking chains, and resolve issues instantly.
-
-![Dashboard Preview](public/vite.svg) *Note: Replace with actual screenshot*
+**RockDB** is a high-performance, modern dashboard designed to streamline Oracle Database administration, monitoring, and troubleshooting. Built with **React 19**, **Tailwind CSS v4**, and a **FastAPI** backend, it provides a lightning-fast interface for DBAs to manage sessions, storage, and redo logs with ease.
 
 ## 🚀 Key Features
 
-*   **Real-Time Session Monitoring**: Visualize hundreds of active sessions in a dense, information-rich grid.
-*   **Blocking Session Analysis**: Instantly spot blocking chains with a hierarchical tree view. Red highlights identify root blockers, while yellow indicates waiting sessions.
-*   **Rapid Problem Resolution**:
-    *   **Kill Session**: Terminate runaway processes with two clicks.
-    *   **Trace Session**: Enable low-level diagnostics on the fly.
-    *   **Show SQL**: Inspect currently executing SQL statements.
-*   **Advanced Filtering**: Powerful, toggle-based filters to focus on what matters (Active, Inactive, Background, Killed, Parallel).
-*   **Context-Aware Details**: Select any session to view deeper metrics, wait events, and resource consumption in the detail sidebar.
+### 🔄 Redo Log Explorer (New!)
+*   **Dynamic Management**: Switch logfiles, add/drop groups, and manage members directly from the UI.
+*   **Switch Matrix**: Detailed hourly switch reports with instance/thread filtering.
+*   **Live Metrics**: Real-time analysis of Log Buffer (entries, retries, space requests) and Archive history.
+*   **Visual Rate**: Hourly switch rate graphics for performance trend analysis.
+*   **Standby Support**: Full visibility into Standby Redo Log groups.
+
+### 💾 Storage Management
+*   **Tablespace Dashboard**: Visual breakdown of used vs. free space across all tablespaces.
+*   **Detailed Analysis**: Drill down into datafiles and segments (top consumers) for any tablespace.
+*   **Control Files & Checkpoints**: Monitor control file status and track checkpoint progress in real-time.
+*   **Specialized Panels**: Dedicated views for SYSAUX occupants, UNDO statistics, and TEMP usage.
+
+### 🕵️ Session Explorer
+*   **Real-Time Monitoring**: Visualize hundreds of active sessions in a dense, information-rich grid.
+*   **Blocking Chain Analysis**: Identify root blockers instantly with hierarchical tree views and visual alerts.
+*   **DBA Actions**: Kill sessions, enable tracing, and inspect SQL text with a single click.
+
+### ⚙️ Core Enhancements
+*   **Multi-Connection Support**: Manage multiple Oracle connections with persistence and easy switching.
+*   **Persistent Preferences**: Your active database and UI state (tabs, filters) are remembered between sessions.
+*   **High Performance**: Minimal overhead, utilizing lightweight API calls and efficient state management.
 
 ## 🛠️ Tech Stack
 
-*   **Frontend**: React 19, TypeScript, Vite
-*   **Styling**: Tailwind CSS v4, Tailwind Variants, Lucide React icons
-*   **Components**: Base UI (Headless) for accessible, robust primitives
+*   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Lucide React icons, Shadcn/ui.
+*   **Backend**: Python, FastAPI, oracledb (Thick/Thin driver support), SQLite (for metadata).
+*   **State Management**: Zustand & Custom Persistence Hooks.
 
 ## 📦 Getting Started
 
-1.  **Install Dependencies**
+### Prerequisites
+*   Node.js 18+
+*   Python 3.10+
+*   Oracle Instant Client (if using Thick mode)
+
+### Installation
+
+1.  **Clone and Install Frontend**
     ```bash
     npm install
     ```
 
-2.  **Start Development Server**
+2.  **Install Backend Dependencies**
     ```bash
-    npm run dev
+    pip install -r backend/requirements.txt
     ```
 
-3.  **Build for Production**
+3.  **Run Development Environment**
     ```bash
-    npm run build
+    # Terminal 1: Frontend
+    npm run dev
+
+    # Terminal 2: Backend
+    python -m backend.main
     ```
 
 ---
-*Empowering DBAs with speed and clarity.*
+*Empowering DBAs with speed, clarity, and control.*

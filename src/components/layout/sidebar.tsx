@@ -32,8 +32,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { icon: HardDrive, label: 'Storage', path: '/storage' },
         { icon: FileText, label: 'Logs', path: '/logs' },
         { icon: Settings, label: 'Configuration', path: '/configuration' },
-        { icon: Terminal, label: 'SQL Central', path: '/sql-central' },
         { icon: History, label: 'Redo Log Explorer', path: '/redo-log' },
+        { icon: Terminal, label: 'SQL Central', path: '/sql-central' },
 
         { icon: Settings, label: 'Settings', path: '/settings' },
     ]

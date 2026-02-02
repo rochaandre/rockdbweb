@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TablespaceCard, TablespaceDetail, RedoManager, ControlFilesPanel } from '@/components/storage/storage-components'
+import { TablespaceCard, TablespaceDetail, ControlFilesPanel } from '@/components/storage/storage-components'
 import { SysauxPanel, UndoPanel, TempPanel, StorageCharts } from '@/components/storage/advanced-panels'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -20,19 +20,39 @@ export function StorageView() {
     const [tablespaces, setTablespaces] = useState<any[]>([])
     const [files, setFiles] = useState<any[]>([])
     const [segments, setSegments] = useState<any[]>([])
+
+    // Storage States
+    const [controlFiles, setControlFiles] = useState<any[]>([])
+    const [sysauxOccupants, setSysauxOccupants] = useState<any[]>([])
+    const [undoStats, setUndoStats] = useState<any[]>([])
+    const [tempUsage, setTempUsage] = useState<any[]>([])
+    const [checkpointProgress, setCheckpointProgress] = useState<any[]>([])
+
     const [selectedTs, setSelectedTs] = useState<string | null>(null)
-    const [editTs, setEditTs] = useState<any | null>(null) // For Edit Dialog
+    const [editTs, setEditTs] = useState<any | null>(null)
     const [isRefreshing, setIsRefreshing] = useState(false)
 
     const fetchData = async () => {
         setIsRefreshing(true)
         try {
-            const [tsRes, filesRes] = await Promise.all([
+            const [tsRes, filesRes, ctrlRes, sysRes, undoRes, tempRes, ckptRes] = await Promise.all([
                 fetch(`${API_URL}/storage/tablespaces`),
-                fetch(`${API_URL}/storage/files`)
+                fetch(`${API_URL}/storage/files`),
+                fetch(`${API_URL}/storage/control`),
+                fetch(`${API_URL}/storage/sysaux`),
+                fetch(`${API_URL}/storage/undo`),
+                fetch(`${API_URL}/storage/temp`),
+                fetch(`${API_URL}/storage/checkpoint`)
             ])
+
             if (tsRes.ok) setTablespaces(await tsRes.json())
             if (filesRes.ok) setFiles(await filesRes.json())
+            if (ctrlRes.ok) setControlFiles(await ctrlRes.json())
+            if (sysRes.ok) setSysauxOccupants(await sysRes.json())
+            if (undoRes.ok) setUndoStats(await undoRes.json())
+            if (tempRes.ok) setTempUsage(await tempRes.json())
+            if (ckptRes.ok) setCheckpointProgress(await ckptRes.json())
+
         } catch (error) {
             console.error('Error fetching storage data:', error)
         } finally {
@@ -42,7 +62,7 @@ export function StorageView() {
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [activeTab])
 
     useEffect(() => {
         if (selectedTs) {
@@ -61,7 +81,7 @@ export function StorageView() {
     }
 
     const handleEditTs = (ts: any) => {
-        setEditTs(ts)
+        setSelectedTs(ts.tablespace_name || ts.name)
     }
 
     const handleRefresh = () => {
@@ -93,12 +113,6 @@ export function StorageView() {
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
                                 Tablespaces
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="redo"
-                                className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                            >
-                                Redo Logs
                             </TabsTrigger>
                             <TabsTrigger
                                 value="control"
@@ -152,30 +166,26 @@ export function StorageView() {
                                     selectedTs={selectedTs}
                                     files={files.filter(f => f.tablespace_name === selectedTs)}
                                     segments={segments}
+                                    onRefresh={fetchData}
                                 />
                             </div>
                         )}
                     </TabsContent>
 
-                    {/* Redo Content */}
-                    <TabsContent value="redo" className="flex-1 mt-4 overflow-auto">
-                        <RedoManager />
-                    </TabsContent>
-
                     {/* Control Content */}
                     <TabsContent value="control" className="flex-1 mt-4 overflow-auto">
-                        <ControlFilesPanel />
+                        <ControlFilesPanel files={controlFiles} checkpoint={checkpointProgress} onRefresh={fetchData} />
                     </TabsContent>
 
                     {/* Advanced Contents */}
                     <TabsContent value="sysaux" className="flex-1 mt-4 overflow-auto">
-                        <SysauxPanel />
+                        <SysauxPanel occupants={sysauxOccupants} />
                     </TabsContent>
                     <TabsContent value="undo" className="flex-1 mt-4 overflow-auto">
-                        <UndoPanel />
+                        <UndoPanel stats={undoStats} />
                     </TabsContent>
                     <TabsContent value="temp" className="flex-1 mt-4 overflow-auto">
-                        <TempPanel />
+                        <TempPanel usage={tempUsage} />
                     </TabsContent>
                     <TabsContent value="charts" className="flex-1 mt-4 overflow-auto">
                         <StorageCharts />

@@ -1,14 +1,108 @@
+import { useState, useEffect } from 'react'
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { History } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { History, RefreshCw, Activity } from 'lucide-react'
+import { RedoManager, RedoMatrixReport, ControlFilesPanel } from '@/components/storage/storage-components'
+import { API_URL } from '@/context/app-context'
+import { twMerge } from 'tailwind-merge'
 
 export function RedoLogView() {
     const [activeTab, setActiveTab] = usePersistentState('redolog', 'activeTab', 'groups')
     const [newSize, setNewSize] = usePersistentState('redolog', 'newSize', '600')
+
+    // Live States
+    const [groups, setGroups] = useState<any[]>([])
+    const [history, setHistory] = useState<any[]>([])
+    const [threads, setThreads] = useState<number[]>([])
+    const [controlFiles, setControlFiles] = useState<any[]>([])
+    const [checkpoint, setCheckpoint] = useState<any[]>([])
+    const [standbyGroups, setStandbyGroups] = useState<any[]>([])
+    const [archives, setArchives] = useState<any[]>([])
+    const [logBuffer, setLogBuffer] = useState<any>({})
+    const [isRefreshing, setIsRefreshing] = useState(false)
+
+    // Filters
+    const [historyDays, setHistoryDays] = useState(7)
+    const [historyInst, setHistoryInst] = useState('')
+
+    const fetchData = async () => {
+        setIsRefreshing(true)
+        try {
+            const [redoRes, threadsRes, ctrlRes, ckptRes, stbyRes, archRes, lbRes] = await Promise.all([
+                fetch(`${API_URL}/storage/redo`),
+                fetch(`${API_URL}/storage/redo/threads`),
+                fetch(`${API_URL}/storage/control`),
+                fetch(`${API_URL}/storage/checkpoint`),
+                fetch(`${API_URL}/storage/redo/standby`),
+                fetch(`${API_URL}/storage/redo/archives`),
+                fetch(`${API_URL}/storage/redo/logbuffer`)
+            ])
+
+            if (redoRes.ok) setGroups(await redoRes.json())
+            if (threadsRes.ok) setThreads(await threadsRes.json())
+            if (ctrlRes.ok) setControlFiles(await ctrlRes.json())
+            if (ckptRes.ok) setCheckpoint(await ckptRes.json())
+            if (stbyRes.ok) setStandbyGroups(await stbyRes.json())
+            if (archRes.ok) setArchives(await archRes.json())
+            if (lbRes.ok) setLogBuffer(await lbRes.json())
+        } catch (err) {
+            console.error('Error fetching redo data:', err)
+        } finally {
+            setIsRefreshing(false)
+        }
+    }
+
+    const fetchHistory = async () => {
+        try {
+            const historyUrl = new URL(`${API_URL}/storage/redo/history`)
+            historyUrl.searchParams.append('days', historyDays.toString())
+            if (historyInst) historyUrl.searchParams.append('inst_id', historyInst)
+            const res = await fetch(historyUrl.toString())
+            if (res.ok) setHistory(await res.json())
+        } catch (err) {
+            console.error('Error fetching redo history:', err)
+        }
+    }
+
+    useEffect(() => {
+        fetchData()
+    }, [activeTab])
+
+    useEffect(() => {
+        fetchHistory()
+    }, [historyDays, historyInst])
+
+    const handleForceCheckpoint = async () => {
+        try {
+            const res = await fetch(`${API_URL}/storage/checkpoint/force`, { method: 'POST' })
+            if (res.ok) {
+                fetchData()
+            } else {
+                const err = await res.json()
+                alert(`Error: ${err.detail}`)
+            }
+        } catch (err) { console.error(err) }
+    }
+
+    const formatReportText = (history: any[]) => {
+        let text = "DAY       HOUR    SWITCHES\n"
+        text += "--------- ------- --------\n"
+        history.forEach(row => {
+            for (let i = 0; i < 24; i++) {
+                const key = `h${i.toString().padStart(2, '0')}`
+                const val = parseInt(row[key]) || 0
+                if (val > 0) {
+                    text += `${row.dg_date.padEnd(9)} ${i.toString().padStart(2, '0').padEnd(7)} ${val.toString().padStart(8)}\n`
+                }
+            }
+        })
+        return text
+    }
 
     const generateResizeScript = (size: string) => {
         return `ALTER SYSTEM SET log_file_name_convert='/u02/oradata/dbpro_01/','/u02/oradata/dbpro_01/';
@@ -59,18 +153,40 @@ select member from v$logfile;
                         <History className="h-6 w-6 text-primary" />
                         Redo Log Explorer
                     </h1>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleForceCheckpoint}
+                            className="gap-2"
+                        >
+                            <Activity className="size-4" />
+                            Force Checkpoint
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={fetchData}
+                            className="gap-2"
+                            disabled={isRefreshing}
+                        >
+                            <RefreshCw className={twMerge("size-4", isRefreshing && "animate-spin")} />
+                            Refresh
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-hidden flex flex-col">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
                         <div className="border-b shrink-0">
                             <TabsList className="h-10 p-0 bg-transparent">
-                                <TabsTrigger value="groups" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Redo Groups</TabsTrigger>
+                                <TabsTrigger value="groups" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Management</TabsTrigger>
+                                <TabsTrigger value="matrix" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Switch Matrix</TabsTrigger>
                                 <TabsTrigger value="standby" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Standby Groups</TabsTrigger>
-                                <TabsTrigger value="files" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Redo Files</TabsTrigger>
+                                <TabsTrigger value="files" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Log Files</TabsTrigger>
+                                <TabsTrigger value="control" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Checkpoint</TabsTrigger>
                                 <TabsTrigger value="scripts" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Scripts</TabsTrigger>
                                 <TabsTrigger value="logbuffer" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Log Buffer</TabsTrigger>
-                                <TabsTrigger value="retention" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Retention</TabsTrigger>
                                 <TabsTrigger value="archives" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Archives</TabsTrigger>
                                 <TabsTrigger value="graphics" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Graphics</TabsTrigger>
                                 <TabsTrigger value="report" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-sm font-medium">Report Switch</TabsTrigger>
@@ -79,39 +195,18 @@ select member from v$logfile;
 
                         <div className="flex-1 overflow-auto bg-slate-50 p-4">
                             <TabsContent value="groups" className="mt-0 h-full">
-                                <Card>
-                                    <CardHeader><CardTitle>Redo Log Groups</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <table className="w-full text-sm">
-                                            <thead className="border-b bg-slate-100">
-                                                <tr>
-                                                    <th className="text-left p-2">Group#</th>
-                                                    <th className="text-left p-2">Thread#</th>
-                                                    <th className="text-left p-2">Sequence#</th>
-                                                    <th className="text-left p-2">Bytes</th>
-                                                    <th className="text-left p-2">Block Size</th>
-                                                    <th className="text-left p-2">Members</th>
-                                                    <th className="text-left p-2">Archived</th>
-                                                    <th className="text-left p-2">Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr className="border-b">
-                                                    <td className="p-2">1</td><td className="p-2">1</td><td className="p-2">36368</td><td className="p-2">419,430,400</td><td className="p-2">512</td><td className="p-2">2</td><td className="p-2">YES</td><td className="p-2 text-green-600 font-bold">INACTIVE</td>
-                                                </tr>
-                                                <tr className="border-b">
-                                                    <td className="p-2">2</td><td className="p-2">1</td><td className="p-2">36369</td><td className="p-2">419,430,400</td><td className="p-2">512</td><td className="p-2">2</td><td className="p-2">NO</td><td className="p-2 text-blue-600 font-bold">CURRENT</td>
-                                                </tr>
-                                                <tr className="border-b">
-                                                    <td className="p-2">3</td><td className="p-2">1</td><td className="p-2">36367</td><td className="p-2">419,430,400</td><td className="p-2">512</td><td className="p-2">2</td><td className="p-2">YES</td><td className="p-2">INACTIVE</td>
-                                                </tr>
-                                                <tr className="border-b">
-                                                    <td className="p-2">4</td><td className="p-2">1</td><td className="p-2">36366</td><td className="p-2">419,430,400</td><td className="p-2">512</td><td className="p-2">2</td><td className="p-2">YES</td><td className="p-2">INACTIVE</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </CardContent>
-                                </Card>
+                                <RedoManager groups={groups} onRefresh={fetchData} />
+                            </TabsContent>
+
+                            <TabsContent value="matrix" className="mt-0 h-full overflow-hidden">
+                                <RedoMatrixReport
+                                    history={history}
+                                    threads={threads}
+                                    onFilterChange={(d, i) => {
+                                        setHistoryDays(d)
+                                        setHistoryInst(i)
+                                    }}
+                                />
                             </TabsContent>
 
                             <TabsContent value="standby" className="mt-0 h-full">
@@ -129,15 +224,22 @@ select member from v$logfile;
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr className="border-b">
-                                                    <td className="p-2">10</td><td className="p-2">1</td><td className="p-2">0</td><td className="p-2">419,430,400</td><td className="p-2 text-muted-foreground">UNASSIGNED</td>
-                                                </tr>
-                                                <tr className="border-b">
-                                                    <td className="p-2">11</td><td className="p-2">1</td><td className="p-2">36369</td><td className="p-2">419,430,400</td><td className="p-2 text-green-600 font-bold">ACTIVE</td>
-                                                </tr>
-                                                <tr className="border-b">
-                                                    <td className="p-2">12</td><td className="p-2">1</td><td className="p-2">0</td><td className="p-2">419,430,400</td><td className="p-2 text-muted-foreground">UNASSIGNED</td>
-                                                </tr>
+                                                {standbyGroups.map(g => (
+                                                    <tr key={g['group#']} className="border-b">
+                                                        <td className="p-2">{g['group#']}</td>
+                                                        <td className="p-2">{g['thread#']}</td>
+                                                        <td className="p-2">{g['sequence#']}</td>
+                                                        <td className="p-2">{g.size_mb} MB</td>
+                                                        <td className={twMerge("p-2 font-bold", g.status === 'ACTIVE' ? 'text-green-600' : 'text-muted-foreground')}>
+                                                            {g.status}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {standbyGroups.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={5} className="p-8 text-center text-muted-foreground italic">No standby log groups found.</td>
+                                                    </tr>
+                                                )}
                                             </tbody>
                                         </table>
                                     </CardContent>
@@ -146,22 +248,34 @@ select member from v$logfile;
 
                             <TabsContent value="files" className="mt-0 h-full">
                                 <Card>
-                                    <CardHeader><CardTitle>Redo Log Files</CardTitle></CardHeader>
+                                    <CardHeader><CardTitle>Redo Log Members</CardTitle></CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
-                                            {[1, 2, 3, 4].map(g => (
-                                                <div key={g} className="p-2 border rounded bg-white flex justify-between items-start">
-                                                    <div>
-                                                        <div className="font-bold mb-1">Group {g}</div>
-                                                        <div className="text-xs font-mono text-muted-foreground ml-4">/u01/app/oracle/oradata/ORCL/redo0{g}a.log</div>
-                                                        <div className="text-xs font-mono text-muted-foreground ml-4">/u02/app/oracle/oradata/ORCL/redo0{g}b.log</div>
+                                            {groups.map(g => (
+                                                <div key={g['group#']} className="p-3 border rounded bg-white flex justify-between items-start">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-bold flex items-center gap-2 mb-1">
+                                                            Group {g['group#']}
+                                                            <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 rounded text-muted-foreground">Thread {g['thread#']}</span>
+                                                        </div>
+                                                        <div className="text-[10px] font-mono whitespace-pre-wrap break-all opacity-70">
+                                                            {/* Members info could be fetched here, for now using group summary */}
+                                                            Status: {g.status} | Sequence: {g['sequence#']}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-sm font-bold bg-slate-100 px-3 py-1 rounded">400 MB</div>
+                                                    <div className="text-sm font-bold bg-slate-50 px-3 py-1 rounded border whitespace-nowrap ml-4">{g.size_mb} MB</div>
                                                 </div>
                                             ))}
+                                            {groups.length === 0 && (
+                                                <div className="text-center py-8 text-muted-foreground italic">No group information available.</div>
+                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>
+                            </TabsContent>
+
+                            <TabsContent value="control" className="mt-0 h-full">
+                                <ControlFilesPanel files={controlFiles} checkpoint={checkpoint} onRefresh={fetchData} />
                             </TabsContent>
 
                             <TabsContent value="scripts" className="mt-0 h-full">
@@ -205,23 +319,21 @@ select member from v$logfile;
                                     <CardHeader><CardTitle>Log Buffer Analysis</CardTitle></CardHeader>
                                     <CardContent>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-4 border rounded bg-blue-50">
+                                            <div className="p-4 border rounded bg-blue-50/50">
                                                 <div className="text-sm font-bold text-blue-900">Total Log Buffer Size</div>
-                                                <div className="text-2xl font-bold">128 MB</div>
+                                                <div className="text-2xl font-bold">{logBuffer['log_buffer_size'] || 0} MB</div>
                                             </div>
                                             <div className="p-4 border rounded bg-white">
                                                 <div className="text-sm font-bold">Redo Entries</div>
-                                                <div className="text-2xl font-bold">542,123</div>
+                                                <div className="text-2xl font-bold">{logBuffer['redo entries']?.toLocaleString() || 0}</div>
                                             </div>
-                                            <div className="col-span-2 p-4 border rounded bg-white">
-                                                <div className="text-sm font-bold mb-2">Redo Allocation Latch Contention</div>
-                                                <div className="h-32 bg-slate-50 flex items-end gap-1 p-2 border border-slate-200">
-                                                    {[2, 5, 8, 3, 12, 4, 2, 1, 0, 5, 2, 1].map((v, i) => (
-                                                        <div key={i} className="flex-1 bg-amber-500 hover:opacity-80 transition-opacity relative group" style={{ height: `${v * 8}%` }}>
-                                                            <span className="opacity-0 group-hover:opacity-100 absolute -top-4 w-full text-center text-[10px]">{v}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                            <div className="p-4 border rounded bg-white">
+                                                <div className="text-sm font-bold">Log Space Requests</div>
+                                                <div className="text-2xl font-bold text-amber-600">{logBuffer['redo log space requests'] || 0}</div>
+                                            </div>
+                                            <div className="p-4 border rounded bg-white">
+                                                <div className="text-sm font-bold">Buffer Allocation Retries</div>
+                                                <div className="text-2xl font-bold text-red-600">{logBuffer['redo buffer allocation retries'] || 0}</div>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -246,7 +358,7 @@ select member from v$logfile;
 
                             <TabsContent value="archives" className="mt-0 h-full">
                                 <Card>
-                                    <CardHeader><CardTitle>Archives Generated Today</CardTitle></CardHeader>
+                                    <CardHeader><CardTitle>Arched Logs (Last 24h)</CardTitle></CardHeader>
                                     <CardContent>
                                         <table className="w-full text-sm">
                                             <thead className="border-b bg-slate-100">
@@ -259,17 +371,20 @@ select member from v$logfile;
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {[
-                                                    { n: 'arch_1_36368.arc', t: 1, s: 36368, z: '400 MB', time: '10:00:00' },
-                                                    { n: 'arch_1_36367.arc', t: 1, s: 36367, z: '385 MB', time: '09:45:00' },
-                                                    { n: 'arch_1_36366.arc', t: 1, s: 36366, z: '400 MB', time: '09:15:00' },
-                                                    { n: 'arch_1_36365.arc', t: 1, s: 36365, z: '400 MB', time: '08:45:00' },
-                                                    { n: 'arch_1_36364.arc', t: 1, s: 36364, z: '120 MB', time: '08:15:00' },
-                                                ].map((a, i) => (
+                                                {archives.map((a, i) => (
                                                     <tr key={i} className="border-b">
-                                                        <td className="p-2 font-mono">{a.n}</td><td className="p-2">{a.t}</td><td className="p-2">{a.s}</td><td className="p-2">{a.z}</td><td className="p-2 text-muted-foreground">{a.time}</td>
+                                                        <td className="p-2 font-mono text-xs max-w-xs truncate" title={a.name}>{a.name.split('/').pop()}</td>
+                                                        <td className="p-2">{a['thread#']}</td>
+                                                        <td className="p-2">{a['sequence#']}</td>
+                                                        <td className="p-2">{a.size_mb} MB</td>
+                                                        <td className="p-2 text-muted-foreground whitespace-nowrap">{a.time}</td>
                                                     </tr>
                                                 ))}
+                                                {archives.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={5} className="p-8 text-center text-muted-foreground italic">No archived logs found in the last 24h.</td>
+                                                    </tr>
+                                                )}
                                             </tbody>
                                         </table>
                                     </CardContent>
@@ -278,41 +393,36 @@ select member from v$logfile;
 
                             <TabsContent value="report" className="mt-0 h-full">
                                 <Card className="h-full">
-                                    <CardHeader><CardTitle>Log Switch Report</CardTitle></CardHeader>
-                                    <CardContent className="h-full overflow-hidden">
+                                    <CardHeader><CardTitle>Log Switch Report (Text Output)</CardTitle></CardHeader>
+                                    <CardContent className="h-[calc(100%-80px)] overflow-hidden">
                                         <div className="bg-slate-900 text-slate-50 p-4 rounded-md font-mono text-xs h-full overflow-auto">
-                                            <pre>{`DAY       HOUR    SWITCHES
---------- ------- --------
-29-JAN-26 00      12
-29-JAN-26 01      15
-29-JAN-26 02      8
-29-JAN-26 03      22
-29-JAN-26 04      18
-29-JAN-26 05      14
-29-JAN-26 06      10
-29-JAN-26 07      12
-29-JAN-26 08      11
-29-JAN-26 09      15
-29-JAN-26 10      18
-`}</pre>
+                                            <pre>{formatReportText(history)}</pre>
                                         </div>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
 
                             <TabsContent value="graphics" className="mt-0 h-full">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     <Card>
-                                        <CardHeader><CardTitle>Hourly Switch Rate</CardTitle></CardHeader>
+                                        <CardHeader><CardTitle>Hourly Switch Rate (Last 24h Summary)</CardTitle></CardHeader>
                                         <CardContent>
-                                            <div className="h-64 flex items-end gap-2 border-b border-l p-4">
-                                                {/* Mock Bar Chart */}
-                                                {[12, 15, 8, 22, 18, 14, 10, 12, 11, 15, 18].map((h, i) => (
-                                                    <div key={i} className="flex-1 bg-blue-500 rounded-t-sm relative group" style={{ height: `${h * 3}%` }}>
-                                                        <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] hidden group-hover:block">{h}</span>
-                                                        <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground">{i}h</span>
-                                                    </div>
-                                                ))}
+                                            <div className="h-64 flex items-end gap-2 border-b border-l p-4 bg-white rounded">
+                                                {Array.from({ length: 24 }).map((_, i) => {
+                                                    const key = `h${i.toString().padStart(2, '0')}`
+                                                    // sum for this hour across all days in history
+                                                    const val = history.reduce((sum, row) => sum + (parseInt(row[key]) || 0), 0)
+                                                    const maxVal = Math.max(...Array.from({ length: 24 }).map((_, h) =>
+                                                        history.reduce((sum, row) => sum + (parseInt(row[`h${h.toString().padStart(2, '0')}`]) || 0), 0)
+                                                    ), 1)
+
+                                                    return (
+                                                        <div key={i} className="flex-1 bg-primary/80 rounded-t-sm relative group" style={{ height: `${(val / maxVal) * 100}%` }}>
+                                                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] hidden group-hover:block transition-all font-bold">{val}</span>
+                                                            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground rotate-45">{i}h</span>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
                                         </CardContent>
                                     </Card>

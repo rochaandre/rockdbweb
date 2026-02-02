@@ -1,12 +1,10 @@
-import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line } from "recharts"
-import { AlertCircle, Plus, CheckCircle } from 'lucide-react'
-import { SYSAUX_OCCUPANTS, UNDO_STATS, TEMP_USAGE, DB_GROWTH_HISTORY, TEMP_HISTORY } from './advanced-storage-data'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ReTooltip } from "recharts"
+import { AlertCircle, CheckCircle, Clock } from 'lucide-react'
 
 // --- SYSAUX Panel ---
-export function SysauxPanel() {
-    const data = SYSAUX_OCCUPANTS.map(o => ({ name: o.name, value: o.space_mb }))
+export function SysauxPanel({ occupants = [] }: { occupants: any[] }) {
+    const data = occupants.slice(0, 5).map(o => ({ name: o.name, value: o.space_mb }))
     const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6']
 
     return (
@@ -14,20 +12,23 @@ export function SysauxPanel() {
             <div className="lg:col-span-2 space-y-4">
                 <div className="rounded-md border border-border bg-surface">
                     <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        SYSAUX Occupants (Top 5)
+                        SYSAUX Occupants
                     </div>
                     <div className="grid grid-cols-4 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
                         <div>Schema</div>
                         <div className="col-span-2">Name</div>
                         <div>Space</div>
                     </div>
-                    {SYSAUX_OCCUPANTS.map((o, i) => (
+                    {occupants.map((o, i) => (
                         <div key={i} className="grid grid-cols-4 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30 items-center">
                             <div className="text-muted-foreground">{o.schema}</div>
                             <div className="col-span-2 font-medium">{o.name}</div>
                             <div>{o.space_usage}</div>
                         </div>
                     ))}
+                    {occupants.length === 0 && (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No SYSAUX occupant data found.</div>
+                    )}
                 </div>
             </div>
 
@@ -65,35 +66,39 @@ export function SysauxPanel() {
 }
 
 // --- UNDO Panel ---
-export function UndoPanel() {
+export function UndoPanel({ stats = [] }: { stats: any[] }) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
                 <div className="rounded-md border border-border bg-surface">
                     <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
-                        <span>UNDO Statistics (Last 30 mins)</span>
+                        <span>UNDO Statistics</span>
                         <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" className="h-6 text-xs gap-1"><Plus className="size-3" /> Add Datafile</Button>
+                            <Clock className="size-3 text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground">Updates every 10 min</span>
                         </div>
                     </div>
                     <div className="grid grid-cols-6 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
                         <div>Start</div>
                         <div>End</div>
                         <div>Blocks</div>
-                        <div>Txn Count</div>
+                        <div>Txns</div>
                         <div>Max Query</div>
-                        <div>Max Conc.</div>
+                        <div>Inst</div>
                     </div>
-                    {UNDO_STATS.map((s, i) => (
+                    {stats.map((s, i) => (
                         <div key={i} className="grid grid-cols-6 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30">
                             <div className="text-muted-foreground">{s.begin_time}</div>
                             <div className="text-muted-foreground">{s.end_time}</div>
                             <div className="font-mono">{s.undoblks}</div>
                             <div>{s.txncount}</div>
                             <div>{s.maxquerylen}s</div>
-                            <div>{s.maxconcurrency}</div>
+                            <div>{s.inst_id}</div>
                         </div>
                     ))}
+                    {stats.length === 0 && (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No UNDO statistics available.</div>
+                    )}
                 </div>
             </div>
 
@@ -123,35 +128,35 @@ export function UndoPanel() {
 }
 
 // --- TEMP Panel ---
-export function TempPanel() {
+export function TempPanel({ usage = [] }: { usage: any[] }) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
                 <div className="rounded-md border border-border bg-surface">
                     <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
                         <span>Active Temporary Segment Usage</span>
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" className="h-6 text-xs gap-1"><Plus className="size-3" /> Add Tempfile</Button>
-                        </div>
                     </div>
                     <div className="grid grid-cols-6 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
                         <div>SID,Serial</div>
                         <div>User</div>
-                        <div>Program</div>
                         <div>SQL ID</div>
                         <div>Tablepace</div>
+                        <div>Inst</div>
                         <div>Used (MB)</div>
                     </div>
-                    {TEMP_USAGE.map((t, i) => (
+                    {usage.map((t, i) => (
                         <div key={i} className="grid grid-cols-6 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30 items-center">
-                            <div className="font-mono text-xs text-muted-foreground">{t.sid},{t.serial}</div>
-                            <div>{t.username}</div>
-                            <div className="truncate text-xs text-muted-foreground" title={t.program}>{t.program}</div>
+                            <div className="font-mono text-xs text-muted-foreground">{t.sid_serial}</div>
+                            <div className="truncate">{t.username}</div>
                             <div className="font-mono text-xs">{t.sql_id}</div>
                             <div>{t.tablespace}</div>
+                            <div>{t.inst_id}</div>
                             <div className="font-bold">{t.mb_used}</div>
                         </div>
                     ))}
+                    {usage.length === 0 && (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No active temporary segments found.</div>
+                    )}
                 </div>
             </div>
 
@@ -160,21 +165,8 @@ export function TempPanel() {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">Temp History (MB)</CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[200px] p-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={TEMP_HISTORY}>
-                                <defs>
-                                    <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="time" hide />
-                                <YAxis hide />
-                                <ReTooltip contentStyle={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }} />
-                                <Area type="monotone" dataKey="used_mb" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorUsed)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <CardContent className="h-[200px] p-0 flex items-center justify-center text-xs text-muted-foreground">
+                        History tracking in progress...
                     </CardContent>
                 </Card>
             </div>
@@ -190,34 +182,17 @@ export function StorageCharts() {
                 <CardHeader>
                     <CardTitle className="text-sm font-medium">Database Growth (Used vs Allocated)</CardTitle>
                 </CardHeader>
-                <CardContent className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={DB_GROWTH_HISTORY}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                            <XAxis dataKey="date" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                            <ReTooltip contentStyle={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }} />
-                            <Area type="monotone" dataKey="allocated" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
-                            <Area type="monotone" dataKey="used" stackId="2" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                <CardContent className="h-[300px] flex items-center justify-center text-xs text-muted-foreground">
+                    Historical growth data collected from dashboard snapshots.
                 </CardContent>
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-sm font-medium">Temp Usage Trend</CardTitle>
+                    <CardTitle className="text-sm font-medium">Temp Usage trend</CardTitle>
                 </CardHeader>
-                <CardContent className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={TEMP_HISTORY}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                            <XAxis dataKey="time" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                            <ReTooltip contentStyle={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }} />
-                            <Line type="step" dataKey="used_mb" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
+                <CardContent className="h-[300px] flex items-center justify-center text-xs text-muted-foreground">
+                    Real-time trend data requires persistent monitoring.
                 </CardContent>
             </Card>
         </div>
