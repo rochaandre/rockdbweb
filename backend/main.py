@@ -25,10 +25,20 @@ from .redo_logs_mod import (
     switch_logfile, get_standby_redo_groups, get_archived_logs, get_log_buffer_stats
 )
 from .logs_mod import get_alert_logs, get_db_parameters, get_outstanding_alerts
-from .backups_mod import get_backup_jobs, get_backup_summary, get_backup_sets, get_backup_datafiles
+from .backups_mod import get_backup_jobs, get_backup_summary, get_backup_sets, get_backup_datafiles, get_nls_parameters
+from .sql_central_mod import (
+    get_sql_registry, get_sql_content, execute_generic_sql, 
+    seed_sql_scripts, delete_sql_script, execute_external_tool,
+    search_sql_content
+)
+from .jobs_mod import (
+    get_legacy_jobs, get_running_jobs, run_legacy_job, 
+    set_legacy_job_broken, remove_legacy_job, submit_legacy_job
+)
 
 # Initialize Database
 init_db()
+seed_sql_scripts()
 
 app = FastAPI(title="RockDB Python Backend")
 
@@ -350,6 +360,16 @@ def read_backup_datafiles(bs_key: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/backups/nls")
+def read_backups_nls():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_nls_parameters(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/storage/segments/{tablespace_name}")
 def read_storage_segments(tablespace_name: str):
     active = get_active_connection()
@@ -445,10 +465,13 @@ def force_ckpt():
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
+    
+    print(f"Forcing checkpoint for connection: {active['name']} ({active['host']})")
     try:
         force_checkpoint(active)
         return {"status": "success"}
     except Exception as e:
+        print(f"Error in force_ckpt: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/storage/redo/standby")
@@ -552,10 +575,13 @@ def switch_redo():
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
+    
+    print(f"Switching logfile for connection: {active['name']} ({active['host']})")
     try:
         switch_logfile(active)
         return {"status": "success"}
     except Exception as e:
+        print(f"Error in switch_redo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # User Preferences Endpoints
@@ -608,6 +634,163 @@ def save_preferences(pref: PreferenceSave):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+# SQL Central Endpoints
+@app.get("/api/sql/registry")
+def read_sql_registry():
+    try:
+        return get_sql_registry()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sql/content")
+def read_sql_content(path: str):
+    try:
+        return {"content": get_sql_content(path)}
+    except FileNotFoundError as fe:
+        raise HTTPException(status_code=404, detail=str(fe))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sql/search")
+def run_sql_search(query: str):
+    try:
+        return search_sql_content(query)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SqlExecuteRequest(BaseModel):
+    sql_text: str
+    auto_commit: bool = False
+
+@app.post("/api/sql/execute")
+def run_sql(req: SqlExecuteRequest):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_generic_sql(active, req.sql_text, auto_commit=req.auto_commit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SqlSaveRequest(BaseModel):
+    rel_path: str
+    content: str
+
+@app.post("/api/sql/save")
+def write_sql(req: SqlSaveRequest):
+    try:
+        from .sql_central_mod import save_sql_content
+        save_sql_content(req.rel_path, req.content)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/sql/delete")
+def remove_sql(path: str):
+    try:
+        delete_sql_script(path)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ToolExecuteRequest(BaseModel):
+    tool: str
+    rel_path: str
+
+@app.post("/api/sql/execute_tool")
+def run_tool(req: ToolExecuteRequest):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_external_tool(active, req.tool, req.rel_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SqlCreateRequest(BaseModel):
+    folder: str
+    name: str
+    label: str
+    codmenutype: int
+
+@app.post("/api/sql/create")
+def read_sql_create(req: SqlCreateRequest):
+    try:
+        from .sql_central_mod import create_sql_script
+        new_path = create_sql_script(req.folder, req.name, req.label, req.codmenutype)
+        return {"status": "success", "rel_path": new_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/jobs/legacy")
+def read_legacy_jobs():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_legacy_jobs(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/jobs/running")
+def read_running_jobs():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_running_jobs(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/jobs/run")
+def start_job(job_id: int):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        run_legacy_job(active, job_id)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/jobs/broken")
+def toggle_job_broken(job_id: int, broken: bool):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        set_legacy_job_broken(active, job_id, broken)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/jobs/remove")
+def delete_job(job_id: int):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        remove_legacy_job(active, job_id)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class JobSubmitRequest(BaseModel):
+    what: str
+    next_date: str = None
+    interval: str = None
+
+@app.post("/api/jobs/submit")
+def create_legacy_job(req: JobSubmitRequest):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        submit_legacy_job(active, req.what, req.next_date, req.interval)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

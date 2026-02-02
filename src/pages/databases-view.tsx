@@ -5,11 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { DatabaseForm, type DatabaseConnection } from "@/components/databases/database-form"
 import { Database, Plus, Loader2, Edit2, Play, CheckCircle2, History } from "lucide-react"
-import { useApp } from "@/context/app-context"
+import { useApp, API_URL } from "@/context/app-context"
 import { twMerge } from "tailwind-merge"
 import { Badge } from "@/components/ui/badge"
-
-const API_URL = 'http://localhost:8000/api'
 
 export function DatabasesView() {
     const { logAction, setConnection, connection } = useApp()

@@ -9,10 +9,12 @@ import { ConfigurationView } from '@/pages/configuration-view'
 import { ExplainPlanView } from '@/pages/explain-plan-view'
 import { SqlDetailsView } from '@/pages/sql-details-view'
 import { SqlCentralView } from '@/pages/sql-central-view'
+import { SqlDashboardView } from '@/pages/sql-dashboard-view'
 import { SqlReportView } from '@/pages/sql-report-view'
 import { BlockExplorerView } from '@/pages/block-explorer-view'
 import { AsmExplorerView } from '@/pages/asm-explorer-view'
 import { RedoLogView } from '@/pages/redo-log-view'
+import { JobsView } from '@/pages/jobs-view'
 import { AppProvider } from '@/context/app-context'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
@@ -34,10 +36,12 @@ function App() {
           <Route path="/sql-details/:sqlId" element={<SqlDetailsView />} />
           <Route path="/sql-central" element={<SqlCentralView />} />
           <Route path="/sql-central/:sqlId" element={<SqlCentralView />} />
+          <Route path="/sql-dashboard" element={<SqlDashboardView />} />
           <Route path="/sql-report/:reportType/:sqlId" element={<SqlReportView />} />
           <Route path="/block-explorer/:sid" element={<BlockExplorerView />} />
           <Route path="/asm-explorer" element={<AsmExplorerView />} />
           <Route path="/redo-log" element={<RedoLogView />} />
+          <Route path="/jobs" element={<JobsView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppProvider>

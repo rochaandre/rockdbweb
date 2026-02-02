@@ -64,6 +64,41 @@ def init_db():
             FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE CASCADE
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS codmenutype (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            icon_url TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cfgmenu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            link_label TEXT,
+            link_url TEXT,
+            icon_url TEXT,
+            codmenutype INTEGER,
+            codmenutype_icon_url TEXT,
+            codcust INTEGER DEFAULT 1,
+            active TEXT DEFAULT 'Y',
+            FOREIGN KEY (codmenutype) REFERENCES codmenutype(id)
+        )
+    """)
+    
+    # Seed codmenutype
+    menu_types = [
+        (1, 'Table', 'table'),
+        (2, 'Pie', 'pie-chart'),
+        (3, 'Bar', 'bar-chart-2'),
+        (4, 'Gauge', 'gauge'),
+        (5, 'PLSQL Output', 'file-text'),
+        (7, 'Text', 'file'),
+        (8, 'External Tool', 'monitor')
+    ]
+    cursor.executemany("INSERT OR IGNORE INTO codmenutype (id, name, icon_url) VALUES (?, ?, ?)", menu_types)
     
     # Check for missing columns and add them if necessary
     columns_to_add = [

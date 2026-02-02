@@ -1,0 +1,10 @@
+-- SQLLDR Control File Example
+LOAD DATA
+INFILE *
+APPEND
+INTO TABLE DUAL
+(
+  dummy POSITION(1:1) CHAR
+)
+BEGINDATA
+X

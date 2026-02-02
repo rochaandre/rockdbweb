@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { History, RefreshCw, Activity } from 'lucide-react'
 import { RedoManager, RedoMatrixReport, ControlFilesPanel } from '@/components/storage/storage-components'
-import { API_URL } from '@/context/app-context'
+import { API_URL, useApp } from '@/context/app-context'
 import { twMerge } from 'tailwind-merge'
 
 export function RedoLogView() {
+    const { connection } = useApp()
+    const isPdb = connection.db_type === 'PDB'
     const [activeTab, setActiveTab] = usePersistentState('redolog', 'activeTab', 'groups')
     const [newSize, setNewSize] = usePersistentState('redolog', 'newSize', '600')
 
@@ -159,6 +161,8 @@ select member from v$logfile;
                             size="sm"
                             onClick={handleForceCheckpoint}
                             className="gap-2"
+                            disabled={isPdb}
+                            title={isPdb ? "Checkpoint not allowed in PDB" : ""}
                         >
                             <Activity className="size-4" />
                             Force Checkpoint
@@ -175,6 +179,16 @@ select member from v$logfile;
                         </Button>
                     </div>
                 </div>
+
+                {isPdb && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-center gap-3 text-amber-800 text-sm shrink-0">
+                        <Activity className="h-5 w-5 text-amber-600" />
+                        <p>
+                            <strong>PDB Mode:</strong> Redo Log and Controlfile management actions are disabled because you are connected to a Pluggable Database.
+                            These operations must be performed at the CDB (Container) level.
+                        </p>
+                    </div>
+                )}
 
                 <div className="flex-1 overflow-hidden flex flex-col">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">

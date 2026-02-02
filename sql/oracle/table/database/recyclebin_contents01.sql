@@ -1,0 +1,1 @@
+select object_name, original_name, type, can_undrop as "UND", can_purge as "PUR", droptime from recyclebin ;

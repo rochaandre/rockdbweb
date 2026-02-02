@@ -11,7 +11,9 @@ import {
     HardDrive,
     FileText,
     Terminal,
-    History
+    History,
+    Plus,
+    Clock
 } from "lucide-react"
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -33,7 +35,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { icon: FileText, label: 'Logs', path: '/logs' },
         { icon: Settings, label: 'Configuration', path: '/configuration' },
         { icon: History, label: 'Redo Log Explorer', path: '/redo-log' },
+        { icon: LayoutDashboard, label: 'SQL Dashboard', path: '/sql-dashboard' },
         { icon: Terminal, label: 'SQL Central', path: '/sql-central' },
+        { icon: Clock, label: 'Jobs (Legacy)', path: '/jobs' },
 
         { icon: Settings, label: 'Settings', path: '/settings' },
     ]
@@ -82,7 +86,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             title={collapsed ? item.label : undefined}
                         >
                             <item.icon className="size-5 shrink-0" />
-                            {!collapsed && <span>{item.label}</span>}
+                            {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+                            {!collapsed && item.label === 'SQL Central' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        navigate('/sql-central?new=true')
+                                    }}
+                                    className="p-1 hover:bg-primary/20 rounded transition-colors text-primary"
+                                    title="New Script"
+                                >
+                                    <Plus className="size-3.5" />
+                                </button>
+                            )}
                         </button>
                     )
                 })}

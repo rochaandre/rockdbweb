@@ -10,11 +10,13 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Activity } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
-import { API_URL } from '@/context/app-context'
+import { API_URL, useApp } from '@/context/app-context'
 
 export function StorageView() {
+    const { connection } = useApp()
+    const isPdb = connection.db_type === 'PDB'
     const [activeTab, setActiveTab] = usePersistentState('storage', 'activeTab', 'tablespaces')
     // State
     const [tablespaces, setTablespaces] = useState<any[]>([])
@@ -173,7 +175,15 @@ export function StorageView() {
                     </TabsContent>
 
                     {/* Control Content */}
-                    <TabsContent value="control" className="flex-1 mt-4 overflow-auto">
+                    <TabsContent value="control" className="flex-1 mt-4 overflow-auto space-y-4">
+                        {isPdb && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-center gap-3 text-amber-800 text-sm">
+                                <Activity className="h-5 w-5 text-amber-600" />
+                                <p>
+                                    <strong>PDB Mode:</strong> Controlfile management (Force Checkpoint) is disabled in Pluggable Databases.
+                                </p>
+                            </div>
+                        )}
                         <ControlFilesPanel files={controlFiles} checkpoint={checkpointProgress} onRefresh={fetchData} />
                     </TabsContent>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { twMerge } from 'tailwind-merge'
+import { API_URL, useApp } from '@/context/app-context'
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +17,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-const API_URL = '/api'
 
 // --- Tablespace Card ---
 export function TablespaceCard({ ts, onClick, onEdit }: { ts: any, onClick: () => void, onEdit: (e: any) => void }) {
@@ -252,6 +252,9 @@ export function TablespaceDetail({ selectedTs, files, segments = [], onRefresh }
 
 // --- Redo Manager ---
 export function RedoManager({ groups = [], onRefresh }: { groups: any[], onRefresh?: () => void }) {
+    const { connection } = useApp()
+    const isPdb = connection.db_type === 'PDB'
+
     const [isAddingGroup, setIsAddingGroup] = useState(false)
     const [addGroupSize, setAddGroupSize] = useState('50')
     const [addGroupThread, setAddGroupThread] = useState('1')
@@ -340,10 +343,24 @@ export function RedoManager({ groups = [], onRefresh }: { groups: any[], onRefre
                     <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
                         <span>Redo Log Groups</span>
                         <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={handleSwitch}>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-xs gap-1"
+                                onClick={handleSwitch}
+                                disabled={isPdb}
+                                title={isPdb ? "Log switch not allowed in PDB" : ""}
+                            >
                                 <RefreshCw className="size-3" /> Switch Log
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={() => setIsAddingGroup(true)}>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-xs gap-1"
+                                onClick={() => setIsAddingGroup(true)}
+                                disabled={isPdb}
+                                title={isPdb ? "Redo management not allowed in PDB" : ""}
+                            >
                                 <Plus className="size-3" /> Add Group
                             </Button>
                         </div>
@@ -370,10 +387,24 @@ export function RedoManager({ groups = [], onRefresh }: { groups: any[], onRefre
                             </div>
                             <div>{g.archived}</div>
                             <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" title="Add Member" onClick={() => { setMemberGroup(g['group#']); setMemberPath(''); }}>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-primary hover:bg-primary/10"
+                                    title={isPdb ? "Not allowed in PDB" : "Add Member"}
+                                    onClick={() => { setMemberGroup(g['group#']); setMemberPath(''); }}
+                                    disabled={isPdb}
+                                >
                                     <FilePlus className="size-3" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDropGroup(g['group#'])}>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleDropGroup(g['group#'])}
+                                    disabled={isPdb}
+                                    title={isPdb ? "Not allowed in PDB" : "Drop Group"}
+                                >
                                     <Trash2 className="size-3" />
                                 </Button>
                             </div>
@@ -532,6 +563,9 @@ export function RedoMatrixReport({ history = [], threads = [], onFilterChange }:
     )
 }
 export function ControlFilesPanel({ files = [], checkpoint = [], onRefresh }: { files: any[], checkpoint?: any[], onRefresh?: () => void }) {
+    const { connection } = useApp()
+    const isPdb = connection.db_type === 'PDB'
+
     const handleForceCheckpoint = async () => {
         try {
             const res = await fetch(`${API_URL}/storage/checkpoint/force`, { method: 'POST' })
@@ -550,7 +584,14 @@ export function ControlFilesPanel({ files = [], checkpoint = [], onRefresh }: { 
                 <div className="rounded-md border border-border bg-surface">
                     <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
                         <span>Control Files</span>
-                        <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={handleForceCheckpoint}>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs gap-1"
+                            onClick={handleForceCheckpoint}
+                            disabled={isPdb}
+                            title={isPdb ? "Checkpoint not allowed in PDB" : ""}
+                        >
                             <RefreshCw className="size-3" /> Force Checkpoint
                         </Button>
                     </div>

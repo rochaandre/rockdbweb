@@ -4,28 +4,24 @@
 
 ## 🚀 Key Features
 
-### 🔄 Redo Log Explorer (New!)
-*   **Dynamic Management**: Switch logfiles, add/drop groups, and manage members directly from the UI.
-*   **Switch Matrix**: Detailed hourly switch reports with instance/thread filtering.
-*   **Live Metrics**: Real-time analysis of Log Buffer (entries, retries, space requests) and Archive history.
-*   **Visual Rate**: Hourly switch rate graphics for performance trend analysis.
-*   **Standby Support**: Full visibility into Standby Redo Log groups.
+### 📅 Legacy Job Management (New!)
+*   **Full Lifecycle**: Create, run, pause (broken), and remove legacy Oracle jobs (`dba_jobs`).
+*   **Execution Insights**: Real-time reporting on currently running jobs with session synchronization (SID, event, duration).
+*   **Deep Inspection**: View full PL/SQL blocks (`WHAT`) and frequency settings (`INTERVAL`) for any job.
 
-### 💾 Storage Management
-*   **Tablespace Dashboard**: Visual breakdown of used vs. free space across all tablespaces.
-*   **Detailed Analysis**: Drill down into datafiles and segments (top consumers) for any tablespace.
-*   **Control Files & Checkpoints**: Monitor control file status and track checkpoint progress in real-time.
-*   **Specialized Panels**: Dedicated views for SYSAUX occupants, UNDO statistics, and TEMP usage.
+### 🔍 SQL Central 2.0
+*   **Content Search**: Instant, debounced search across all script code—find what you need by functional keyword, not just filename.
+*   **External Tool Terminal**: Integrated console for executing `sqlcl`, `RMAN`, `DGmgrl`, and `sqlldr` scripts with live output capture.
+*   **Contextual Creation**: Add new scripts directly into specific folders (pie, bar, gauge, internal) with instant categorization.
 
-### 🕵️ Session Explorer
-*   **Real-Time Monitoring**: Visualize hundreds of active sessions in a dense, information-rich grid.
-*   **Blocking Chain Analysis**: Identify root blockers instantly with hierarchical tree views and visual alerts.
-*   **DBA Actions**: Kill sessions, enable tracing, and inspect SQL text with a single click.
+### 🛡️ Backup & Recovery Enhancements
+*   **NLS Awareness**: Automatic detection and display of `NLS_CHARACTERSET`, `LANGUAGE`, and `TERRITORY` to ensure safe recovery environments.
+*   **Drill-down Reports**: Deep-dive from backup jobs into sets and individual datafiles.
 
 ### ⚙️ Core Enhancements
+*   **Sidebar Refinement**: Streamlined navigation with dedicated Job Management access.
+*   **Advanced Connectivity**: Automatic discovery of RAC/Single Instance roles and storage status.
 *   **Multi-Connection Support**: Manage multiple Oracle connections with persistence and easy switching.
-*   **Persistent Preferences**: Your active database and UI state (tabs, filters) are remembered between sessions.
-*   **High Performance**: Minimal overhead, utilizing lightweight API calls and efficient state management.
 
 ## 🛠️ Tech Stack
 

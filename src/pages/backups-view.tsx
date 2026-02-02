@@ -5,8 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BackupJobsTable, BackupSetsTable, DatafilesTable, ExpdpGenerator, BackupSummaryTable, RmanGenerator } from '@/components/backups/backup-components'
 import { useApp, API_URL } from '@/context/app-context'
 import { Button } from '@/components/ui/button'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Globe, Database } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
+import { Card, CardContent } from '@/components/ui/card'
 
 export function BackupsView() {
     const [activeTab, setActiveTab] = usePersistentState('backups', 'activeTab', 'progress')
@@ -14,16 +15,19 @@ export function BackupsView() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [jobs, setJobs] = useState<any[]>([])
     const [summary, setSummary] = useState<any[]>([])
+    const [nlsParams, setNlsParams] = useState<any>(null)
 
     const fetchBackups = async () => {
         setIsRefreshing(true)
         try {
-            const [jobsRes, summaryRes] = await Promise.all([
+            const [jobsRes, summaryRes, nlsRes] = await Promise.all([
                 fetch(`${API_URL}/backups/jobs`),
-                fetch(`${API_URL}/backups/summary`)
+                fetch(`${API_URL}/backups/summary`),
+                fetch(`${API_URL}/backups/nls`)
             ])
             if (jobsRes.ok) setJobs(await jobsRes.json())
             if (summaryRes.ok) setSummary(await summaryRes.json())
+            if (nlsRes.ok) setNlsParams(await nlsRes.json())
         } catch (error) {
             console.error('Error fetching backups:', error)
         } finally {
@@ -94,6 +98,32 @@ export function BackupsView() {
                         <RefreshCw className={twMerge("size-4", isRefreshing && "animate-spin")} />
                         Refresh
                     </Button>
+                </div>
+
+                {/* NLS Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                    <Card className="bg-background/50 border-border/50">
+                        <CardContent className="pt-4 flex items-center gap-4">
+                            <div className="p-2 bg-blue-500/10 rounded-lg">
+                                <Globe className="h-5 w-5 text-blue-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground uppercase font-semibold">Language / Territory</p>
+                                <p className="text-xl font-bold">{nlsParams ? `${nlsParams.language}_${nlsParams.territory}` : 'Loading...'}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-background/50 border-border/50">
+                        <CardContent className="pt-4 flex items-center gap-4">
+                            <div className="p-2 bg-purple-500/10 rounded-lg">
+                                <Database className="h-5 w-5 text-purple-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground uppercase font-semibold">Database Character Set</p>
+                                <p className="text-xl font-bold">{nlsParams ? nlsParams.db_charset : 'Loading...'}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <Tabs
