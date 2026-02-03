@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-oracledb
+cryptography
+pydantic
+python-dotenv
+sqlite3
+influxdb-client

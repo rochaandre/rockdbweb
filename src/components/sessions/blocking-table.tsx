@@ -1,9 +1,12 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, FileCode } from 'lucide-react'
+import { Skull, Activity, FileCode, Lock, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { API_URL } from '@/context/app-context'
 
 interface BlockingSession {
-    id: string
+    inst_id: number
     sid: number
     serial: number
     username: string
@@ -13,77 +16,130 @@ interface BlockingSession {
     level: number
 }
 
-// Expanded Data
-const BLOCKING_DATA: BlockingSession[] = [
-    { id: '1', sid: 105, serial: 4521, username: 'SYSTEM', status: 'ACTIVE', event: 'enq: TX - row lock contention', type: 'blocker', level: 0 },
-    { id: '2', sid: 230, serial: 1022, username: 'APP_USER', status: 'ACTIVE', event: 'enq: TX - row lock contention', type: 'blocked', level: 1 },
-    { id: '3', sid: 245, serial: 8891, username: 'REPORT_SVC', status: 'ACTIVE', event: 'enq: TX - row lock contention', type: 'blocked', level: 1 },
-    { id: '4', sid: 290, serial: 1121, username: 'BATCH_JOB', status: 'INACTIVE', event: 'SQL*Net message from client', type: 'blocked', level: 2 },
-    { id: '5', sid: 310, serial: 3341, username: 'WEB_APP', status: 'ACTIVE', event: 'enq: TX - row lock contention', type: 'blocked', level: 1 },
-    { id: '6', sid: 400, serial: 9911, username: 'DB_ADMIN', status: 'ACTIVE', event: 'library cache lock', type: 'blocker', level: 0 },
-    { id: '7', sid: 401, serial: 1234, username: 'DEV_USER', status: 'ACTIVE', event: 'library cache lock', type: 'blocked', level: 1 },
-    { id: '8', sid: 505, serial: 6672, username: 'ANALYTICS', status: 'ACTIVE', event: 'enq: TM - contention', type: 'blocker', level: 0 },
-    { id: '9', sid: 510, serial: 7781, username: 'BI_TOOL', status: 'ACTIVE', event: 'enq: TM - contention', type: 'blocked', level: 1 },
-    { id: '10', sid: 520, serial: 8892, username: 'ETL_PROC', status: 'ACTIVE', event: 'enq: TM - contention', type: 'blocked', level: 1 },
-    { id: '11', sid: 600, serial: 4455, username: 'CACHE_SVC', status: 'ACTIVE', event: 'latch: cache buffers chains', type: 'blocker', level: 0 },
-    { id: '12', sid: 605, serial: 1122, username: 'USER_1', status: 'ACTIVE', event: 'latch: cache buffers chains', type: 'blocked', level: 1 },
-    { id: '13', sid: 606, serial: 1133, username: 'USER_2', status: 'ACTIVE', event: 'latch: cache buffers chains', type: 'blocked', level: 1 },
-]
-
 interface BlockingTableProps {
     onAction: (action: string, session: BlockingSession) => void
+    instId?: number
+    refreshKey?: number
 }
 
-export function BlockingTable({ onAction }: BlockingTableProps) {
+export function BlockingTable({ onAction, instId, refreshKey }: BlockingTableProps) {
+    const navigate = useNavigate()
+    const [data, setData] = useState<BlockingSession[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+
+    const fetchBlockingData = async () => {
+        setIsLoading(true)
+        try {
+            const instParam = instId ? `?inst_id=${instId}` : ""
+            const res = await fetch(`${API_URL}/sessions/blocking${instParam}`)
+            if (res.ok) {
+                const json = await res.json()
+                setData(json)
+            }
+        } catch (error) {
+            console.error('Error fetching blocking sessions:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchBlockingData()
+    }, [instId, refreshKey])
+
     return (
         <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm">
             <table className="w-full text-xs text-left border-collapse">
                 <thead className="bg-surface-raised sticky top-0 z-10 text-foreground font-medium shadow-sm">
                     <tr>
+                        <th className="border-b border-r border-border px-1 py-1 w-10">INST</th>
                         <th className="border-b border-r border-border px-1 py-1 w-12">SID</th>
                         <th className="border-b border-r border-border px-1 py-1 w-16">SERIAL#</th>
                         <th className="border-b border-r border-border px-1 py-1">USERNAME</th>
                         <th className="border-b border-r border-border px-1 py-1 w-20">STATUS</th>
-                        <th className="border-b border-border px-1 py-1">EVENT</th>
+                        <th className="border-b border-r border-border px-1 py-1">EVENT</th>
+                        <th className="border-b border-border px-1 py-1 w-32">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {BLOCKING_DATA.map((session) => (
-                        <tr
-                            key={session.id}
-                        >
-                            <td colSpan={5} className="p-0 border-0">
+                    {isLoading && (
+                        <tr>
+                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                                <Loader2 className="mx-auto size-6 animate-spin mb-2" />
+                                Loading blocking data...
+                            </td>
+                        </tr>
+                    )}
+                    {!isLoading && data.length === 0 && (
+                        <tr>
+                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                                No blocking or waiting sessions found.
+                            </td>
+                        </tr>
+                    )}
+                    {!isLoading && data.length > 0 && data.map((session, idx) => (
+                        <tr key={`${session.sid}-${idx}`}>
+                            <td colSpan={7} className="p-0 border-0">
                                 <ContextMenu
                                     trigger={
                                         <div
                                             className={twMerge(
-                                                "grid grid-cols-[3rem_4rem_1fr_5rem_1fr] w-full border-b border-border cursor-context-menu hover:brightness-95 transition-colors",
+                                                "grid grid-cols-[2.5rem_3rem_4rem_1fr_5rem_1fr_8rem] w-full border-b border-border cursor-context-menu hover:brightness-95 transition-colors items-center",
                                                 session.type === 'blocker'
                                                     ? "bg-red-100 text-red-900 font-medium"
                                                     : "bg-yellow-50 text-foreground"
                                             )}
                                         >
-                                            <div className={twMerge("px-1 py-0.5 border-r border-border/50 flex items-center", session.level > 0 && "pl-4")}>
-                                                {session.level > 0 && <span className="text-muted-foreground mr-1">└</span>}
+                                            <div className="px-1 py-0.5 border-r border-border/50 flex items-center h-full justify-center font-mono opacity-60">
+                                                {session.inst_id}
+                                            </div>
+                                            <div className={twMerge("px-1 py-0.5 border-r border-border/50 flex items-center h-full", (session.level ?? 0) > 0 && "pl-4")}>
+                                                {(session.level ?? 0) > 0 && <span className="text-muted-foreground mr-1">└</span>}
                                                 {session.sid}
                                             </div>
-                                            <div className="px-1 py-0.5 border-r border-border/50">{session.serial}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50">{session.username}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50">{session.status}</div>
-                                            <div className="px-1 py-0.5">{session.event}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.serial}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.username}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.status}</div>
+                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.event}</div>
+                                            <div className="px-1 py-0.5 h-full flex items-center justify-center gap-1">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onAction('KILL_SESSION', session);
+                                                    }}
+                                                    className="p-1 hover:bg-red-600 hover:text-white rounded flex items-center gap-1 text-[10px] border border-red-200 text-red-700 bg-red-50/50"
+                                                    title="Kill Session"
+                                                >
+                                                    <Skull className="w-3 h-3" /> Kill
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`);
+                                                    }}
+                                                    className="p-1 hover:bg-black/10 rounded flex items-center gap-1 text-[10px] border border-black/20"
+                                                    title="Open Block Explorer"
+                                                >
+                                                    <Lock className="w-3 h-3" /> Explorer
+                                                </button>
+                                            </div>
                                         </div>
                                     }
                                 >
-                                    <ContextMenuItem onClick={() => onAction('Kill Session', session)}>
+                                    <ContextMenuItem onClick={() => onAction('KILL_SESSION', session)}>
                                         <Skull className="mr-2 size-3.5 text-destructive" />
                                         Kill Session
                                     </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('Trace Session', session)}>
+                                    <ContextMenuItem onClick={() => onAction('TRACE_SESSION', session)}>
                                         <Activity className="mr-2 size-3.5" />
                                         Trace Session
                                     </ContextMenuItem>
                                     <ContextMenuSeparator />
-                                    <ContextMenuItem onClick={() => onAction('Show SQL', session)}>
+                                    <ContextMenuItem onClick={() => navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`)}>
+                                        <Lock className="mr-2 size-3.5 text-amber-600" />
+                                        Block Explorer
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onAction('SHOW_SQL', session)}>
                                         <FileCode className="mr-2 size-3.5" />
                                         Show SQL
                                     </ContextMenuItem>

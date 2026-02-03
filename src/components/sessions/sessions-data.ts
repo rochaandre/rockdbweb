@@ -44,3 +44,52 @@ export const SESSIONS_DATA: (Partial<SessionDetail> & {
 
         { sid: 2200, serial: 33445, username: 'PARALLEL_GUY', fileIO: '22.0', cpu: '15.0', command: 'SELECT', lckObj: '', status: 'ACTIVE', pqs: '8', owner: 'DW', completed: '', elapsed: '150', remain: '60', temp: '500 MB', event: 'PX Deq: Execution Msg', sqlText: 'SELECT /*+ PARALLEL(8) */ * FROM sales', waitInfo: ['PX Deq: Execution Msg'], schema: 'DW', logonTime: '1/28 09:30', pid: 700, osPid: 7001, pga: '200 MB', lastCallEt: 10, sqlId: 'pp77oo66ii', child: 0 }
     ]
+
+// Mock Long Ops Data
+export const LONG_OPS_DATA = [
+    {
+        sid: 532,
+        serial: 12112,
+        opname: 'Table Scan',
+        target: 'SALES',
+        target_desc: 'Table Scan',
+        sofar: 45000,
+        totalwork: 90000,
+        units: 'Blocks',
+        start_time: new Date(Date.now() - 1000 * 60 * 5), // 5 mins ago
+        time_remaining: 300, // seconds
+        message: 'Table Scan:  SALES: 45000 out of 90000 Blocks done',
+        username: 'APP_USER',
+        sql_id: '8a9q0w8s7d'
+    },
+    {
+        sid: 890,
+        serial: 456,
+        opname: 'RMAN Backup',
+        target: 'MOCK_DB',
+        target_desc: 'RMAN Backup',
+        sofar: 120,
+        totalwork: 2000,
+        units: 'MB',
+        start_time: new Date(Date.now() - 1000 * 60 * 30), // 30 mins ago
+        time_remaining: 4500, // seconds
+        message: 'RMAN:  MOCK_DB: 120 out of 2000 MB done',
+        username: 'SYS',
+        sql_id: 'rmanbackup12'
+    },
+    {
+        sid: 1644,
+        serial: 34222,
+        opname: 'Index Creation',
+        target: 'IDX_SALES_DATE',
+        target_desc: 'Index Build',
+        sofar: 8500,
+        totalwork: 10000,
+        units: 'Rows',
+        start_time: new Date(Date.now() - 1000 * 60 * 2), // 2 mins ago
+        time_remaining: 45, // seconds
+        message: 'Index Build:  IDX_SALES_DATE: 8500 out of 10000 Rows done',
+        username: 'DBA_ADMIN',
+        sql_id: 'idxcreate99'
+    }
+]

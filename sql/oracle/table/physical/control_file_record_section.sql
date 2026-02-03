@@ -1,0 +1,1 @@
+SELECT * FROM v$controlfile_record_section ;
