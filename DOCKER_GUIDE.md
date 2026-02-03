@@ -64,8 +64,44 @@ Expected response: `{"status":"ok","message":"Backend is ready"}`
 ## Step 5: Managing the Application
 
 - **Stop the container**: `docker-compose down`
-- **View logs in real-time**: `docker logs -f rockdb_app`
 - **Access the container shell**: `docker exec -it rockdb_app /bin/bash`
+
+## Distribuição e Versionamento
+
+Para distribuir o RockDB para outras empresas ou pessoas, você deve utilizar o conceito de **Tags** e **Registries** (como Docker Hub ou Google Artifact Registry).
+
+### 1. Versionando a Imagem
+Não use apenas a tag `latest` para distribuição. Use números de versão para ter controle sobre o que cada cliente está rodando.
+
+```bash
+# Taggear uma versão específica (ex: v1.0.1)
+docker tag rockdb-app rochaandre/rockdbweb:v1.0.1
+```
+
+### 2. Enviando para um Registry (Push)
+Para que outras pessoas possam baixar a imagem, você precisa enviá-la para um repositório remoto:
+
+```bash
+# Efetuar login no Docker Hub (ou outro registry)
+docker login
+
+# Enviar a imagem
+docker push rochaandre/rockdbweb:v1.0.1
+```
+
+### 3. Como o Cliente Utiliza
+O cliente final não precisará do seu código-fonte, apenas do arquivo `docker-compose.yml` configurado para baixar a imagem pública/privada:
+
+```yaml
+services:
+  rockdb-backend:
+    image: rochaandre/rockdbweb:v1.0.1  # Baixa a imagem pronta
+    ports:
+      - "8080:8080"
+    # ... volumes e envs ...
+```
+
+---
 
 ## Workflow de Atualização (Step-by-Step)
 
