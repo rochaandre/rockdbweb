@@ -1,4 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
+import os
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -89,6 +92,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Serving Static Files (Frontend) ---
+
+# Path to the 'dist' directory (where React build lives)
+# In Docker, we will place it in /app/dist
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
+
+# If the directory exists, mount it
+if os.path.exists(FRONTEND_DIR):
+    print(f"Frontend directory found at: {FRONTEND_DIR}. Serving static files.")
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="static")
+
+    # Catch-all route to serve index.html for any non-API route (SPA Support)
+    @app.get("/{full_path:path}")
+    async def serve_frontend(request: Request, full_path: str):
+        # If it's an API call, let FastAPI handle it normally (should have matched above)
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+        
+        # Check if the file exists in dist (for icons, etc. not in /assets)
+        file_path = os.path.join(FRONTEND_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+            
+        # Otherwise, return index.html (SPA routing)
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+else:
+    print(f"Warning: Frontend directory NOT found at {FRONTEND_DIR}. Run in API-only mode.")
 
 # Models
 class ConnectionBase(BaseModel):

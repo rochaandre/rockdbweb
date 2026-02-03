@@ -38,6 +38,7 @@ docker-compose up -d --build
 2.  **Creates a volume** `rockdb_data` for persistent storage of the SQLite database.
 3.  **Mounts the `./sql` folder** into the container for easy script management.
 4.  **Starts the container** named `rockdb_app`.
+5.  **Serves the Frontend**: The application now includes the built React frontend.
 
 ## Step 4: Verification
 
@@ -60,6 +61,12 @@ Look for:
 curl http://localhost:8080/api/health
 ```
 Expected response: `{"status":"ok","message":"Backend is ready"}`
+
+### Access the Web Interface
+Open your browser and navigate to:
+[http://localhost:8080](http://localhost:8080)
+
+You should see the full RockDB user interface. No separate frontend installation or Electron is required!
 
 ## Step 5: Managing the Application
 

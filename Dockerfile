@@ -1,5 +1,18 @@
+# --- Stage 1: Build the React Frontend ---
+FROM node:18-slim AS build-frontend
+
+WORKDIR /frontend
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source code and build
+COPY . .
+RUN npm run build
+
+# --- Stage 2: Final Image (Python Backend + Frontend) ---
 # Use the Oracle Database Observability Exporter as the base image
-# This image comes based on Oracle Linux 8 and includes Oracle Instant Client
 FROM container-registry.oracle.com/database/observability-exporter:2.2.1
 
 # Switch to root to install system dependencies
@@ -26,6 +39,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY backend /app/backend
 COPY sql /app/sql
 COPY rockdb.sqlite /app/rockdb.sqlite
+
+# Copy the built frontend from the first stage
+COPY --from=build-frontend /frontend/dist /app/dist
 
 # Create data directory and set permissions
 RUN mkdir -p /opt/rockdbweb && \
