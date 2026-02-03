@@ -25,9 +25,17 @@ function startPythonBackend() {
             shell: true
         });
     } else {
-        // In production, run the bundled executable
-        // This assumes the binary is placed in the 'resources' folder of the app
-        const binPath = path.join(process.resourcesPath, 'rockdb-backend');
+        // In production / prod-preview, run the bundled executable
+        let binPath;
+        if (app.isPackaged) {
+            // In the packaged app, look in Resources
+            binPath = path.join(process.resourcesPath, 'rockdb-backend');
+        } else {
+            // In simulation (npm run electron:prod), look in release_bin/
+            binPath = path.join(__dirname, '../release_bin/rockdb-backend');
+        }
+
+        console.log(`Spawning backend from: ${binPath}`);
         pythonProcess = spawn(binPath, [], {
             shell: false
         });

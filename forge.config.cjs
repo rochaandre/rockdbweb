@@ -2,7 +2,7 @@ module.exports = {
     packagerConfig: {
         asar: true,
         extraResource: [
-            './dist/rockdb-backend'
+            './release_bin/rockdb-backend'
         ],
     },
     rebuildConfig: {},
