@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 out/
+build/
+*.spec
 .webpack/
 .vite/
 
