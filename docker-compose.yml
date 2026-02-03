@@ -1,23 +1,25 @@
 version: '3.8'
 
 services:
-  influxdb:
-    image: influxdb:latest
-    container_name: rockdb_influxdb
+  rockdb-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rockdb_app
     ports:
-      - "8086:8086"
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=rockdb_password123
-      - DOCKER_INFLUXDB_INIT_ORG=rockdb
-      - DOCKER_INFLUXDB_INIT_BUCKET=timemachine
-      - DOCKER_INFLUXDB_INIT_RETENTION=30d
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=rockdb_super_secret_token_change_me
+      - "8080:8080"
+      - "9100:9100"
     volumes:
-      - influxdb_data:/var/lib/influxdb2
-      - ./influxdb/config:/etc/influxdb2
-    restart: unless-stopped
+      # Persistent storage for the SQLite database
+      - rockdb_data:/opt/rockdbweb
+      # Persistence for SQL scripts (mapped to local folder to allow easy editing)
+      - ./sql:/app/sql
+    environment:
+      - ROCKDB_DATA_DIR=/opt/rockdbweb
+      - ROCKDB_SCRIPTS_DIR=/app/sql
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-rockdb_secret_key}
+    restart: always
 
 volumes:
-  influxdb_data:
+  rockdb_data:
+    driver: local

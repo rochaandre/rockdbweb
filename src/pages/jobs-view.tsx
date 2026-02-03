@@ -22,8 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-
-const API_URL = 'http://localhost:8000/api'
+import { API_URL } from '@/context/app-context'
 
 interface LegacyJob {
     job: number

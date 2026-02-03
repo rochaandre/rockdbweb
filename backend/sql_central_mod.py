@@ -1,8 +1,8 @@
 import os
 import sqlite3
-from .utils import get_db_connection, get_oracle_connection
+from .utils import get_db_connection, get_oracle_connection, SCRIPTS_DIR
 
-BASE_SQL_DIR = os.path.join(os.path.dirname(__file__), "../sql")
+BASE_SQL_DIR = SCRIPTS_DIR
 
 def get_sql_registry():
     conn = get_db_connection()
@@ -209,7 +209,11 @@ def seed_sql_scripts():
         if cursor.fetchone()[0] > 0:
             return
         
-        print("Seeding SQL scripts from disk...")
+        print(f"Seeding SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
+        if not os.path.exists(BASE_SQL_DIR):
+            print(f"WARNING: Scripts directory not found: {BASE_SQL_DIR}", flush=True)
+            return
+
         scripts_to_insert = []
         
         for root, dirs, files in os.walk(BASE_SQL_DIR):
