@@ -146,6 +146,10 @@ class StatsRetentionUpdate(BaseModel):
     days: int
 
 # Routes
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "message": "Backend is ready"}
+
 @app.get("/api/connections", response_model=List[ConnectionResponse])
 def read_connections():
     return get_all_connections()

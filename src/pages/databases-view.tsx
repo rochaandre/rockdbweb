@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { DatabaseForm, type DatabaseConnection } from "@/components/databases/database-form"
-import { Database, Plus, Loader2, Edit2, Play, CheckCircle2, History, Trash2 } from "lucide-react"
+import { Database, Plus, Loader2, Edit2, Play, CheckCircle2, History, Trash2, Activity } from "lucide-react"
 import { useApp, API_URL } from "@/context/app-context"
 import { twMerge } from "tailwind-merge"
 import { Badge } from "@/components/ui/badge"
 
 export function DatabasesView() {
-    const { logAction, setConnection, connection } = useApp()
+    const { logAction, setConnection, connection, isBackendReady } = useApp()
     const [connections, setConnections] = useState<DatabaseConnection[]>([])
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingConn, setEditingConn] = useState<DatabaseConnection | undefined>(undefined)
@@ -152,6 +152,27 @@ export function DatabasesView() {
         e.stopPropagation() // Prevent triggering connect
         setEditingConn(conn)
         setIsDialogOpen(true)
+    }
+
+    if (!isBackendReady) {
+        return (
+            <MainLayout>
+                <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-4">
+                    <div className="relative">
+                        <Loader2 className="size-12 animate-spin text-primary opacity-20" />
+                        <Activity className="size-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                    </div>
+                    <div className="text-center space-y-1">
+                        <h2 className="text-xl font-bold tracking-tight">Initializing Application</h2>
+                        <p className="text-muted-foreground text-sm">Please wait while the backend services are starting up...</p>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-primary/5 rounded-full border border-primary/10">
+                        <div className="size-1.5 rounded-full bg-primary animate-ping" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">RockDB Backend Booting</span>
+                    </div>
+                </div>
+            </MainLayout>
+        )
     }
 
     return (

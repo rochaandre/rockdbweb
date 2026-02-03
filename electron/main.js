@@ -15,7 +15,8 @@ function startPythonBackend() {
 
     const env = {
         ...process.env,
-        ROCKDB_DATA_DIR: app.isPackaged ? app.getPath('userData') : path.join(__dirname, '..')
+        ROCKDB_DATA_DIR: app.isPackaged ? app.getPath('userData') : path.resolve(__dirname, '..'),
+        ROCKDB_SCRIPTS_DIR: app.isPackaged ? path.resolve(process.resourcesPath, 'sql') : path.resolve(__dirname, '..', 'sql')
     };
 
     if (isDev) {

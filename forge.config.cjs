@@ -2,7 +2,8 @@ module.exports = {
     packagerConfig: {
         asar: true,
         extraResource: [
-            './release_bin/rockdb-backend'
+            './release_bin/rockdb-backend',
+            './sql'
         ],
     },
     rebuildConfig: {},

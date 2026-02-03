@@ -38,3 +38,4 @@ backend/__pycache__/
 influxdb/
 server/
 backend_restart.log
+oracle_registry_secret.txt

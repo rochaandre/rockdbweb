@@ -18,6 +18,7 @@ def decrypt_password(encrypted_password: str) -> str:
     return cipher_suite.decrypt(encrypted_password.encode()).decode()
 
 # SQLite Database setup
+# SQLite Database setup
 def get_db_path():
     # Priority 1: Explicit database file path
     env_path = os.getenv("ROCKDB_DATABASE_PATH")
@@ -38,7 +39,21 @@ def get_db_path():
     base_dir = os.getcwd()
     return os.path.join(base_dir, "rockdb.sqlite")
 
+def get_scripts_dir():
+    # Priority 1: Environment variable
+    env_path = os.getenv("ROCKDB_SCRIPTS_DIR")
+    if env_path:
+        abs_path = os.path.abspath(env_path)
+        print(f"Using ROCKDB_SCRIPTS_DIR from env: {abs_path}", flush=True)
+        return abs_path
+    
+    # Priority 2: Standard project path
+    abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sql"))
+    print(f"Using default scripts directory: {abs_path}", flush=True)
+    return abs_path
+
 DB_PATH = get_db_path()
+SCRIPTS_DIR = get_scripts_dir()
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH, timeout=5)

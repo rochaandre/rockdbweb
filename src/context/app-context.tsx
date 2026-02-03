@@ -20,7 +20,6 @@ interface Connection {
     is_rac?: boolean
     inst_name?: string
 }
-
 interface AppContextType {
     connection: Connection
     statusMessage: string
@@ -28,6 +27,7 @@ interface AppContextType {
     logAction: (action: string, component: string, details?: string) => void
     setConnection: (conn: Connection) => void
     fetchActiveConnection: () => Promise<void>
+    isBackendReady: boolean
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -57,6 +57,7 @@ export const API_URL = `http://localhost:${getBackendPort()}/api`
 export function AppProvider({ children }: { children: ReactNode }) {
     const [connection, setConnectionState] = useState<Connection>(DEFAULT_CONNECTION)
     const [statusMessage, setStatusMessage] = useState('System Ready')
+    const [isBackendReady, setIsBackendReady] = useState(false)
 
     const setConnection = (conn: Connection) => {
         setConnectionState(conn)
@@ -108,8 +109,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    const checkBackendHealth = async () => {
+        try {
+            const res = await fetch(`${API_URL}/health`)
+            if (res.ok) {
+                setIsBackendReady(true)
+                logAction('System', 'Backend', 'Connected to backend sidecar')
+                return true
+            }
+        } catch (error) {
+            // Ignore error, backend not ready yet
+        }
+        return false
+    }
+
     useEffect(() => {
-        fetchActiveConnection()
+        let isMounted = true
+        let pollCount = 0
+        const MAX_POLLS = 30 // Wait up to 30 seconds
+
+        const poll = async () => {
+            const ready = await checkBackendHealth()
+            if (ready && isMounted) {
+                fetchActiveConnection()
+            } else if (isMounted && pollCount < MAX_POLLS) {
+                pollCount++
+                setTimeout(poll, 1000)
+            } else if (isMounted) {
+                logAction('Error', 'Backend', 'Timed out waiting for backend')
+            }
+        }
+
+        poll()
+
+        return () => { isMounted = false }
     }, [])
 
     const logAction = (action: string, component: string, details: string = '') => {
@@ -120,7 +153,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AppContext.Provider value={{ connection, setConnection, statusMessage, setStatusMessage, logAction, fetchActiveConnection }}>
+        <AppContext.Provider value={{
+            connection,
+            setConnection,
+            statusMessage,
+            setStatusMessage,
+            logAction,
+            fetchActiveConnection,
+            isBackendReady
+        }}>
             {children}
         </AppContext.Provider>
     )
