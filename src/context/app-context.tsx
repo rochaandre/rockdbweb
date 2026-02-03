@@ -40,7 +40,17 @@ const DEFAULT_CONNECTION: Connection = {
     status: 'Offline'
 }
 
-export const API_URL = 'http://localhost:8000/api'
+// Port 8000 is default for Web, 8080 is for Electron sidecar
+const getBackendPort = () => {
+    // If we're on the specific Electron dev port, use 8080
+    if (window.location.port === '5180') return '8080'
+    // Default to 8080 if not on the standard vite dev port (likely production or sidecar)
+    if (window.location.port !== '5173' && window.location.port !== '') return '8080'
+    // Fallback to 8000
+    return '8000'
+}
+
+export const API_URL = `http://localhost:${getBackendPort()}/api`
 
 export function AppProvider({ children }: { children: ReactNode }) {
     const [connection, setConnectionState] = useState<Connection>(DEFAULT_CONNECTION)

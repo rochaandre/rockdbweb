@@ -11,7 +11,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron:start": "electron-forge start",
+    "electron:start": "vite --port 5180 & electron-forge start",
     "electron:package": "electron-forge package",
     "electron:make": "electron-forge make"
   },

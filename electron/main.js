@@ -19,7 +19,7 @@ function startPythonBackend() {
             '-m', 'uvicorn',
             'backend.main:app',
             '--host', '127.0.0.1',
-            '--port', '8000'
+            '--port', '8080'
         ], {
             cwd: path.join(__dirname, '..'),
             shell: true
@@ -66,7 +66,7 @@ function createWindow() {
     // In production, load the built index.html
     const isDev = !app.isPackaged;
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5173');
+        mainWindow.loadURL('http://localhost:5180');
         // Open DevTools in dev mode
         mainWindow.webContents.openDevTools();
     } else {
