@@ -66,71 +66,71 @@ Expected response: `{"status":"ok","message":"Backend is ready"}`
 - **Stop the container**: `docker-compose down`
 - **Access the container shell**: `docker exec -it rockdb_app /bin/bash`
 
-## Distribuição e Versionamento
+## Distribution and Versioning
 
-Para distribuir o RockDB para outras empresas ou pessoas, você deve utilizar o conceito de **Tags** e **Registries** (como Docker Hub ou Google Artifact Registry).
+To distribute RockDB to other companies or individuals, you should use the concept of **Tags** and **Registries** (such as Docker Hub or Google Artifact Registry).
 
-### 1. Versionando a Imagem
-Não use apenas a tag `latest` para distribuição. Use números de versão para ter controle sobre o que cada cliente está rodando.
+### 1. Versioning the Image
+Do not use only the `latest` tag for distribution. Use version numbers to have control over what each client is running.
 
 ```bash
-# Taggear uma versão específica (ex: v1.0.1)
+# Tag a specific version (example: v1.0.1)
 docker tag rockdb-app rochaandre/rockdbweb:v1.0.1
 ```
 
-### 2. Enviando para um Registry (Push)
-Para que outras pessoas possam baixar a imagem, você precisa enviá-la para um repositório remoto:
+### 2. Pushing to a Registry
+For others to be able to download the image, you need to send it to a remote repository:
 
 ```bash
-# Efetuar login no Docker Hub (ou outro registry)
+# Log in to Docker Hub (or another registry)
 docker login
 
-# Enviar a imagem
+# Push the image
 docker push rochaandre/rockdbweb:v1.0.1
 ```
 
-### 3. Como o Cliente Utiliza
-O cliente final não precisará do seu código-fonte, apenas do arquivo `docker-compose.yml` configurado para baixar a imagem pública/privada:
+### 3. How the Client Uses It
+The end client will not need your source code, only the `docker-compose.yml` file configured to download the public/private image:
 
 ```yaml
 services:
   rockdb-backend:
-    image: rochaandre/rockdbweb:v1.0.1  # Baixa a imagem pronta
+    image: rochaandre/rockdbweb:v1.0.1  # Downloads the ready image
     ports:
       - "8080:8080"
-    # ... volumes e envs ...
+    # ... volumes and envs ...
 ```
 
 ---
 
-## Workflow de Atualização (Step-by-Step)
+## Update Workflow (Step-by-Step)
 
-Sempre que você alterar o código-fonte (Python), siga este fluxo para atualizar a imagem e o container:
+Whenever you change the source code (Python), follow this flow to update the image and the container:
 
-1.  **Rebuild da Imagem**: Comando para ler o `Dockerfile` e aplicar suas mudanças no binário da imagem.
+1.  **Image Rebuild**: Command to read the `Dockerfile` and apply your changes to the image binary.
     ```bash
     docker build -t rockdb-app .
     ```
 
-2.  **Atualização do Container**: Comando para o Docker Compose perceber que a imagem `rockdb-app` mudou e recriar o container.
+2.  **Container Update**: Command for Docker Compose to notice that the `rockdb-app` image has changed and recreate the container.
     ```bash
     docker-compose up -d
     ```
 
-3.  **Limpeza (Opcional)**: Remova imagens antigas que ficaram sem nome (dangling images) para economizar espaço.
+3.  **Cleanup (Optional)**: Remove old images that are left without a name (dangling images) to save space.
     ```bash
     docker image prune -f
     ```
 
 > [!TIP]
-> **Atalho**: Você pode realizar os passos 1 e 2 em um único comando:
+> **Shortcut**: You can perform steps 1 and 2 in a single command:
 > ```bash
 > docker-compose up -d --build
 > ```
 
-### Quando NÃO é necessário rebuild?
-- **Scripts SQL**: Se você apenas adicionou ou removeu arquivos na pasta `./sql`, **não precisa de nada**. O Docker já "enxerga" os arquivos novos automaticamente por causa do volume montado.
-- **Configurações (.env)**: Se você mudar o `.env`, apenas reinicie o container: `docker-compose restart`.
+### When is a rebuild NOT necessary?
+- **SQL Scripts**: If you only added or removed files in the `./sql` folder, **you don't need anything**. Docker already "sees" the new files automatically because of the mounted volume.
+- **Configurations (.env)**: If you change the `.env`, just restart the container: `docker-compose restart`.
 
 ## Criando o Ambiente do Zero (The Template Approach)
 
