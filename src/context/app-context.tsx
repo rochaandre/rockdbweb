@@ -44,6 +44,8 @@ const DEFAULT_CONNECTION: Connection = {
 const getBackendPort = () => {
     // If we're on the specific Electron dev port, use 8080
     if (window.location.port === '5180') return '8080'
+    // If we're running from a file (packaged electron), use 8080
+    if (window.location.protocol === 'file:') return '8080'
     // Default to 8080 if not on the standard vite dev port (likely production or sidecar)
     if (window.location.port !== '5173' && window.location.port !== '') return '8080'
     // Fallback to 8000

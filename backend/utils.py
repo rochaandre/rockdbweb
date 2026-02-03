@@ -46,7 +46,9 @@ def get_db_connection():
     return conn
 
 def init_db():
-    print(f"Initializing database at: {DB_PATH}", flush=True)
+    abs_path = os.path.abspath(DB_PATH)
+    exists = os.path.exists(abs_path)
+    print(f"Initializing database at: {abs_path} (exists: {exists})", flush=True)
     conn = get_db_connection()
     cursor = conn.cursor()
     # Ensure all columns exist (Migration handling)
