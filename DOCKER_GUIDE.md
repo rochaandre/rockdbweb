@@ -67,6 +67,50 @@ Expected response: `{"status":"ok","message":"Backend is ready"}`
 - **View logs in real-time**: `docker logs -f rockdb_app`
 - **Access the container shell**: `docker exec -it rockdb_app /bin/bash`
 
+## Creating the Environment from Scratch
+
+If you need to recreate this setup from zero, follow these steps and design choices:
+
+### 1. Choosing the Base Template
+We use the **Oracle Database Observability Exporter** as our base image (`container-registry.oracle.com/database/observability-exporter:2.2.1`).
+
+**Why this template?**
+- Pre-configured with **Oracle Linux 8**.
+- Includes the **Oracle Instant Client** libraries required for `oracledb`.
+- Contains the `oracledb_exporter` binary for database metrics.
+
+### 2. Manual Reconstruction Steps
+
+If you were starting from an empty folder, the process would be:
+
+1.  **Initialize the Dockerfile**:
+    - Start `FROM` the exporter image.
+    - Switch to `USER root` to install Python.
+    - Use `microdnf` (the package manager for Oracle Linux) to install `python3.11` and `pip`.
+
+2.  **Configure Python**:
+    - Use `alternatives` to ensure `python3` points to the new version.
+    - Upgrade `pip`, `setuptools`, and `wheel`.
+
+3.  **Dependency Strategy**:
+    - Copy only `backend/requirements.txt` first. This allows Docker to cache the heavy installation step.
+    - Install dependencies using `pip3 install -r requirements.txt`.
+
+4.  **Application Layer**:
+    - Copy your `backend/` source, `sql/` scripts, and the `rockdb.sqlite` seed file.
+    - Create the persistence directory `/opt/rockdbweb` and set ownership to UID `1000` (the default non-root user in the template).
+
+5.  **Multi-Process Management**:
+    - Since Docker containers usually run one process, we create a `start.sh` script to launch both the `oracledb_exporter` and our `uvicorn` backend.
+    - Use `&` to run the exporter in the background.
+
+6.  **Entrypoint Fix (Critical)**:
+    - The base image has its own `ENTRYPOINT`. To use our `start.sh` as the main command, we MUST clear it with `ENTRYPOINT []`.
+
+### 3. Re-assembling the Pieces
+
+By combining these steps, the `Dockerfile` in this repo acts as a complete blueprint. You can simply copy its content and run `docker build` to have a production-ready environment instantly.
+
 ## Persistence Notes
 
 - **Database**: Stored in the `rockdb_data` Docker volume. It will persist even if the container is removed.
