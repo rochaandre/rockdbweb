@@ -1,9 +1,9 @@
 
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Save, Copy, FileText, Printer, FileType } from 'lucide-react'
+import { ArrowLeft, Copy, Printer, FileType } from 'lucide-react'
 
 export function SqlReportView() {
     const { reportType, sqlId } = useParams()

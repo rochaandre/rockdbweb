@@ -79,28 +79,19 @@ Historical workload replay powered by InfluxDB.
 
 ---
 
-## 🚀 Technical Setup
+## 🚀 Getting Started
 
-### 1. Prerequisites
-- **Node.js**: Modern JavaScript runtime.
-- **Python 3.12+**: For the high-performance FastAPI backend.
-- **Docker**: Required for the InfluxDB time-series engine.
+RockDB is designed as a standalone desktop application. It packages everything you need—including the frontend and the performance backend—into a single executable.
 
-### 2. Installation & Run
-```bash
-# 1. Install Dependencies
-npm install
-pip install -r backend/requirements.txt
+### 📦 Installation
+1. **Download**: Obtain the latest version of RockDB for your operating system (macOS `.app`, Windows `.exe`).
+2. **Infrastructure**: RockDB requires Docker for the Time Machine (InfluxDB) engine.
+   ```bash
+   docker-compose up -d
+   ```
+3. **Run**: Simply double-click the **RockDB** icon to start.
 
-# 2. Start Infrastructure
-docker-compose up -d
-
-# 3. Launch Application
-npm run dev           # Frontend (Vite)
-npm run python-server # Backend (FastAPI)
-```
-
-The application will be available at `http://localhost:5173`.
+*Note: The application automatically manages its internal performance engine in the background.*
 
 ---
 *Empowering DBAs with speed, clarity, and total control.*

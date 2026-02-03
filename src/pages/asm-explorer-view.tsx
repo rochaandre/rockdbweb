@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { HardDrive, AlertTriangle, Activity, Database, Server } from 'lucide-react'
+import { HardDrive, AlertTriangle } from 'lucide-react'
 import { MOCK_ASM_DATA } from '@/components/storage/asm-data'
 
 export function AsmExplorerView() {
