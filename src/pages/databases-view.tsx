@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { DatabaseForm, type DatabaseConnection } from "@/components/databases/database-form"
-import { Database, Plus, Loader2, Edit2, Play, CheckCircle2, History } from "lucide-react"
+import { Database, Plus, Loader2, Edit2, Play, CheckCircle2, History, Trash2 } from "lucide-react"
 import { useApp, API_URL } from "@/context/app-context"
 import { twMerge } from "tailwind-merge"
 import { Badge } from "@/components/ui/badge"
@@ -125,6 +125,24 @@ export function DatabasesView() {
         }
     }
 
+    const handleDelete = async (e: React.MouseEvent, conn: DatabaseConnection) => {
+        e.stopPropagation()
+        if (!window.confirm(`Are you sure you want to remove the connection "${conn.name}"?`)) return
+
+        try {
+            const res = await fetch(`${API_URL}/connections/${conn.id}`, {
+                method: 'DELETE'
+            })
+
+            if (res.ok) {
+                logAction('Database', 'Delete', `Removed connection ${conn.name}`)
+                await fetchConnections()
+            }
+        } catch (error) {
+            console.error('Delete failed:', error)
+        }
+    }
+
     const openNewResult = () => {
         setEditingConn(undefined)
         setIsDialogOpen(true)
@@ -194,7 +212,15 @@ export function DatabasesView() {
                                         >
                                             <Edit2 className="size-3 text-muted-foreground" />
                                         </Button>
-                                        <Database className={twMerge("size-4",
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600"
+                                            onClick={(e) => handleDelete(e, conn)}
+                                        >
+                                            <Trash2 className="size-3" />
+                                        </Button>
+                                        <Database className={twMerge("size-4 ml-1",
                                             conn.status === 'Connected' ? "text-green-500" :
                                                 connection.id === conn.id ? "text-blue-500" : "text-muted-foreground"
                                         )} />

@@ -18,7 +18,27 @@ def decrypt_password(encrypted_password: str) -> str:
     return cipher_suite.decrypt(encrypted_password.encode()).decode()
 
 # SQLite Database setup
-DB_PATH = os.path.join(os.path.dirname(__file__), "../rockdb.sqlite")
+def get_db_path():
+    # Priority 1: Explicit database file path
+    env_path = os.getenv("ROCKDB_DATABASE_PATH")
+    if env_path:
+        return env_path
+    
+    # Priority 2: Data directory environment variable
+    data_dir = os.getenv("ROCKDB_DATA_DIR")
+    if data_dir:
+        return os.path.join(data_dir, "rockdb.sqlite")
+    
+    # Priority 3: Standard container path
+    container_path = "/opt/rockdbweb/rockdb.sqlite"
+    if os.path.exists("/opt/rockdbweb"):
+        return container_path
+
+    # Priority 4: Default behavior (relative to current working dir)
+    base_dir = os.getcwd()
+    return os.path.join(base_dir, "rockdb.sqlite")
+
+DB_PATH = get_db_path()
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH, timeout=5)
@@ -26,6 +46,7 @@ def get_db_connection():
     return conn
 
 def init_db():
+    print(f"Initializing database at: {DB_PATH}", flush=True)
     conn = get_db_connection()
     cursor = conn.cursor()
     # Ensure all columns exist (Migration handling)

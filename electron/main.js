@@ -13,6 +13,11 @@ function startPythonBackend() {
     const isDev = !app.isPackaged && process.env.APP_MODE !== 'prod';
     console.log(`Starting Python backend (isDev: ${isDev}, mode: ${process.env.APP_MODE})...`);
 
+    const env = {
+        ...process.env,
+        ROCKDB_DATA_DIR: app.isPackaged ? app.getPath('userData') : path.join(__dirname, '..')
+    };
+
     if (isDev) {
         // In development, run uvicorn command
         pythonProcess = spawn('python3', [
@@ -22,7 +27,8 @@ function startPythonBackend() {
             '--port', '8080'
         ], {
             cwd: path.join(__dirname, '..'),
-            shell: true
+            shell: true,
+            env: env
         });
     } else {
         // In production / prod-preview, run the bundled executable
@@ -36,8 +42,10 @@ function startPythonBackend() {
         }
 
         console.log(`Spawning backend from: ${binPath}`);
+        console.log(`Data Directory: ${env.ROCKDB_DATA_DIR}`);
         pythonProcess = spawn(binPath, [], {
-            shell: false
+            shell: false,
+            env: env
         });
     }
 
