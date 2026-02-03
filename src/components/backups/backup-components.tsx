@@ -6,7 +6,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 // import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" --> Removed
 import { useState, useEffect } from 'react'
-import { Copy, Terminal, FileDigit, HardDrive, RefreshCw, Archive } from "lucide-react"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Copy, Terminal, FileDigit, HardDrive, RefreshCw, Archive, Globe, Database } from "lucide-react"
 // mock data removed
 
 // --- status helper ---
@@ -211,8 +212,9 @@ export function BackupSummaryTable({ summary = [] }: { summary: any[] }) {
     )
 }
 
+
 // --- RMAN Generator ---
-export function RmanGenerator() {
+export function RmanGenerator({ nlsParams }: { nlsParams?: any }) {
     const [action, setAction] = useState('BACKUP')
     // Common
     const [target, setTarget] = useState('DATABASE')
@@ -307,6 +309,30 @@ export function RmanGenerator() {
                                 <Checkbox id="comp" checked={compress} onChange={(e) => setCompress(e.target.checked as boolean)} />
                                 <Label htmlFor="comp">Compress Backup Sets</Label>
                             </div>
+
+                            {/* NLS Cards - User requested below Compress Backup Sets */}
+                            {nlsParams && (
+                                <div className="grid grid-cols-1 gap-3 pt-4 border-t border-border mt-4">
+                                    <div className="flex items-center gap-3 p-3 bg-blue-500/5 rounded-lg border border-blue-500/10">
+                                        <div className="p-1.5 bg-blue-500/10 rounded-md">
+                                            <Globe className="h-4 w-4 text-blue-500" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Language / Territory</p>
+                                            <p className="text-sm font-bold">{`${nlsParams.language}_${nlsParams.territory}`}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-purple-500/5 rounded-lg border border-purple-500/10">
+                                        <div className="p-1.5 bg-purple-500/10 rounded-md">
+                                            <Database className="h-4 w-4 text-purple-500" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Database Character Set</p>
+                                            <p className="text-sm font-bold">{nlsParams.db_charset}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
 
@@ -353,7 +379,7 @@ export function RmanGenerator() {
 }
 
 // --- EXPDP Generator (Existing) ---
-export function ExpdpGenerator() {
+export function ExpdpGenerator({ nlsParams }: { nlsParams?: any }) {
     const [mode, setMode] = useState('SCHEMA')
     const [schemas, setSchemas] = useState('HR, SALES')
     const [directory, setDirectory] = useState('DATA_PUMP_DIR')
@@ -440,6 +466,31 @@ export function ExpdpGenerator() {
                 <div className="text-xs text-muted-foreground">
                     * Passwords are hidden or generic. Replace before execution.
                 </div>
+
+                {/* NLS_LANG Tip Card */}
+                {nlsParams && (
+                    <Card className="bg-slate-900 border-slate-800">
+                        <CardHeader className="py-3 border-b border-slate-800">
+                            <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                                <Terminal className="size-4" /> Environment Setup Hint (NLS_LANG)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-3 space-y-3 font-mono text-[11px]">
+                            <div className="space-y-1">
+                                <p className="text-blue-400 font-bold">### COMANDO PARA LINUX (BASH) ###</p>
+                                <div className="bg-black/40 p-2 rounded text-slate-300 border border-white/5 select-all">
+                                    export NLS_LANG={nlsParams.language}_{nlsParams.territory}.{nlsParams.db_charset}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-amber-500 font-bold">### COMANDO PARA WINDOWS (CMD) ###</p>
+                                <div className="bg-black/40 p-2 rounded text-slate-300 border border-white/5 select-all">
+                                    set NLS_LANG={nlsParams.language}_{nlsParams.territory}.{nlsParams.db_charset}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     )

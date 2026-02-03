@@ -13,7 +13,8 @@ import {
     Terminal,
     History,
     Plus,
-    Clock
+    Clock,
+    ShieldCheck
 } from "lucide-react"
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -33,11 +34,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { icon: Database, label: 'Databases', path: '/databases' },
         { icon: HardDrive, label: 'Storage', path: '/storage' },
         { icon: FileText, label: 'Logs', path: '/logs' },
+        { icon: ShieldCheck, label: 'Healthcheck', path: '/healthcheck' },
         { icon: Settings, label: 'Configuration', path: '/configuration' },
         { icon: History, label: 'Redo Log Explorer', path: '/redo-log' },
         { icon: LayoutDashboard, label: 'SQL Dashboard', path: '/sql-dashboard' },
         { icon: Terminal, label: 'SQL Central', path: '/sql-central' },
         { icon: Clock, label: 'Jobs (Legacy)', path: '/jobs' },
+        { icon: History, label: 'Time Machine', path: '/timemachine' },
 
         { icon: Settings, label: 'Settings', path: '/settings' },
     ]

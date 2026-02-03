@@ -1,6 +1,6 @@
 with database_size as (
 select
-reserved_space_gb, Reserved_Space_GB - Free_Space_GB  used_gb,
+reserved_space_gb, Reserved_Space_GB - Free_Space_GB  Used_Space_GB,
 free_space_gb, Reserved_Space_GB allocated_gb, physical_used_gb
 from(
 select 
@@ -18,7 +18,7 @@ from dual
 select 'Reserved_Space_GB' DESCRIPTION, Reserved_Space_GB VALUE
 from database_size
 UNION ALL
-select 'Used_Space_GB' DESCRIPTION, Used_Space_GB VALUE
+select 'Used_Space' DESCRIPTION, Used_Space_GB VALUE
 from database_size
 UNION ALL
 select 'Allocated' DESCRIPTION, allocated_gb VALUE

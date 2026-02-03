@@ -26,6 +26,7 @@ export function RedoLogView() {
     const [standbyGroups, setStandbyGroups] = useState<any[]>([])
     const [archives, setArchives] = useState<any[]>([])
     const [logBuffer, setLogBuffer] = useState<any>({})
+    const [mgmtInfo, setMgmtInfo] = useState<any>(null)
     const [isRefreshing, setIsRefreshing] = useState(false)
 
     // Filters
@@ -35,14 +36,15 @@ export function RedoLogView() {
     const fetchData = async () => {
         setIsRefreshing(true)
         try {
-            const [redoRes, threadsRes, ctrlRes, ckptRes, stbyRes, archRes, lbRes] = await Promise.all([
+            const [redoRes, threadsRes, ctrlRes, ckptRes, stbyRes, archRes, lbRes, mgmtRes] = await Promise.all([
                 fetch(`${API_URL}/storage/redo`),
                 fetch(`${API_URL}/storage/redo/threads`),
                 fetch(`${API_URL}/storage/control`),
                 fetch(`${API_URL}/storage/checkpoint`),
                 fetch(`${API_URL}/storage/redo/standby`),
                 fetch(`${API_URL}/storage/redo/archives`),
-                fetch(`${API_URL}/storage/redo/logbuffer`)
+                fetch(`${API_URL}/storage/redo/logbuffer`),
+                fetch(`${API_URL}/storage/redo/mgmt-info`)
             ])
 
             if (redoRes.ok) setGroups(await redoRes.json())
@@ -52,6 +54,7 @@ export function RedoLogView() {
             if (stbyRes.ok) setStandbyGroups(await stbyRes.json())
             if (archRes.ok) setArchives(await archRes.json())
             if (lbRes.ok) setLogBuffer(await lbRes.json())
+            if (mgmtRes.ok) setMgmtInfo(await mgmtRes.json())
         } catch (err) {
             console.error('Error fetching redo data:', err)
         } finally {
@@ -208,7 +211,41 @@ select member from v$logfile;
                         </div>
 
                         <div className="flex-1 overflow-auto bg-slate-50 p-4">
-                            <TabsContent value="groups" className="mt-0 h-full">
+                            <TabsContent value="groups" className="mt-0 h-full space-y-4">
+                                {mgmtInfo && (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                                        <Card className="bg-white">
+                                            <CardContent className="p-3">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold">Log Mode</p>
+                                                <p className="text-lg font-bold text-primary">{mgmtInfo.db_log_mode}</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-white">
+                                            <CardContent className="p-3">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold">Auto Archival</p>
+                                                <p className="text-lg font-bold">{mgmtInfo.auto_archival}</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-white col-span-1 md:col-span-2">
+                                            <CardContent className="p-3">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold">Archive Destination</p>
+                                                <p className="text-xs font-mono truncate" title={mgmtInfo.log_archive_dest_1}>{mgmtInfo.log_archive_dest_1}</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-white">
+                                            <CardContent className="p-3">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold">Format</p>
+                                                <p className="text-xs font-mono">{mgmtInfo.log_archive_format}</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-white">
+                                            <CardContent className="p-3">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold">Current Seq</p>
+                                                <p className="text-lg font-bold text-green-600">{mgmtInfo.current_seq}</p>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
                                 <RedoManager groups={groups} onRefresh={fetchData} />
                             </TabsContent>
 

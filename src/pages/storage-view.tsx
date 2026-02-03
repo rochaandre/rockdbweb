@@ -25,8 +25,8 @@ export function StorageView() {
 
     // Storage States
     const [controlFiles, setControlFiles] = useState<any[]>([])
-    const [sysauxOccupants, setSysauxOccupants] = useState<any[]>([])
-    const [undoStats, setUndoStats] = useState<any[]>([])
+    const [sysauxData, setSysauxData] = useState<any>({ occupants: [], top_objects: [], availability: 'N/A' })
+    const [undoData, setUndoData] = useState<any>({ stats: [], retention: 0, max_query_len: 0 })
     const [tempUsage, setTempUsage] = useState<any[]>([])
     const [checkpointProgress, setCheckpointProgress] = useState<any[]>([])
 
@@ -50,8 +50,8 @@ export function StorageView() {
             if (tsRes.ok) setTablespaces(await tsRes.json())
             if (filesRes.ok) setFiles(await filesRes.json())
             if (ctrlRes.ok) setControlFiles(await ctrlRes.json())
-            if (sysRes.ok) setSysauxOccupants(await sysRes.json())
-            if (undoRes.ok) setUndoStats(await undoRes.json())
+            if (sysRes.ok) setSysauxData(await sysRes.json())
+            if (undoRes.ok) setUndoData(await undoRes.json())
             if (tempRes.ok) setTempUsage(await tempRes.json())
             if (ckptRes.ok) setCheckpointProgress(await ckptRes.json())
 
@@ -189,10 +189,10 @@ export function StorageView() {
 
                     {/* Advanced Contents */}
                     <TabsContent value="sysaux" className="flex-1 mt-4 overflow-auto">
-                        <SysauxPanel occupants={sysauxOccupants} />
+                        <SysauxPanel data={sysauxData} />
                     </TabsContent>
                     <TabsContent value="undo" className="flex-1 mt-4 overflow-auto">
-                        <UndoPanel stats={undoStats} />
+                        <UndoPanel data={undoData} />
                     </TabsContent>
                     <TabsContent value="temp" className="flex-1 mt-4 overflow-auto">
                         <TempPanel usage={tempUsage} />

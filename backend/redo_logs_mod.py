@@ -231,3 +231,36 @@ def get_log_buffer_stats(conn_info):
     finally:
         if connection:
             connection.close()
+
+def get_redo_management_info(conn_info):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        # 1. Fetch parameters
+        cursor.execute("SELECT name, value FROM v$parameter WHERE name IN ('log_archive_dest_1', 'log_archive_format')")
+        params = {row[0].lower(): row[1] for row in cursor.fetchall()}
+        
+        # 2. Fetch specific query results
+        cursor.execute("""
+            SELECT 
+                (SELECT log_mode FROM v$database) AS db_log_mode,
+                (SELECT value FROM v$parameter WHERE name = 'log_archive_dest_state_1') AS auto_archival,
+                (SELECT destination FROM v$archive_dest WHERE dest_id = 1) AS archive_dest,
+                (SELECT max(sequence#) FROM v$log) AS oldest_online_seq,
+                (SELECT max(sequence#) FROM v$archived_log) AS next_archive_seq,
+                (SELECT sequence# FROM v$log WHERE status = 'CURRENT') AS current_seq
+            FROM dual
+        """)
+        row = cursor.fetchone()
+        columns = [col[0].lower() for col in cursor.description]
+        status_info = dict(zip(columns, row)) if row else {}
+        
+        return {**params, **status_info}
+    except Exception as e:
+        print(f"Error fetching redo management info: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()

@@ -5,3 +5,4 @@ cryptography
 pydantic
 python-dotenv
 sqlite3
+influxdb-client

@@ -5,9 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BackupJobsTable, BackupSetsTable, DatafilesTable, ExpdpGenerator, BackupSummaryTable, RmanGenerator } from '@/components/backups/backup-components'
 import { useApp, API_URL } from '@/context/app-context'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, Globe, Database } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
-import { Card, CardContent } from '@/components/ui/card'
 
 export function BackupsView() {
     const [activeTab, setActiveTab] = usePersistentState('backups', 'activeTab', 'progress')
@@ -100,32 +99,6 @@ export function BackupsView() {
                     </Button>
                 </div>
 
-                {/* NLS Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
-                    <Card className="bg-background/50 border-border/50">
-                        <CardContent className="pt-4 flex items-center gap-4">
-                            <div className="p-2 bg-blue-500/10 rounded-lg">
-                                <Globe className="h-5 w-5 text-blue-500" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold">Language / Territory</p>
-                                <p className="text-xl font-bold">{nlsParams ? `${nlsParams.language}_${nlsParams.territory}` : 'Loading...'}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-background/50 border-border/50">
-                        <CardContent className="pt-4 flex items-center gap-4">
-                            <div className="p-2 bg-purple-500/10 rounded-lg">
-                                <Database className="h-5 w-5 text-purple-500" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold">Database Character Set</p>
-                                <p className="text-xl font-bold">{nlsParams ? nlsParams.db_charset : 'Loading...'}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
                 <Tabs
                     value={activeTab}
                     onValueChange={setActiveTab}
@@ -191,11 +164,11 @@ export function BackupsView() {
                     </TabsContent>
 
                     <TabsContent value="rman" className="flex-1 mt-4 overflow-auto">
-                        <RmanGenerator />
+                        <RmanGenerator nlsParams={nlsParams} />
                     </TabsContent>
 
                     <TabsContent value="expdp" className="flex-1 mt-4 overflow-auto">
-                        <ExpdpGenerator />
+                        <ExpdpGenerator nlsParams={nlsParams} />
                     </TabsContent>
                 </Tabs>
             </div>

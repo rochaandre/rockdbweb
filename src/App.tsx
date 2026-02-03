@@ -15,6 +15,8 @@ import { BlockExplorerView } from '@/pages/block-explorer-view'
 import { AsmExplorerView } from '@/pages/asm-explorer-view'
 import { RedoLogView } from '@/pages/redo-log-view'
 import { JobsView } from '@/pages/jobs-view'
+import { HealthcheckView } from '@/pages/healthcheck-view'
+import { TimeMachineView } from '@/pages/time-machine-view'
 import { AppProvider } from '@/context/app-context'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
@@ -42,6 +44,8 @@ function App() {
           <Route path="/asm-explorer" element={<AsmExplorerView />} />
           <Route path="/redo-log" element={<RedoLogView />} />
           <Route path="/jobs" element={<JobsView />} />
+          <Route path="/healthcheck" element={<HealthcheckView />} />
+          <Route path="/timemachine" element={<TimeMachineView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppProvider>

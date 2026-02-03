@@ -17,14 +17,19 @@ from .sessions_mod import (
 from .storage_mod import (
     get_tablespaces_detailed, get_data_files, get_segments, 
     get_control_files, get_sysaux_occupants, get_undo_stats, get_temp_usage,
-    resize_datafile, add_datafile, get_checkpoint_progress, force_checkpoint
+    resize_datafile, add_datafile, get_checkpoint_progress, force_checkpoint,
+    get_stats_history_retention, set_stats_history_retention
 )
 from .redo_logs_mod import (
     get_redo_groups, get_redo_switch_history, get_redo_threads,
     add_redo_group, drop_redo_group, add_redo_member, drop_redo_member,
-    switch_logfile, get_standby_redo_groups, get_archived_logs, get_log_buffer_stats
+    switch_logfile, get_standby_redo_groups, get_archived_logs, get_log_buffer_stats,
+    get_redo_management_info
 )
 from .logs_mod import get_alert_logs, get_db_parameters, get_outstanding_alerts
+from .healthcheck_mod import run_healthcheck
+from .timemachine_mod import store_snapshot, get_history_range, get_snapshot_at_time
+import asyncio
 from .backups_mod import get_backup_jobs, get_backup_summary, get_backup_sets, get_backup_datafiles, get_nls_parameters
 from .sql_central_mod import (
     get_sql_registry, get_sql_content, execute_generic_sql, 
@@ -36,11 +41,45 @@ from .jobs_mod import (
     set_legacy_job_broken, remove_legacy_job, submit_legacy_job
 )
 
-# Initialize Database
 init_db()
 seed_sql_scripts()
 
+# --- Time Machine Background Task ---
+async def timemachine_worker():
+    """Background loop to collect performance snapshots every 10 seconds."""
+    print("Time Machine worker starting...")
+    while True:
+        try:
+            active_conn = get_active_connection()
+            if active_conn:
+                # 1. Fetch data from Oracle
+                # Using existing modules but wrapping in try/except for resilience
+                try:
+                    sessions = get_sessions(active_conn)
+                    long_ops = get_long_ops(active_conn)
+                    blocking = get_blocking_sessions(active_conn)
+                    
+                    # 2. Store in InfluxDB
+                    store_snapshot(sessions, long_ops, blocking)
+                    # print(f"Time Machine: Captured snapshot for {active_conn['name']}")
+                except Exception as db_err:
+                    print(f"Time Machine Worker DB Error: {db_err}")
+            
+            # Wait 10 seconds
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            print("Time Machine worker stopping...")
+            break
+        except Exception as e:
+            print(f"Time Machine Worker Error: {e}")
+            await asyncio.sleep(10)
+
 app = FastAPI(title="RockDB Python Backend")
+
+@app.on_event("startup")
+async def startup_event():
+    # Start the worker task
+    asyncio.create_task(timemachine_worker())
 
 # CORS setup
 app.add_middleware(
@@ -102,6 +141,9 @@ class RedoMemberAdd(BaseModel):
 
 class RedoMemberDrop(BaseModel):
     member_path: str
+
+class StatsRetentionUpdate(BaseModel):
+    days: int
 
 # Routes
 @app.get("/api/connections", response_model=List[ConnectionResponse])
@@ -570,18 +612,42 @@ def drop_redo_mem(req: RedoMemberDrop):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/storage/redo/switch")
-def switch_redo():
-    active = get_active_connection()
-    if not active:
-        raise HTTPException(status_code=404, detail="No active connection")
-    
     print(f"Switching logfile for connection: {active['name']} ({active['host']})")
     try:
         switch_logfile(active)
         return {"status": "success"}
     except Exception as e:
         print(f"Error in switch_redo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/mgmt-info")
+def read_redo_mgmt_info():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_redo_management_info(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/stats/retention")
+def read_stats_retention():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_stats_history_retention(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/storage/stats/retention")
+def update_stats_retention(req: StatsRetentionUpdate):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return set_stats_history_retention(active, req.days)
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # User Preferences Endpoints
@@ -789,6 +855,37 @@ def create_legacy_job(req: JobSubmitRequest):
     try:
         submit_legacy_job(active, req.what, req.next_date, req.interval)
         return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/healthcheck")
+def read_healthcheck():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return run_healthcheck(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Time Machine Routes ---
+
+@app.get("/api/timemachine/history")
+def read_timemachine_history(start: str, end: str):
+    """Fetch historical high-level metrics."""
+    try:
+        return get_history_range(start, end)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/timemachine/snapshot")
+def read_timemachine_snapshot(target: str):
+    """Fetch a complete point-in-time snapshot."""
+    try:
+        snapshot = get_snapshot_at_time(target)
+        if not snapshot:
+            raise HTTPException(status_code=404, detail="No snapshot found for this time")
+        return snapshot
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
