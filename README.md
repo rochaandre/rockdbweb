@@ -1,4 +1,4 @@
-# <img src="/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/rockdb_hero_banner_1770118144677.png" width="100%" />
+# <img src="./public/screenshots/hero_banner.png" width="100%" />
 
 # RockDB: Ultimate Oracle DBA Management Suite
 
@@ -10,27 +10,20 @@ Built for **containerized deployment**, the suite eliminates manual configuratio
 
 ## 📺 Visual Tour
 
-````carousel
-![Main Dashboard Overview](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_0_1770118325832.jpg)
-<!-- slide -->
-![High-Density Performance Telemetry](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_1_1770118325832.jpg)
-<!-- slide -->
-![Configuration & Host Intelligence](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_0_1770118891914.jpg)
-<!-- slide -->
-![Redo Log Groups & Lifecycle](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_2_1770118891914.jpg)
-<!-- slide -->
-![SQL Central Data Visualization](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_3_1770118891914.jpg)
-<!-- slide -->
-![Storage SYSAUX Deep Dive](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_4_1770118891914.jpg)
-<!-- slide -->
-![Session Explorer & SQL Inspector](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_2_1770118325832.jpg)
-<!-- slide -->
-![Storage & Tablespace Capacity Planning](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_3_1770118325832.jpg)
-<!-- slide -->
-![Database Health & Tuning Advisor](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_4_1770118325832.jpg)
-<!-- slide -->
-![Control File & Checkpoint Monitoring](/Users/rochaandre/.gemini/antigravity/brain/400ac4aa-359d-453d-b1fb-8da004387d5f/uploaded_media_1_1770118891914.jpg)
-````
+### 🚀 Core Performance & Host
+| Main Dashboard | Performance Telemetry | Configuration & Host |
+|:---:|:---:|:---:|
+| ![Main Dashboard](./public/screenshots/dashboard_overview.jpg) | ![Telemetry](./public/screenshots/performance_telemetry.jpg) | ![Host Info](./public/screenshots/config_host.jpg) |
+
+### 🔍 Deep Inspection & SQL
+| Session Explorer | SQL Visualization | SYSAUX Deep Dive |
+|:---:|:---:|:---:|
+| ![Sessions](./public/screenshots/session_explorer.jpg) | ![SQL Viz](./public/screenshots/sql_visualization.jpg) | ![SYSAUX](./public/screenshots/sysaux_deep_dive.jpg) |
+
+### 🔄 Protection & Optimization
+| Redo Log Explorer | Healthcheck Advisor | Checkpoint Monitor |
+|:---:|:---:|:---:|
+| ![Redo Logs](./public/screenshots/redo_log_groups.jpg) | ![Advisor](./public/screenshots/healthcheck_advisor.jpg) | ![Checkpoint](./public/screenshots/checkpoint_monitoring.jpg) |
 
 ---
 
