@@ -67,30 +67,36 @@ Expected response: `{"status":"ok","message":"Backend is ready"}`
 - **View logs in real-time**: `docker logs -f rockdb_app`
 - **Access the container shell**: `docker exec -it rockdb_app /bin/bash`
 
-## Updating the Application
+## Workflow de Atualização (Step-by-Step)
 
-When you make changes to your Python code (`backend/`) or your SQL scripts (`sql/`), you need to decide how to update the running container:
+Sempre que você alterar o código-fonte (Python), siga este fluxo para atualizar a imagem e o container:
 
-### 1. Updating SQL Scripts
-Since the `./sql` folder is **mounted as a volume**, any changes you make locally are reflected **immediately** inside the container. You do NOT need to rebuild the image or restart the container for new SQL scripts.
+1.  **Rebuild da Imagem**: Comando para ler o `Dockerfile` e aplicar suas mudanças no binário da imagem.
+    ```bash
+    docker build -t rockdb-app .
+    ```
 
-### 2. Updating Python Code
-If you modify files in the `backend/` directory, you must rebuild the image and restart the container to apply the changes:
+2.  **Atualização do Container**: Comando para o Docker Compose perceber que a imagem `rockdb-app` mudou e recriar o container.
+    ```bash
+    docker-compose up -d
+    ```
 
-```bash
-docker-compose up -d --build
-```
+3.  **Limpeza (Opcional)**: Remova imagens antigas que ficaram sem nome (dangling images) para economizar espaço.
+    ```bash
+    docker image prune -f
+    ```
 
-**What happens behind the scenes?**
-- Docker detects that the `backend/` folder has changed.
-- It invalidates the cache from the `COPY backend /app/backend` step.
-- It rebuilds ONLY the layers from that point onward (this is very fast).
-- It recreates and restarts the container with the new code.
+> [!TIP]
+> **Atalho**: Você pode realizar os passos 1 e 2 em um único comando:
+> ```bash
+> docker-compose up -d --build
+> ```
 
-### 3. Adding New Dependencies
-If you add a new library to `backend/requirements.txt`, running `docker-compose up -d --build` will also trigger a re-installation of all Python packages.
+### Quando NÃO é necessário rebuild?
+- **Scripts SQL**: Se você apenas adicionou ou removeu arquivos na pasta `./sql`, **não precisa de nada**. O Docker já "enxerga" os arquivos novos automaticamente por causa do volume montado.
+- **Configurações (.env)**: Se você mudar o `.env`, apenas reinicie o container: `docker-compose restart`.
 
-## Creating the Environment from Scratch
+## Criando o Ambiente do Zero (The Template Approach)
 
 If you need to recreate this setup from zero, follow these steps and design choices:
 
