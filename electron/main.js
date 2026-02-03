@@ -10,8 +10,8 @@ let mainWindow;
 let pythonProcess;
 
 function startPythonBackend() {
-    const isDev = !app.isPackaged;
-    console.log(`Starting Python backend (isDev: ${isDev})...`);
+    const isDev = !app.isPackaged && process.env.APP_MODE !== 'prod';
+    console.log(`Starting Python backend (isDev: ${isDev}, mode: ${process.env.APP_MODE})...`);
 
     if (isDev) {
         // In development, run uvicorn command
@@ -64,11 +64,13 @@ function createWindow() {
 
     // In development, load the Vite dev server
     // In production, load the built index.html
-    const isDev = !app.isPackaged;
+    const isDev = !app.isPackaged && process.env.APP_MODE !== 'prod';
     if (isDev) {
         mainWindow.loadURL('http://localhost:5180');
         // Open DevTools in dev mode
-        mainWindow.webContents.openDevTools();
+        if (process.env.APP_MODE !== 'prod-preview') {
+            mainWindow.webContents.openDevTools();
+        }
     } else {
         // Load built files
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));

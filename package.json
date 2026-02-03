@@ -11,7 +11,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron:start": "vite --port 5180 & electron-forge start",
+    "electron:dev": "vite --port 5180 & APP_MODE=dev electron-forge start",
+    "electron:prod": "npm run build && APP_MODE=prod electron-forge start",
     "electron:package": "electron-forge package",
     "electron:make": "electron-forge make"
   },
