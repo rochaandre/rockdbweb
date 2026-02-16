@@ -1,305 +1,211 @@
-import { MainLayout } from '@/components/layout/main-layout'
-import { ControlBar, type FilterState } from '@/components/sessions/control-bar'
-import { SessionsTable } from '@/components/sessions/sessions-table'
-import { BlockingTable } from '@/components/sessions/blocking-table'
-import { LongOpsTable } from '@/components/sessions/long-ops-table'
-import { DetailSidebar } from '@/components/sessions/detail-sidebar'
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: sessions-view.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import React, { useState } from 'react'
+import { SessionsControlBar } from './control-bar'
+import { SessionsTable } from './sessions-table'
+import { SessionDetailSidebar } from './detail-sidebar'
+import { BlockingTable } from './blocking-table'
+import { LongOpsTable } from './long-ops-table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { useState, useMemo, useEffect } from 'react'
-import { useApp, API_URL } from '@/context/app-context'
-import { usePersistentState } from '@/hooks/use-persistent-state'
+import { Activity, ShieldAlert, BarChart3, Database, User, Terminal } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
-export function SessionsView() {
-    const { logAction } = useApp()
-    const [sessions, setSessions] = useState<any[]>([])
-    const [selectedSid, setSelectedSid] = useState<number | null>(null)
-    const [blockingSessions, setBlockingSessions] = useState<any[]>([])
-    const [refreshKey, setRefreshKey] = useState(0)
+export function SessionsView({ data, stats, blocking, longOps }: any) {
+    const [filter, setFilter] = useState('')
+    const [selectedSession, setSelectedSession] = useState<any>(null)
+    const [refreshing, setRefreshing] = useState(false)
+    const [viewMode, setViewMode] = useState('list')
 
-    // Persistent States
-    const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'sessions')
-    const [selectedInstance, setSelectedInstance] = usePersistentState('sessions', 'selectedInstance', 'both')
-    const [refreshInterval, setRefreshInterval] = usePersistentState('sessions', 'refreshInterval', 10)
-    const [filters, setFilters] = usePersistentState<FilterState>('sessions', 'filters', {
-        active: true,
-        inactive: true,
-        background: true,
-        killed: true,
-        parallel: true
-    })
+    const filteredSessions = data.filter((s: any) =>
+        s.sid.includes(filter) ||
+        (s.username && s.username.toLowerCase().includes(filter.toLowerCase())) ||
+        (s.program && s.program.toLowerCase().includes(filter.toLowerCase())) ||
+        (s.machine && s.machine.toLowerCase().includes(filter.toLowerCase())) ||
+        (s.osuser && s.osuser.toLowerCase().includes(filter.toLowerCase()))
+    )
 
-    // Refresh Control State
-    const [isPaused, setIsPaused] = useState(false)
-
-    const fetchSessions = async () => {
-        try {
-            const instParam = selectedInstance !== "both" ? `?inst_id=${selectedInstance}` : ""
-
-            // Fetch main sessions
-            const res = await fetch(`${API_URL}/sessions${instParam}`)
-            if (res.ok) {
-                const data = await res.json()
-                setSessions(data)
-            }
-
-            // Fetch blocking sessions for count
-            const blockRes = await fetch(`${API_URL}/sessions/blocking${instParam}`)
-            if (blockRes.ok) {
-                const blockData = await blockRes.json()
-                setBlockingSessions(blockData)
-            }
-        } catch (error) {
-            console.error('Error fetching sessions:', error)
-        }
+    const handleRefresh = () => {
+        setRefreshing(true)
+        setTimeout(() => setRefreshing(false), 1200)
     }
 
-    // Auto-Refresh Effect
-    useEffect(() => {
-        fetchSessions()
-        if (isPaused) return
-
-        const intervalId = setInterval(() => {
-            fetchSessions()
-            logAction('Auto-Update', 'System', `Refreshing sessions (Interval: ${refreshInterval}s)...`)
-        }, refreshInterval * 1000)
-
-        return () => clearInterval(intervalId)
-    }, [isPaused, refreshInterval, logAction])
-
-    // Calculate counts on unfiltered data
-    const counts = useMemo(() => {
-        return {
-            active: sessions.filter(s => s.status === 'ACTIVE').length,
-            inactive: sessions.filter(s => s.status === 'INACTIVE').length,
-            background: sessions.filter(s => s.type === 'BACKGROUND').length,
-            killed: sessions.filter(s => s.status === 'KILLED').length,
-            parallel: 0 // TODO: backend should return parallel info
-        }
-    }, [sessions])
-
-    // Filter Logic (Client-Side)
-    const filteredData = useMemo(() => {
-        return sessions.filter(s => {
-            // Status Filters
-            if (!filters.active && s.status === 'ACTIVE') return false
-            if (!filters.inactive && s.status === 'INACTIVE') return false
-            if (!filters.killed && s.status === 'KILLED') return false
-
-            // Type Filters
-            const isBackground = s.type === 'BACKGROUND'
-            if (!filters.background && isBackground) return false
-
-            // Parallel
-            // if (!filters.parallel && isParallel) return false
-
-            return true
-        })
-    }, [filters, sessions])
-
-    // Generate SQL WHERE Clause for Filters Tab
-    const filtersSql = useMemo(() => {
-        const conditions: string[] = []
-
-        // Status
-        const statusIn: string[] = []
-        if (filters.active) statusIn.push("'ACTIVE'")
-        if (filters.inactive) statusIn.push("'INACTIVE'")
-        if (filters.killed) statusIn.push("'KILLED'")
-
-        if (statusIn.length > 0) {
-            conditions.push(`status IN (${statusIn.join(', ')})`)
+    const handleSelectSession = (session: any) => {
+        // If it's a SID string from another table
+        if (typeof session === 'string') {
+            const fullSession = data.find((s: any) => s.sid === session)
+            if (fullSession) setSelectedSession(fullSession)
         } else {
-            conditions.push("1=0") // No status selected
+            setSelectedSession(session)
         }
-
-        // Background
-        if (!filters.background) {
-            conditions.push("type != 'BACKGROUND'")
-        }
-
-        // Parallel (simplified logic for demo)
-        if (!filters.parallel) {
-            conditions.push("degree = 1")
-        }
-
-        return conditions.length > 0
-            ? `SELECT * FROM v$session\nWHERE ${conditions.join('\n  AND ')}`
-            : `SELECT * FROM v$session`
-    }, [filters])
-
-
-    // Auto-Refresh Effect
-    useEffect(() => {
-        if (isPaused) return
-
-        const intervalId = setInterval(() => {
-            logAction('Auto-Update', 'System', `Refreshing data (Interval: ${refreshInterval}s)...`)
-        }, refreshInterval * 1000)
-
-        return () => clearInterval(intervalId)
-    }, [isPaused, refreshInterval, logAction])
-
-
-    // Handlers
-    const handleAction = async (action: string, session: any) => {
-        if (action === 'KILL_SESSION') {
-            const serial = session['serial#'] || session.serial
-            if (confirm(`Are you sure you want to kill session ${session.sid},${serial}?`)) {
-                try {
-                    const inst_id = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
-                    const res = await fetch(`${API_URL}/sessions/kill/${session.sid}/${serial}?inst_id=${inst_id}`, {
-                        method: 'POST'
-                    })
-                    if (res.ok) {
-                        logAction('Action', 'SessionsTable', `Session ${session.sid} killed successfully`)
-                        fetchSessions()
-                    }
-                } catch (error) {
-                    console.error('Error killing session:', error)
-                }
-            }
-        }
-        logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
     }
-
-    const [sessionSql, setSessionSql] = useState<string>('')
-
-    const handleSelect = async (sid: number) => {
-        setSelectedSid(sid)
-        const session = sessions.find(s => s.sid === sid)
-        if (session && session.sql_id) {
-            try {
-                const instParam = session.inst_id ? `?inst_id=${session.inst_id}` : ""
-                const res = await fetch(`${API_URL}/sessions/sql/${session.sql_id}${instParam}`)
-                if (res.ok) {
-                    const data = await res.json()
-                    setSessionSql(data.sql_text)
-                }
-            } catch (error) {
-                console.error('Error fetching session SQL:', error)
-                setSessionSql('Error fetching SQL text')
-            }
-        } else {
-            setSessionSql('No SQL active for this session')
-        }
-        logAction('Row Select', 'SessionsView', `Loading data for SID: ${sid} ...`)
-    }
-
-    const handleFilterChange = (key: keyof FilterState, checked: boolean) => {
-        setFilters((prev: FilterState) => ({ ...prev, [key]: checked }))
-    }
-
-    const handleUpdate = () => {
-        setRefreshKey(prev => prev + 1)
-        fetchSessions()
-        logAction('Manual Update', 'ControlBar', 'Forcing data refresh across all tabs...')
-    }
-
-    const handleSearch = () => {
-        logAction('Navigation', 'ControlBar', 'Opening Search Dialog...')
-    }
-
-    const handleSettings = () => {
-        logAction('Navigation', 'ControlBar', 'Opening Settings Dialog...')
-    }
-
-    const selectedSession = sessions.find(s => s.sid === selectedSid) || null
 
     return (
-        <MainLayout>
-            <ControlBar
-                filters={filters}
-                counts={counts}
-                onFilterChange={handleFilterChange}
-                isPaused={isPaused}
-                refreshInterval={refreshInterval}
-                onPauseToggle={() => setIsPaused(p => !p)}
-                onUpdate={handleUpdate}
-                onIntervalChange={setRefreshInterval}
-                onSearch={handleSearch}
-                onSettings={handleSettings}
-                selectedInstance={selectedInstance}
-                onInstanceChange={setSelectedInstance}
+        <div className="h-full flex flex-col relative overflow-hidden">
+            <SessionsControlBar
+                onRefresh={handleRefresh}
+                onFilterChange={setFilter}
+                filterValue={filter}
+                stats={stats}
+                isRefreshing={refreshing}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
             />
 
-            <div className="flex flex-1 gap-2 overflow-hidden h-full">
-                <div className="flex flex-1 flex-col overflow-hidden gap-2">
-                    {/* Main Tabs Area */}
-                    <Tabs
-                        value={activeTab}
-                        onValueChange={setActiveTab}
-                        className="flex-1 flex flex-col overflow-hidden"
-                    >
-                        <div className="flex items-center gap-1 border-b border-border bg-muted/40 px-2 pt-1">
-                            <TabsList className="h-8 bg-transparent p-0 gap-1">
-                                <TabsTrigger
-                                    value="sessions"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
-                                >
-                                    Sessions
+            <div className="flex-1 flex overflow-hidden gap-6">
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <Tabs defaultValue="all" className="flex-1 flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                            <TabsList className="bg-muted/30 p-1 border border-border/50 rounded-2xl">
+                                <TabsTrigger value="all" className="rounded-xl px-6 py-2 gap-2 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                                    <User className="size-3.5" /> All Sessions
                                 </TabsTrigger>
-                                <TabsTrigger
-                                    value="blocking"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
-                                >
-                                    Blocking and Waiting Sessions - {blockingSessions.length}
+                                <TabsTrigger value="active" className="rounded-xl px-6 py-2 gap-2 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
+                                    <Activity className="size-3.5" /> Active Only
                                 </TabsTrigger>
-                                <TabsTrigger
-                                    value="longops"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
-                                >
-                                    Long Operations
+                                <TabsTrigger value="blocking" className="rounded-xl px-6 py-2 gap-2 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-rose-500 data-[state=active]:text-white relative">
+                                    <ShieldAlert className="size-3.5" /> Blocker Hierarchies {stats.blocking > 0 && <Badge className="absolute -top-2 -right-2 h-4 min-w-[16px] p-1 bg-white text-rose-600 border-none shadow-md">{stats.blocking}</Badge>}
                                 </TabsTrigger>
-                                <TabsTrigger
-                                    value="filters"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
-                                >
-                                    Filters
+                                <TabsTrigger value="longops" className="rounded-xl px-6 py-2 gap-2 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                                    <BarChart3 className="size-3.5" /> Long Operations
                                 </TabsTrigger>
                             </TabsList>
+
+                            <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border border-border/30 rounded-2xl">
+                                <Database className="size-3.5 text-primary" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-2">Cluster Instances:</span>
+                                <div className="flex items-center gap-1.5">
+                                    <Badge variant="outline" className="h-4 text-[8px] font-black bg-primary/10 text-primary border-none">INST 1</Badge>
+                                    <Badge variant="outline" className="h-4 text-[8px] font-black bg-muted text-muted-foreground border-none opacity-50">INST 2</Badge>
+                                </div>
+                            </div>
                         </div>
 
-                        <TabsContent value="sessions" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+                        <TabsContent value="all" className="flex-1 m-0 overflow-auto scrollbar-hide">
+                            {viewMode === 'list' ? (
+                                <SessionsTable
+                                    data={filteredSessions}
+                                    onSelect={handleSelectSession}
+                                    selectedSid={selectedSession?.sid}
+                                />
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+                                    {filteredSessions.map((session: any, i: number) => (
+                                        <SessionCard
+                                            key={i}
+                                            session={session}
+                                            onSelect={() => handleSelectSession(session)}
+                                            isSelected={selectedSession?.sid === session.sid}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="active" className="flex-1 m-0 overflow-auto scrollbar-hide">
                             <SessionsTable
-                                data={filteredData}
-                                selectedId={selectedSid}
-                                onSelect={handleSelect}
-                                onAction={handleAction}
+                                data={filteredSessions.filter((s: any) => s.status === 'ACTIVE')}
+                                onSelect={handleSelectSession}
+                                selectedSid={selectedSession?.sid}
                             />
                         </TabsContent>
-                        <TabsContent value="blocking" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+
+                        <TabsContent value="blocking" className="flex-1 m-0 overflow-auto scrollbar-hide">
                             <BlockingTable
-                                onAction={handleAction}
-                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
-                                refreshKey={refreshKey}
+                                data={blocking}
+                                onSelectSession={(sid) => handleSelectSession(sid)}
                             />
                         </TabsContent>
-                        <TabsContent value="longops" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+
+                        <TabsContent value="longops" className="flex-1 m-0 overflow-auto scrollbar-hide">
                             <LongOpsTable
-                                onSelect={handleSelect}
-                                onAction={handleAction}
-                                selectedId={selectedSid}
-                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
-                                refreshKey={refreshKey}
+                                data={longOps}
+                                onSelectSession={(sid) => handleSelectSession(sid)}
                             />
-                        </TabsContent>
-                        <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface font-mono text-sm">
-                            <div className="rounded-md bg-muted p-4 border border-border">
-                                <pre className="whitespace-pre-wrap text-foreground">{filtersSql}</pre>
-                            </div>
-                            <p className="mt-2 text-xs text-muted-foreground">
-                                This SQL clause represents the current active filters applied to the session list.
-                            </p>
                         </TabsContent>
                     </Tabs>
                 </div>
 
-                <DetailSidebar session={selectedSession} sqlText={sessionSql} />
+                {selectedSession && (
+                    <SessionDetailSidebar
+                        session={selectedSession}
+                        onClose={() => setSelectedSession(null)}
+                    />
+                )}
             </div>
-        </MainLayout>
+        </div>
+    )
+}
+
+function SessionCard({ session, onSelect, isSelected }: any) {
+    const isActive = session.status === 'ACTIVE'
+    const isBlocker = session.blocking_status === 'BLOCKER'
+
+    return (
+        <div
+            onClick={onSelect}
+            className={cn(
+                "group p-6 rounded-2xl border bg-card/40 backdrop-blur-xl cursor-pointer transition-all duration-500 overflow-hidden relative",
+                isSelected ? "border-primary shadow-2xl shadow-primary/10 ring-1 ring-primary/20 scale-[1.02]" : "border-border/50 hover:border-primary/30 hover:shadow-xl",
+                isBlocker && "border-rose-500/30"
+            )}
+        >
+            <div className="absolute -top-10 -right-10 size-40 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        "size-10 rounded-xl flex items-center justify-center shadow-inner",
+                        isActive ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
+                    )}>
+                        <User className="size-5" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-black uppercase text-foreground leading-none">{session.username || 'INTERNAL'}</h4>
+                        <p className="text-[10px] font-bold text-muted-foreground opacity-60 mt-1 uppercase tracking-tighter">SID: {session.sid} | Serial: {session.serial}</p>
+                    </div>
+                </div>
+                <div className={cn(
+                    "size-2.5 rounded-full",
+                    isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                )} />
+            </div>
+
+            <div className="space-y-4 relative">
+                <div className="flex items-center gap-3">
+                    <Terminal className="size-3.5 text-primary/50" />
+                    <span className="text-[11px] font-bold text-foreground truncate flex-1">{session.program}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Activity className="size-3.5 text-amber-500/50" />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Wait Event</p>
+                        <p className="text-[11px] font-bold text-foreground mt-1 truncate">{session.event}</p>
+                    </div>
+                </div>
+            </div>
+
+            {isBlocker && (
+                <div className="mt-6 pt-4 border-t border-rose-500/10 flex items-center gap-2 text-rose-500">
+                    <ShieldAlert className="size-4 animate-bounce" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Active Blocker Session</span>
+                </div>
+            )}
+        </div>
     )
 }

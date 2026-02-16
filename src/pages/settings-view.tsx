@@ -1,62 +1,43 @@
-import { MainLayout } from "@/components/layout/main-layout"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Button } from "@/components/ui/button"
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: settings-view.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import { MainLayout } from '@/components/layout/main-layout'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Settings } from 'lucide-react'
 
 export function SettingsView() {
     return (
         <MainLayout>
-            <div className="p-6 max-w-2xl space-y-8">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-                    <p className="text-muted-foreground">Manage your application preferences.</p>
+            <div className="flex flex-col h-full bg-background overflow-hidden p-6 gap-6">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <Settings className="h-6 w-6 text-primary" /> Settings
+                    </h1>
                 </div>
 
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold border-b border-border pb-2">General</h2>
-
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="auto-refresh" defaultChecked />
-                        <label
-                            htmlFor="auto-refresh"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                            Auto-refresh session data
-                        </label>
-                    </div>
-                    <p className="text-xs text-muted-foreground ml-6">
-                        Sessions view will refresh every 5 seconds by default.
-                    </p>
-
-                    <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="notifications" />
-                        <label
-                            htmlFor="notifications"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                            Enable Desktop Notifications
-                        </label>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold border-b border-border pb-2">Appearance</h2>
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="border border-border rounded-md p-4 bg-white text-slate-900 text-center text-sm font-medium">
-                            Light
-                        </div>
-                        <div className="border border-border rounded-md p-4 bg-slate-950 text-white text-center text-sm font-medium">
-                            Dark
-                        </div>
-                        <div className="border border-primary ring-2 ring-primary rounded-md p-4 bg-slate-900 text-white text-center text-sm font-medium">
-                            System
-                        </div>
-                    </div>
-                </div>
-
-                <div className="pt-4">
-                    <Button>Save Preferences</Button>
-                </div>
-
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Application Settings</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">Settings configuration page is coming soon.</p>
+                    </CardContent>
+                </Card>
             </div>
         </MainLayout>
     )

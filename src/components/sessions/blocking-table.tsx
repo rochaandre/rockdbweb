@@ -1,154 +1,103 @@
-import { twMerge } from 'tailwind-merge'
-import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, FileCode, Lock, Loader2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { API_URL } from '@/context/app-context'
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: blocking-table.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import React from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, Lock, ShieldAlert, Clock, ChevronRight, Activity, Terminal } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
-interface BlockingSession {
-    inst_id: number
-    sid: number
-    serial: number
-    username: string
-    status: string
-    event: string
-    type: 'blocker' | 'blocked'
-    level: number
-}
-
-interface BlockingTableProps {
-    onAction: (action: string, session: BlockingSession) => void
-    instId?: number
-    refreshKey?: number
-}
-
-export function BlockingTable({ onAction, instId, refreshKey }: BlockingTableProps) {
-    const navigate = useNavigate()
-    const [data, setData] = useState<BlockingSession[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-
-    const fetchBlockingData = async () => {
-        setIsLoading(true)
-        try {
-            const instParam = instId ? `?inst_id=${instId}` : ""
-            const res = await fetch(`${API_URL}/sessions/blocking${instParam}`)
-            if (res.ok) {
-                const json = await res.json()
-                setData(json)
-            }
-        } catch (error) {
-            console.error('Error fetching blocking sessions:', error)
-        } finally {
-            setIsLoading(false)
-        }
+export function BlockingTable({ data = [], onSelectSession }: { data?: any[], onSelectSession?: (sid: string) => void }) {
+    if (data.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 bg-muted/5 border border-dashed border-border/50 rounded-2xl animate-in fade-in duration-700">
+                <div className="size-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-4 shadow-inner">
+                    <Lock className="size-8 opacity-20" />
+                </div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-foreground">No Blocking Sessions</h3>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter mt-1 italic">System performance is currently optimal</p>
+            </div>
+        )
     }
 
-    useEffect(() => {
-        fetchBlockingData()
-    }, [instId, refreshKey])
-
     return (
-        <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm">
-            <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-surface-raised sticky top-0 z-10 text-foreground font-medium shadow-sm">
-                    <tr>
-                        <th className="border-b border-r border-border px-1 py-1 w-10">INST</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-12">SID</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-16">SERIAL#</th>
-                        <th className="border-b border-r border-border px-1 py-1">USERNAME</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-20">STATUS</th>
-                        <th className="border-b border-r border-border px-1 py-1">EVENT</th>
-                        <th className="border-b border-border px-1 py-1 w-32">ACTIONS</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {isLoading && (
-                        <tr>
-                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                                <Loader2 className="mx-auto size-6 animate-spin mb-2" />
-                                Loading blocking data...
-                            </td>
-                        </tr>
-                    )}
-                    {!isLoading && data.length === 0 && (
-                        <tr>
-                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                                No blocking or waiting sessions found.
-                            </td>
-                        </tr>
-                    )}
-                    {!isLoading && data.length > 0 && data.map((session, idx) => (
-                        <tr key={`${session.sid}-${idx}`}>
-                            <td colSpan={7} className="p-0 border-0">
-                                <ContextMenu
-                                    trigger={
-                                        <div
-                                            className={twMerge(
-                                                "grid grid-cols-[2.5rem_3rem_4rem_1fr_5rem_1fr_8rem] w-full border-b border-border cursor-context-menu hover:brightness-95 transition-colors items-center",
-                                                session.type === 'blocker'
-                                                    ? "bg-red-100 text-red-900 font-medium"
-                                                    : "bg-yellow-50 text-foreground"
-                                            )}
-                                        >
-                                            <div className="px-1 py-0.5 border-r border-border/50 flex items-center h-full justify-center font-mono opacity-60">
-                                                {session.inst_id}
-                                            </div>
-                                            <div className={twMerge("px-1 py-0.5 border-r border-border/50 flex items-center h-full", (session.level ?? 0) > 0 && "pl-4")}>
-                                                {(session.level ?? 0) > 0 && <span className="text-muted-foreground mr-1">└</span>}
-                                                {session.sid}
-                                            </div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.serial}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.username}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.status}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.event}</div>
-                                            <div className="px-1 py-0.5 h-full flex items-center justify-center gap-1">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onAction('KILL_SESSION', session);
-                                                    }}
-                                                    className="p-1 hover:bg-red-600 hover:text-white rounded flex items-center gap-1 text-[10px] border border-red-200 text-red-700 bg-red-50/50"
-                                                    title="Kill Session"
-                                                >
-                                                    <Skull className="w-3 h-3" /> Kill
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`);
-                                                    }}
-                                                    className="p-1 hover:bg-black/10 rounded flex items-center gap-1 text-[10px] border border-black/20"
-                                                    title="Open Block Explorer"
-                                                >
-                                                    <Lock className="w-3 h-3" /> Explorer
-                                                </button>
-                                            </div>
+        <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl group transition-all duration-500">
+            <CardHeader className="border-b border-border/30 bg-muted/20 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner group-hover:animate-pulse">
+                        <ShieldAlert className="size-5" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-sm font-black tracking-tight uppercase">Lock Hierarchies & Blockers</CardTitle>
+                        <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">Active session contention identified</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <Table>
+                    <TableHeader className="bg-muted/10">
+                        <TableRow className="border-b border-border/30">
+                            <TableHead className="w-[120px] text-[9px] uppercase font-black pl-6">Blocker SID</TableHead>
+                            <TableHead className="w-[120px] text-[9px] uppercase font-black">Waiter SID</TableHead>
+                            <TableHead className="text-[9px] uppercase font-black">Hold Time</TableHead>
+                            <TableHead className="text-[9px] uppercase font-black">Lock Type</TableHead>
+                            <TableHead className="text-[9px] uppercase font-black pr-6 text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.map((row, idx) => (
+                            <TableRow key={idx} className="hover:bg-rose-500/5 transition-colors border-b border-border/10 group/row">
+                                <TableCell className="pl-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="h-6 font-black bg-rose-500/10 text-rose-600 border-none px-2">{row.blocking_sid}</Badge>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-foreground">Bloker Instance</span>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{row.inst_id}</span>
                                         </div>
-                                    }
-                                >
-                                    <ContextMenuItem onClick={() => onAction('KILL_SESSION', session)}>
-                                        <Skull className="mr-2 size-3.5 text-destructive" />
-                                        Kill Session
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('TRACE_SESSION', session)}>
-                                        <Activity className="mr-2 size-3.5" />
-                                        Trace Session
-                                    </ContextMenuItem>
-                                    <ContextMenuSeparator />
-                                    <ContextMenuItem onClick={() => navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`)}>
-                                        <Lock className="mr-2 size-3.5 text-amber-600" />
-                                        Block Explorer
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('SHOW_SQL', session)}>
-                                        <FileCode className="mr-2 size-3.5" />
-                                        Show SQL
-                                    </ContextMenuItem>
-                                </ContextMenu>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <div className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                        <span className="text-xs font-bold text-foreground">{row.waiting_sid}</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-muted-foreground">
+                                        <Clock className="size-3" /> {row.seconds_in_wait}s
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="secondary" className="bg-muted text-[10px] font-black tracking-tighter rounded-md uppercase border-none">{row.lock_type}</Badge>
+                                </TableCell>
+                                <TableCell className="pr-6 text-right">
+                                    <Button variant="ghost" size="sm" onClick={() => onSelectSession?.(row.blocking_sid)} className="h-7 px-3 bg-muted/30 hover:bg-primary/10 hover:text-primary rounded-lg transition-all group/btn">
+                                        <span className="text-[10px] font-black uppercase tracking-widest mr-2">Trace Blocker</span>
+                                        <ChevronRight className="size-3 group-hover/btn:translate-x-1 transition-transform" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     )
 }

@@ -1,104 +1,66 @@
-export interface Tablespace {
-    id: number
-    name: string
-    status: 'ONLINE' | 'OFFLINE'
-    total_size: string
-    used_size: string
-    used_percent: number
-    contents: 'PERMANENT' | 'TEMPORARY' | 'UNDO'
-    extent_management: 'LOCAL' | 'DICTIONARY'
-}
-
-export const TABLESPACES: Tablespace[] = [
-    { id: 1, name: 'SYSTEM', status: 'ONLINE', total_size: '2 GB', used_size: '1.8 GB', used_percent: 90, contents: 'PERMANENT', extent_management: 'LOCAL' },
-    { id: 2, name: 'SYSAUX', status: 'ONLINE', total_size: '3 GB', used_size: '2.5 GB', used_percent: 83, contents: 'PERMANENT', extent_management: 'LOCAL' },
-    { id: 3, name: 'UNDOTBS1', status: 'ONLINE', total_size: '5 GB', used_size: '1.2 GB', used_percent: 24, contents: 'UNDO', extent_management: 'LOCAL' },
-    { id: 4, name: 'TEMP', status: 'ONLINE', total_size: '10 GB', used_size: '0.1 GB', used_percent: 1, contents: 'TEMPORARY', extent_management: 'LOCAL' },
-    { id: 5, name: 'USERS', status: 'ONLINE', total_size: '500 MB', used_size: '450 MB', used_percent: 90, contents: 'PERMANENT', extent_management: 'LOCAL' },
-    { id: 6, name: 'DATA_TS', status: 'ONLINE', total_size: '100 GB', used_size: '65 GB', used_percent: 65, contents: 'PERMANENT', extent_management: 'LOCAL' },
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: storage-data.ts
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+export const MOCK_TABLESPACES = [
+    { TABLESPACE_NAME: 'SYSTEM', STATUS: 'ONLINE', CONTENTS: 'PERMANENT', TOTAL_MB: 1024, USED_MB: 850, FREE_MB: 174, USED_PERCENT: '83', FILE_COUNT: 1 },
+    { TABLESPACE_NAME: 'SYSAUX', STATUS: 'ONLINE', CONTENTS: 'PERMANENT', TOTAL_MB: 2048, USED_MB: 1200, FREE_MB: 848, USED_PERCENT: '58.5', FILE_COUNT: 1 },
+    { TABLESPACE_NAME: 'UNDOTBS1', STATUS: 'ONLINE', CONTENTS: 'UNDO', TOTAL_MB: 512, USED_MB: 45, FREE_MB: 467, USED_PERCENT: '8.8', FILE_COUNT: 1 },
+    { TABLESPACE_NAME: 'USERS', STATUS: 'ONLINE', CONTENTS: 'PERMANENT', TOTAL_MB: 40960, USED_MB: 38500, FREE_MB: 2460, USED_PERCENT: '94', FILE_COUNT: 4 },
+    { TABLESPACE_NAME: 'TEMP', STATUS: 'ONLINE', CONTENTS: 'TEMPORARY', TOTAL_MB: 2048, USED_MB: 120, FREE_MB: 1928, USED_PERCENT: '5.8', FILE_COUNT: 1 },
+    { TABLESPACE_NAME: 'SALES_DATA', STATUS: 'ONLINE', CONTENTS: 'PERMANENT', TOTAL_MB: 102400, USED_MB: 75200, FREE_MB: 27200, USED_PERCENT: '73.4', FILE_COUNT: 8 }
 ]
 
-export interface Datafile {
-    file_id: number
-    ts_id: number
-    name: string
-    size: string
-    status: 'AVAILABLE' | 'INVALID'
-    autoextend: boolean
-}
-
-export const DATAFILES: Datafile[] = [
-    { file_id: 1, ts_id: 1, name: '+DATA/ORCL/DATAFILE/system.256.123456', size: '2 GB', status: 'AVAILABLE', autoextend: true },
-    { file_id: 2, ts_id: 2, name: '+DATA/ORCL/DATAFILE/sysaux.257.123456', size: '3 GB', status: 'AVAILABLE', autoextend: true },
-    { file_id: 3, ts_id: 3, name: '+DATA/ORCL/DATAFILE/undotbs1.258.123456', size: '5 GB', status: 'AVAILABLE', autoextend: true },
-    { file_id: 4, ts_id: 5, name: '+DATA/ORCL/DATAFILE/users.259.123456', size: '500 MB', status: 'AVAILABLE', autoextend: false },
-    { file_id: 5, ts_id: 6, name: '+DATA/ORCL/DATAFILE/data_ts.260.123456', size: '50 GB', status: 'AVAILABLE', autoextend: true },
-    { file_id: 6, ts_id: 6, name: '+DATA/ORCL/DATAFILE/data_ts.261.123456', size: '50 GB', status: 'AVAILABLE', autoextend: true },
+export const MOCK_DATAFILES = [
+    { FILE_ID: 1, FILE_NAME: '/u01/app/oracle/oradata/ORCL/system01.dbf', TABLESPACE_NAME: 'SYSTEM', STATUS: 'AVAILABLE', BYTES_MB: 1024 },
+    { FILE_ID: 2, FILE_NAME: '/u01/app/oracle/oradata/ORCL/sysaux01.dbf', TABLESPACE_NAME: 'SYSAUX', STATUS: 'AVAILABLE', BYTES_MB: 2048 },
+    { FILE_ID: 3, FILE_NAME: '/u01/app/oracle/oradata/ORCL/undotbs01.dbf', TABLESPACE_NAME: 'UNDOTBS1', STATUS: 'AVAILABLE', BYTES_MB: 512 },
+    { FILE_ID: 4, FILE_NAME: '/u01/app/oracle/oradata/ORCL/users01.dbf', TABLESPACE_NAME: 'USERS', STATUS: 'AVAILABLE', BYTES_MB: 10240 },
+    { FILE_ID: 5, FILE_NAME: '/u01/app/oracle/oradata/ORCL/users02.dbf', TABLESPACE_NAME: 'USERS', STATUS: 'AVAILABLE', BYTES_MB: 10240 },
+    { FILE_ID: 6, FILE_NAME: '/u01/app/oracle/oradata/ORCL/users03.dbf', TABLESPACE_NAME: 'USERS', STATUS: 'AVAILABLE', BYTES_MB: 10240 },
+    { FILE_ID: 7, FILE_NAME: '/u01/app/oracle/oradata/ORCL/users04.dbf', TABLESPACE_NAME: 'USERS', STATUS: 'AVAILABLE', BYTES_MB: 10240 }
 ]
 
-export interface Segment {
-    owner: string
-    segment_name: string
-    type: string
-    size_mb: number
-    ts_id: number
+export const MOCK_STORAGE_STATS = {
+    allocated_gb: 154,
+    used_gb: 118,
+    free_gb: 36,
+    file_count: 17
 }
 
-export const SEGMENTS: Segment[] = [
-    { owner: 'HR', segment_name: 'EMPLOYEES', type: 'TABLE', size_mb: 120, ts_id: 5 },
-    { owner: 'HR', segment_name: 'DEPARTMENTS', type: 'TABLE', size_mb: 50, ts_id: 5 },
-    { owner: 'HR', segment_name: 'EMP_IDX', type: 'INDEX', size_mb: 80, ts_id: 5 },
-    { owner: 'SALES', segment_name: 'ORDERS', type: 'TABLE', size_mb: 15000, ts_id: 6 },
-    { owner: 'SALES', segment_name: 'ORDER_ITEMS', type: 'TABLE', size_mb: 25000, ts_id: 6 },
-    { owner: 'SALES', segment_name: 'CUSTOMERS', type: 'TABLE', size_mb: 5000, ts_id: 6 },
+export const MOCK_STORAGE_TREND = [
+    { name: 'Mon', value: 112 },
+    { name: 'Tue', value: 114 },
+    { name: 'Wed', value: 115 },
+    { name: 'Thu', value: 116 },
+    { name: 'Fri', value: 117 },
+    { name: 'Sat', value: 118 },
+    { name: 'Sun', value: 118 }
 ]
 
-export interface RedoGroup {
-    group: number
-    thread: number
-    sequence: number
-    bytes: string
-    members: number
-    status: 'CURRENT' | 'ACTIVE' | 'INACTIVE' | 'UNUSED'
-    archived: 'YES' | 'NO'
-}
-
-export const REDO_GROUPS: RedoGroup[] = [
-    { group: 1, thread: 1, sequence: 1050, bytes: '200 MB', members: 2, status: 'INACTIVE', archived: 'YES' },
-    { group: 2, thread: 1, sequence: 1051, bytes: '200 MB', members: 2, status: 'ACTIVE', archived: 'NO' },
-    { group: 3, thread: 1, sequence: 1052, bytes: '200 MB', members: 2, status: 'CURRENT', archived: 'NO' },
+export const MOCK_SYSAUX_CHART = [
+    { name: 'Optimizer Stats', value: 624500, color: '#f59e0b', percentage: 28 },
+    { name: 'AWR', value: 452100, color: '#3b82f6', percentage: 20 },
+    { name: 'Advisor', value: 852100, color: '#ef4444', percentage: 38 },
+    { name: 'Other', value: 312500, color: '#64748b', percentage: 14 }
 ]
 
-export interface RedoMember {
-    group: number
-    member: string
-}
-
-export const REDO_MEMBERS: RedoMember[] = [
-    { group: 1, member: '+DATA/ORCL/ONLINELOG/group_1.262.123456' },
-    { group: 1, member: '+FRA/ORCL/ONLINELOG/group_1.262.123456' },
-    { group: 2, member: '+DATA/ORCL/ONLINELOG/group_2.263.123456' },
-    { group: 2, member: '+FRA/ORCL/ONLINELOG/group_2.263.123456' },
-    { group: 3, member: '+DATA/ORCL/ONLINELOG/group_3.264.123456' },
-    { group: 3, member: '+FRA/ORCL/ONLINELOG/group_3.264.123456' },
-]
-
-export interface ControlFile {
-    name: string
-    status: string
-}
-
-export const CONTROL_FILES: ControlFile[] = [
-    { name: '+DATA/ORCL/CONTROLFILE/current.260.123456', status: 'VALID' },
-    { name: '+FRA/ORCL/CONTROLFILE/current.260.123456', status: 'VALID' },
-]
-
-export const REDO_SWITCH_HISTORY = [
-    { time: '08:00', switches: 2 },
-    { time: '09:00', switches: 4 },
-    { time: '10:00', switches: 12 },
-    { time: '11:00', switches: 8 },
-    { time: '12:00', switches: 3 },
-    { time: '13:00', switches: 5 },
-    { time: '14:00', switches: 4 },
+export const MOCK_FRA_TREND = [
+    { name: 'Capacity', value: 500, color: '#10b981' },
+    { name: 'Used', value: 380, color: '#3b82f6' },
+    { name: 'Reclaimable', value: 85, color: '#f59e0b' }
 ]

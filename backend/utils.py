@@ -1,8 +1,28 @@
+"""
+# ==============================================================================
+# ROCKDB - Oracle Database Administration & Monitoring Tool
+# ==============================================================================
+# File: utils.py
+# Author: Andre Rocha (TechMax Consultoria)
+# 
+# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+#
+# TERMS:
+# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+# 3. You must maintain this header and original naming/ownership information.
+#
+# This software is provided "AS IS", without warranty of any kind.
+# Copyright (c) 2026 Andre Rocha. All rights reserved.
+# ==============================================================================
+"""
 import os
 import sqlite3
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 import oracledb
+import traceback
+import sys
 
 load_dotenv()
 
@@ -15,7 +35,11 @@ def encrypt_password(password: str) -> str:
     return cipher_suite.encrypt(password.encode()).decode()
 
 def decrypt_password(encrypted_password: str) -> str:
-    return cipher_suite.decrypt(encrypted_password.encode()).decode()
+    try:
+        return cipher_suite.decrypt(encrypted_password.encode()).decode()
+    except Exception:
+        # Fallback for plain text, already decrypted, or masked passwords
+        return encrypted_password
 
 # SQLite Database setup
 # SQLite Database setup
@@ -88,7 +112,12 @@ def init_db():
             patch_info TEXT,
             log_mode TEXT,
             is_rac BOOLEAN,
-            inst_name TEXT
+            inst_name TEXT,
+            connection_mode TEXT DEFAULT 'BASIC',
+            connection_role TEXT DEFAULT 'NORMAL',
+            connect_string TEXT,
+            wallet_path TEXT,
+            tns_admin TEXT
         )
     """)
     
@@ -100,6 +129,18 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (connection_id, screen_id),
             FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS servers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            exporter_port INTEGER NOT NULL DEFAULT 9100,
+            ssh_key TEXT,
+            type TEXT CHECK(type IN ('PROD', 'DEV', 'TEST')),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -146,7 +187,12 @@ def init_db():
         ("patch_info", "TEXT"),
         ("log_mode", "TEXT"),
         ("is_rac", "BOOLEAN"),
-        ("inst_name", "TEXT")
+        ("inst_name", "TEXT"),
+        ("connection_mode", "TEXT"),
+        ("connection_role", "TEXT"),
+        ("connect_string", "TEXT"),
+        ("wallet_path", "TEXT"),
+        ("tns_admin", "TEXT")
     ]
     
     cursor.execute("PRAGMA table_info(connections)")
@@ -164,13 +210,87 @@ def init_db():
 def get_oracle_connection(conn_info):
     try:
         password = decrypt_password(conn_info['password'])
-        connection = oracledb.connect(
-            user=conn_info['username'],
-            password=password,
-            dsn=f"{conn_info['host']}:{conn_info['port']}/{conn_info['service']}",
-            tcp_connect_timeout=5
-        )
+        
+        # Set TNS_ADMIN if provided (directory containing tnsnames.ora, sqlnet.ora)
+        tns_admin = conn_info.get('tns_admin')
+        if tns_admin and os.path.exists(tns_admin):
+            os.environ['TNS_ADMIN'] = tns_admin
+
+        # Determine DSN - Connection String is the primary source
+        if conn_info.get('connect_string'):
+            dsn = conn_info['connect_string'].strip()
+            # If the string starts with "ALIAS = (DESCRIPTION...", strip the leading "ALIAS =" part
+            if '=' in dsn and dsn.upper().startswith(tuple(c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")):
+                parts = dsn.split('=', 1)
+                if len(parts) > 1 and '(DESCRIPTION' in parts[1].upper():
+                    dsn = parts[1].strip()
+        else:
+            # Fallback to Basic Attributes
+            dsn = f"{conn_info['host']}:{conn_info['port']}/{conn_info['service']}"
+        
+        # Determine Role / Internal Logon
+        role = (conn_info.get('connection_role') or 'NORMAL').upper()
+        
+        # LOGGING FOR DEBUGGING
+        print("--- Oracle Connection Environment ---", flush=True)
+        print(f"Connection Name : {conn_info.get('name')}", flush=True)
+        print(f"DSN / String    : {dsn}", flush=True)
+        print(f"Current User    : {conn_info['username']}", flush=True)
+        print(f"Requested Role  : {role}", flush=True)
+        
+        # TNS_ADMIN Details
+        env_tns_admin = os.environ.get('TNS_ADMIN', 'NOT SET')
+        tns_admin_field = conn_info.get('tns_admin')
+        print(f"ENV TNS_ADMIN   : {env_tns_admin}", flush=True)
+        if tns_admin_field:
+             exists = os.path.exists(tns_admin_field)
+             print(f"Field TNS_ADMIN : {tns_admin_field} (Exists: {exists})", flush=True)
+        
+        # Wallet Details
+        wallet_path = conn_info.get('wallet_path', 'NOT SET')
+        print(f"Wallet Path     : {wallet_path}", flush=True)
+        if conn_info.get('wallet_path'):
+             exists = os.path.exists(conn_info['wallet_path'])
+             print(f"Wallet Valid    : {exists}", flush=True)
+             if exists:
+                  print(f"Wallet Files    : {os.listdir(conn_info['wallet_path'])}", flush=True)
+             else:
+                  print("Tip: Suggested persistent wallet folder is /opt/rockdbweb/wallets (shared with host)", flush=True)
+        print("-------------------------------------", flush=True)
+
+        internal_logon = None
+        if role != 'NORMAL':
+            # Map roles to oracledb constants safely using getattr
+            role_map = {
+                'SYSDBA': getattr(oracledb, 'AUTH_MODE_SYSDBA', None),
+                'SYSOPER': getattr(oracledb, 'AUTH_MODE_SYSOPER', None),
+                'SYSBACKUP': getattr(oracledb, 'AUTH_MODE_SYSBACKUP', None),
+                'SYSDG': getattr(oracledb, 'AUTH_MODE_SYSDG', None),
+                'SYSKM': getattr(oracledb, 'AUTH_MODE_SYSKM', None)
+            }
+            internal_logon = role_map.get(role)
+            if internal_logon is None:
+                print(f"Warning: Constant for role {role} not found in this version of oracledb. Connection might fail if privs required.", flush=True)
+
+        # Prepare connection parameters
+        connect_params = {
+            "user": conn_info['username'],
+            "password": password,
+            "dsn": dsn,
+            "tcp_connect_timeout": 5,
+            "config_dir": conn_info.get('wallet_path') if conn_info.get('wallet_path') else None,
+            "wallet_location": conn_info.get('wallet_path') if conn_info.get('wallet_path') else None,
+            "wallet_password": password if conn_info.get('wallet_path') else None
+        }
+        
+        # Add mode only if connecting as a special role (SYSDBA, etc)
+        if internal_logon:
+            connect_params["mode"] = internal_logon
+
+        connection = oracledb.connect(**connect_params)
         return connection
     except Exception as e:
-        print(f"Error connecting to Oracle: {e}")
+        print(f"!!! Error connecting to Oracle: {str(e)}", flush=True)
+        print("Full Traceback:", flush=True)
+        traceback.print_exc(file=sys.stdout)
         raise e

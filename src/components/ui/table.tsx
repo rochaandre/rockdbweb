@@ -1,55 +1,128 @@
-
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: table.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
 import * as React from "react"
-import { tv } from 'tailwind-variants'
 
-const tableTv = tv({
-    slots: {
-        table: 'w-full caption-bottom text-sm',
-        header: '[&_tr]:border-b',
-        tbody: '[&_tr:last-child]:border-0',
-        row: 'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
-        head: 'h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
-        cell: 'p-2 align-middle [&:has([role=checkbox])]:pr-0',
-        caption: 'mt-4 text-sm text-muted-foreground'
-    }
-})
+import { cn } from "@/lib/utils"
 
-const { table, header, tbody, row, head, cell, caption } = tableTv()
-
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => (
+const Table = React.forwardRef<
+    HTMLTableElement,
+    React.HTMLAttributes<HTMLTableElement>
+>(({ className, ...props }, ref) => (
     <div className="relative w-full overflow-auto">
-        <table ref={ref} className={table({ className })} {...props} />
+        <table
+            ref={ref}
+            className={cn("w-full caption-bottom text-sm", className)}
+            {...props}
+        />
     </div>
 ))
 Table.displayName = "Table"
 
-const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
-    <thead ref={ref} className={header({ className })} {...props} />
+const TableHeader = React.forwardRef<
+    HTMLTableSectionElement,
+    React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+    <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
-const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
-    <tbody ref={ref} className={tbody({ className })} {...props} />
+const TableBody = React.forwardRef<
+    HTMLTableSectionElement,
+    React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+    <tbody
+        ref={ref}
+        className={cn("[&_tr:last-child]:border-0", className)}
+        {...props}
+    />
 ))
 TableBody.displayName = "TableBody"
 
-const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(({ className, ...props }, ref) => (
-    <tr ref={ref} className={row({ className })} {...props} />
+const TableFooter = React.forwardRef<
+    HTMLTableSectionElement,
+    React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+    <tfoot
+        ref={ref}
+        className={cn(
+            "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
+            className
+        )}
+        {...props}
+    />
+))
+TableFooter.displayName = "TableFooter"
+
+const TableRow = React.forwardRef<
+    HTMLTableRowElement,
+    React.HTMLAttributes<HTMLTableRowElement>
+>(({ className, ...props }, ref) => (
+    <tr
+        ref={ref}
+        className={cn(
+            "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+            className
+        )}
+        {...props}
+    />
 ))
 TableRow.displayName = "TableRow"
 
-const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
-    <th ref={ref} className={head({ className })} {...props} />
+const TableHead = React.forwardRef<
+    HTMLTableCellElement,
+    React.ThHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => (
+    <th
+        ref={ref}
+        className={cn(
+            "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+            className
+        )}
+        {...props}
+    />
 ))
 TableHead.displayName = "TableHead"
 
-const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
-    <td ref={ref} className={cell({ className })} {...props} />
+const TableCell = React.forwardRef<
+    HTMLTableCellElement,
+    React.TdHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => (
+    <td
+        ref={ref}
+        className={cn(
+            "p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+            className
+        )}
+        {...props}
+    />
 ))
 TableCell.displayName = "TableCell"
 
-const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttributes<HTMLTableCaptionElement>>(({ className, ...props }, ref) => (
-    <caption ref={ref} className={caption({ className })} {...props} />
+const TableCaption = React.forwardRef<
+    HTMLTableCaptionElement,
+    React.HTMLAttributes<HTMLTableCaptionElement>
+>(({ className, ...props }, ref) => (
+    <caption
+        ref={ref}
+        className={cn("mt-4 text-sm text-muted-foreground", className)}
+        {...props}
+    />
 ))
 TableCaption.displayName = "TableCaption"
 
@@ -57,6 +130,7 @@ export {
     Table,
     TableHeader,
     TableBody,
+    TableFooter,
     TableHead,
     TableRow,
     TableCell,

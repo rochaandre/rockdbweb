@@ -1,0 +1,43 @@
+databases:
+  db_ORCLCDB:
+    username: dbajobs
+    password: dbajobs
+    url: oracle://(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.0.70)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ORCL)))
+    queryTimeout: 5
+    maxOpenConns: 10
+    maxIdleConns: 10
+  db_db-dev-01_ORCLPDB1:
+    username: dev_user
+    password: U2FsdGVkX1+mWskRPfdUVbrxb/0za59nq9LrKmN4C9U=
+    url: oracle://db-dev-01:1521/ORCLPDB1
+    queryTimeout: 5
+    maxOpenConns: 10
+    maxIdleConns: 10
+  db_db-rep-01_REP:
+    username: report
+    password: U2FsdGVkX19ozOp+KQ85z0o2j1h8XahFpZ3SwuCZ7aI=
+    url: oracle://db-rep-01:1521/REP
+    queryTimeout: 5
+    maxOpenConns: 10
+    maxIdleConns: 10
+  db_host_docker_internal_ORCLPDB1:
+    username: dbajobs
+    password: dbajobs
+    url: oracle://host.docker.internal:1521/ORCLPDB1
+    queryTimeout: 5
+    maxOpenConns: 10
+    maxIdleConns: 10
+  db_192_168_68_185_ORCLCDB:
+    username: system
+    password: oracle
+    url: oracle://192.168.68.185:1521/ORCLCDB
+    queryTimeout: 5
+    maxOpenConns: 10
+    maxIdleConns: 10
+metrics:
+  default: /exporter/default-metrics.toml
+  custom:
+  - /exporter/txeventq-metrics.toml
+  - /exporter/more-txeventq-metrics.toml
+log:
+  destination: stdout

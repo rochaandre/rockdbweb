@@ -1,3 +1,21 @@
+"""
+# ==============================================================================
+# ROCKDB - Oracle Database Administration & Monitoring Tool
+# ==============================================================================
+# File: sql_central_mod.py
+# Author: Andre Rocha (TechMax Consultoria)
+# 
+# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+#
+# TERMS:
+# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+# 3. You must maintain this header and original naming/ownership information.
+#
+# This software is provided "AS IS", without warranty of any kind.
+# Copyright (c) 2026 Andre Rocha. All rights reserved.
+# ==============================================================================
+"""
 import os
 import sqlite3
 from .utils import get_db_connection, get_oracle_connection, SCRIPTS_DIR
@@ -18,11 +36,52 @@ def get_sql_registry():
     finally:
         conn.close()
 
-def get_sql_content(rel_path):
+def get_versioned_sql_path(rel_path, version=None):
+    """
+    Resolves the script path based on the Oracle version.
+    Hierarchy:
+    1. sql/oracle/v11g/ or sql/oracle/v12c/ (based on version)
+    2. sql/oracle/common/
+    3. sql/oracle/ (legacy/default)
+    """
     if ".." in rel_path or rel_path.startswith("/"):
         raise ValueError("Invalid script path")
-    
-    full_path = os.path.join(BASE_SQL_DIR, rel_path)
+
+    # If the path already has v11g/ or v12c/ or common/, we don't need to resolve it
+    if rel_path.startswith("oracle/v11g/") or rel_path.startswith("oracle/v12c/") or rel_path.startswith("oracle/common/"):
+        return os.path.join(BASE_SQL_DIR, rel_path)
+
+    # Resolve based on version
+    version_prefix = "v11g"
+    if version:
+        try:
+            # Check if version is >= 12.1
+            v_num = float('.'.join(version.split('.')[:2]))
+            if v_num >= 12.1:
+                version_prefix = "v12c"
+        except:
+            pass
+
+    # 1. Try version-specific path
+    # rel_path is usually like 'oracle/table/sessions.sql'
+    # We want 'oracle/v11g/table/sessions.sql'
+    if rel_path.startswith("oracle/"):
+        v_path = rel_path.replace("oracle/", f"oracle/{version_prefix}/", 1)
+        full_v_path = os.path.join(BASE_SQL_DIR, v_path)
+        if os.path.exists(full_v_path):
+            return full_v_path
+
+        # 2. Try common path
+        c_path = rel_path.replace("oracle/", "oracle/common/", 1)
+        full_c_path = os.path.join(BASE_SQL_DIR, c_path)
+        if os.path.exists(full_c_path):
+            return full_c_path
+
+    # 3. Default/Legacy path
+    return os.path.join(BASE_SQL_DIR, rel_path)
+
+def get_sql_content(rel_path, version=None):
+    full_path = get_versioned_sql_path(rel_path, version)
     if not os.path.exists(full_path):
         raise FileNotFoundError(f"Script not found: {rel_path}")
     
@@ -114,9 +173,10 @@ def execute_external_tool(conn_info, tool_name, rel_path):
     """Executes an external tool (sqlcl, rman) and returns the output."""
     import subprocess
     
-    full_path = os.path.join(BASE_SQL_DIR, rel_path)
+    version = conn_info.get('version')
+    full_path = get_versioned_sql_path(rel_path, version)
     if not os.path.exists(full_path):
-        raise FileNotFoundError(f"Script not found: {rel_path}")
+        raise FileNotFoundError(f"Script not found: {rel_path} (Resolved: {full_path})")
 
     # Build connection string for the tool
     # Example: sql -s username/password@host:port/service
@@ -152,21 +212,37 @@ def execute_external_tool(conn_info, tool_name, rel_path):
     except Exception as e:
         return {"error": str(e)}
 
-def execute_generic_sql(conn_info, sql_text, auto_commit=False):
+def execute_generic_sql(conn_info, sql_text, auto_commit=False, bind_vars=None):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         
+        # 1. Perform $VARIABLE replacement (for scripts that use this legacy syntax)
+        if bind_vars:
+            import re
+            for k, v in bind_vars.items():
+                # Case-insensitive replacement of $KEY or $key with the value
+                # We use a negative lookahead to ensure we don't match partial variable names (e.g. $SID vs $SID_EXTRA)
+                pattern = re.compile(re.escape(f"${k}") + r"(?![a-zA-Z0-9_])", re.IGNORECASE)
+                sql_text = pattern.sub(str(v), sql_text)
+
         # Split script if multiple statements (simple split by semicolon)
-        # Note: This is naive, but works for many scripts. 
-        # A more robust regex might be needed for PL/SQL blocks.
         statements = [s.strip() for s in sql_text.split(';') if s.strip()]
         
         results = []
         for stmt in statements:
             try:
-                cursor.execute(stmt)
+                if bind_vars:
+                    # Filter bind vars that actually exist in the statement
+                    # Oracle oracledb uses :name syntax
+                    stmt_binds = {k: v for k, v in bind_vars.items() if f":{k}" in stmt}
+                    if stmt_binds:
+                        cursor.execute(stmt, stmt_binds)
+                    else:
+                        cursor.execute(stmt)
+                else:
+                    cursor.execute(stmt)
                 if cursor.description:
                     columns = [col[0].lower() for col in cursor.description]
                     rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -204,26 +280,27 @@ def seed_sql_scripts():
             'tools': 8
         }
         
-        # Check if already seeded (simple check)
-        cursor.execute("SELECT COUNT(*) FROM cfgmenu")
-        if cursor.fetchone()[0] > 0:
-            return
-        
-        print(f"Seeding SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
+        # Scanning SQL scripts from directory
+        print(f"Scanning SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
         if not os.path.exists(BASE_SQL_DIR):
             print(f"WARNING: Scripts directory not found: {BASE_SQL_DIR}", flush=True)
             return
 
+        # Get existing link_urls to avoid duplicates
+        cursor.execute("SELECT link_url FROM cfgmenu")
+        existing_urls = {row[0] for row in cursor.fetchall()}
+
         scripts_to_insert = []
-        
         for root, dirs, files in os.walk(BASE_SQL_DIR):
             for file in files:
                 if file.endswith('.sql'):
                     rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)
                     
+                    if rel_path in existing_urls:
+                        continue
+
                     # Determine type from path
                     parts = rel_path.split(os.sep)
-                    # Expected: oracle/<type>/... or <type>/...
                     ctype = 1 # Default to Table
                     for part in parts:
                         if part in type_mapping:
@@ -242,12 +319,14 @@ def seed_sql_scripts():
                         'file-text' # codmenutype_icon_url
                     ))
         
-        cursor.executemany("""
-            INSERT INTO cfgmenu (name, link_label, link_url, icon_url, codmenutype, codmenutype_icon_url)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, scripts_to_insert)
+        if scripts_to_insert:
+            print(f"Found {len(scripts_to_insert)} new scripts to register", flush=True)
+            cursor.executemany("""
+                INSERT OR IGNORE INTO cfgmenu (name, link_label, link_url, icon_url, codmenutype, codmenutype_icon_url)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, scripts_to_insert)
         
-        # Add example tools
+        # Always ensure example tools are registered
         tool_scripts = [
             ('SQLcl Example', 'oracle/tools/sqlcl_example.sql', 8),
             ('RMAN Example', 'oracle/tools/rman_example.rcv', 8),
@@ -267,6 +346,7 @@ def seed_sql_scripts():
         conn.commit()
     finally:
         conn.close()
+
 def search_sql_content(query):
     """Scans all .sql files in BASE_SQL_DIR for the given query string."""
     matches = []

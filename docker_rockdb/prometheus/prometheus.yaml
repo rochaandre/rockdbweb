@@ -1,0 +1,25 @@
+global:
+  evaluation_interval: 15s
+  scrape_interval: 15s
+  scrape_timeout: 10s
+scrape_configs:
+- honor_timestamps: true
+  job_name: prometheus
+  metrics_path: /metrics
+  scheme: http
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  static_configs:
+  - targets:
+    - localhost:9090
+- job_name: oracle-exporter
+  metrics_path: /metrics
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  static_configs:
+  - targets:
+    - rockdb_app:9161
+- job_name: node-exporter
+  static_configs:
+  - targets:
+    - 192.168.68.185:9100

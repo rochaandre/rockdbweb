@@ -1,0 +1,44 @@
+pipeline {
+    agent any
+
+    triggers {
+        cron('H H * * *') // Run once a day at a random hour
+    }
+
+    environment {
+        ANSIBLE_CONFIG = "${WORKSPACE}/monitoring/ansible/ansible.cfg"
+        INVENTORY_FILE = "${WORKSPACE}/monitoring/ansible/inventory.ini"
+        PLAYBOOK_PATH  = "${WORKSPACE}/monitoring/ansible/playbooks/manage_agent.yml"
+    }
+
+    stages {
+        stage('Check Agent Status') {
+            steps {
+                script {
+                    // Check status for all servers in the inventory
+                    sh "ansible all -i ${INVENTORY_FILE} -m command -a 'systemctl is-active node_exporter' --become || true"
+                }
+            }
+        }
+
+        stage('Auto-Remediate') {
+            steps {
+                script {
+                    // If the previous check failed for some hosts, we redeploy to all to ensure consistency
+                    // More advanced logic would filter only failed hosts, but for simplicity:
+                    echo "Starting auto-remediation/deploy..."
+                    sh "ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_PATH} --tags install --become"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Monitoring health check completed."
+        }
+        failure {
+            echo "Remediation failed! Please check the logs."
+        }
+    }
+}

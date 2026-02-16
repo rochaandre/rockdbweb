@@ -1,3 +1,21 @@
+"""
+# ==============================================================================
+# ROCKDB - Oracle Database Administration & Monitoring Tool
+# ==============================================================================
+# File: storage_mod.py
+# Author: Andre Rocha (TechMax Consultoria)
+# 
+# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+#
+# TERMS:
+# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+# 3. You must maintain this header and original naming/ownership information.
+#
+# This software is provided "AS IS", without warranty of any kind.
+# Copyright (c) 2026 Andre Rocha. All rights reserved.
+# ==============================================================================
+"""
 import oracledb
 from .utils import get_oracle_connection
 
@@ -73,15 +91,12 @@ def get_segments(conn_info, tablespace_name):
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        cursor.execute("""
-            SELECT 
-                owner || '.' || segment_name as name,
-                round(bytes / 1024 / 1024, 2) as value
-            FROM dba_segments
-            WHERE tablespace_name = :ts
-            ORDER BY bytes DESC
-            FETCH FIRST 10 ROWS ONLY
-        """, ts=tablespace_name)
+        # Load version-aware SQL
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_text = get_sql_content("oracle/segments.sql", version)
+        
+        cursor.execute(sql_text, ts=tablespace_name)
         columns = [col[0].lower() for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
     except Exception as e:
@@ -146,14 +161,12 @@ def get_undo_stats(conn_info):
         cursor = connection.cursor()
         
         # 1. Recent Stats
-        cursor.execute("""
-            SELECT to_char(begin_time, 'HH24:MI') as begin_time,
-                   to_char(end_time, 'HH24:MI') as end_time,
-                   undoblks, txncount, maxquerylen, maxconcurrency, inst_id
-            FROM gv$undostat
-            ORDER BY begin_time DESC
-            FETCH FIRST 30 ROWS ONLY
-        """)
+        # Load version-aware SQL
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_text = get_sql_content("oracle/undo_stats.sql", version)
+        
+        cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
         stats_rows = cursor.fetchall()
         stats = [dict(zip(columns, row)) for row in stats_rows]

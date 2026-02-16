@@ -18,8 +18,8 @@ FROM container-registry.oracle.com/database/observability-exporter:2.2.1
 # Switch to root to install system dependencies
 USER root
 
-# Install Python 3.11 and basic utilities
-RUN microdnf install -y python3.11 python3.11-pip tar gzip && \
+# Install Python 3.11, basic utilities, and connectivity tools
+RUN microdnf install -y python3.11 python3.11-pip tar gzip iputils procps curl && \
     microdnf clean all
 
 # Ensure python3 points to 3.11
@@ -53,14 +53,18 @@ ENV ROCKDB_SCRIPTS_DIR=/app/sql
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
-# Expose ports for RockDB Backend (8080) and Observability Exporter (9100)
-EXPOSE 8080 9100
+# Expose ports for RockDB Backend (8080) and Observability Exporter (9161)
+EXPOSE 8080 9161
 
 # Copy a startup script to run both services
-COPY <<EOF /app/start.sh
+COPY <<'EOF' /app/start.sh
 #!/bin/bash
+# Perform initial sync of exporter configuration from existing database
+python3.11 -m backend.exporter_sync_mod
+
 # Start the Oracle Observability Exporter in the background
-/oracledb_exporter &
+# We pass any arguments from CMD to the exporter (like --config.file)
+/oracledb_exporter "$@" &
 
 # Database setup: copy seed if missing in the volume
 if [ ! -f /opt/rockdbweb/rockdb.sqlite ]; then
@@ -77,8 +81,8 @@ RUN chmod +x /app/start.sh
 # Switch back to the non-privileged user (if defined in base, or use 1000)
 USER 1000
 
-# Override the entrypoint of the base image
-ENTRYPOINT []
+# Use start.sh as the entrypoint to handle command-line arguments correctly
+ENTRYPOINT ["/app/start.sh"]
 
-# Start services
-CMD ["/app/start.sh"]
+# Default to no additional arguments
+CMD []

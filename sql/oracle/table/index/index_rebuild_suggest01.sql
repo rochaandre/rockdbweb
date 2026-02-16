@@ -1,7 +1,7 @@
  SELECT di.OWNER , di.index_name,
        trunc((dt.num_rows / di.clustering_factor) /
              (dt.num_rows / dt.blocks),2) factor,
-             'alter index ' ||  dt.owner ||'.'|| di.INDEX_NAME ||' rebuild tablespace '|| di.TABLESPACE_NAME ||' online;' rebuild
+             'alter index ' ||  dt.owner ||'.'|| di.INDEX_NAME ||' rebuild tablespace '|| di.TABLESPACE_NAME ||' online ' rebuild
   FROM dba_indexes di, dba_tables dt, dba_constraints dc
  WHERE di.table_name = dt.table_name
    AND dt.table_name = dc.table_name

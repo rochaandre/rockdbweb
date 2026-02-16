@@ -1,148 +1,112 @@
-import { twMerge } from 'tailwind-merge'
-import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
-import { Skull, FileText, Activity, Loader2 } from "lucide-react"
-import { useState, useEffect } from 'react'
-import { API_URL } from '@/context/app-context'
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: long-ops-table.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import React from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Activity, Clock, Database, ChevronRight, BarChart3, Timer } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
-export interface LongOpsTableProps {
-    onSelect?: (sid: number) => void
-    onAction?: (action: string, session: any) => void
-    selectedId?: number | null
-    instId?: number
-    refreshKey?: number
-}
-
-export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKey }: LongOpsTableProps) {
-    const [data, setData] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-
-    const fetchLongOps = async () => {
-        setIsLoading(true)
-        try {
-            const instParam = instId ? `?inst_id=${instId}` : ""
-            const res = await fetch(`${API_URL}/sessions/longops${instParam}`)
-            if (res.ok) {
-                const json = await res.json()
-                setData(json)
-            }
-        } catch (error) {
-            console.error('Error fetching long ops:', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    useEffect(() => {
-        fetchLongOps()
-    }, [instId, refreshKey])
-
-    // Helper to calculate percentage and render progress bar
-    const renderProgressBar = (sofar: number, totalwork: number) => {
-        if (totalwork === 0) return <div className="h-2 w-full bg-gray-100 rounded-full" />
-
-        const pct = Math.min(100, Math.max(0, (sofar / totalwork) * 100))
-        const pctStr = pct.toFixed(1) + '%'
-
+export function LongOpsTable({ data = [], onSelectSession }: { data?: any[], onSelectSession?: (sid: string) => void }) {
+    if (data.length === 0) {
         return (
-            <div className="flex flex-col gap-1 w-full max-w-[140px]">
-                <div className="flex justify-between text-[10px] text-muted-foreground leading-none">
-                    <span>{pctStr}</span>
-                    <span>{sofar} / {totalwork}</span>
+            <div className="flex flex-col items-center justify-center py-20 bg-muted/5 border border-dashed border-border/50 rounded-2xl animate-in fade-in duration-700">
+                <div className="size-16 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 mb-4 shadow-inner">
+                    <Activity className="size-8 opacity-20" />
                 </div>
-                <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden dark:bg-gray-800">
-                    <div
-                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                        style={{ width: pctStr }}
-                    />
-                </div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-foreground">No Active Long Operations</h3>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter mt-1 italic">No long-running tasks currently executing</p>
             </div>
         )
     }
 
-    // Helper to format remaining time
-    const formatTimeRemaining = (seconds: number) => {
-        if (seconds < 60) return `${seconds}s`
-        const mins = Math.floor(seconds / 60)
-        return `${mins}m`
-    }
-
     return (
-        <div className="flex-1 overflow-auto bg-surface">
-            <div className="min-w-[1000px] border-b border-border">
-                {/* Header */}
-                <div className="flex h-8 w-full items-center bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10 border-b border-border">
-                    <div className="w-12 px-2 text-center shrink-0 border-r border-border/50">INST</div>
-                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">SID</div>
-                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">Serial#</div>
-                    <div className="w-32 px-2 shrink-0 border-r border-border/50">Username</div>
-                    <div className="w-40 px-2 shrink-0 border-r border-border/50">OpName</div>
-                    <div className="w-40 px-2 shrink-0 border-r border-border/50">Target</div>
-                    <div className="w-40 px-2 shrink-0 border-r border-border/50">Progress</div>
-                    <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center">Remaining</div>
-                    <div className="flex-1 px-2 shrink-0 min-w-[200px]">Message</div>
+        <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl group transition-all duration-500 hover:shadow-primary/5">
+            <CardHeader className="border-b border-border/30 bg-muted/20 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner group-hover:scale-110 transition-transform">
+                        <BarChart3 className="size-5" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-sm font-black tracking-tight uppercase">V$SESSION_LONGOPS</CardTitle>
+                        <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">Execution progress for intensive database tasks</CardDescription>
+                    </div>
                 </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <Table>
+                    <TableHeader className="bg-muted/10">
+                        <TableRow className="border-b border-border/30">
+                            <TableHead className="w-[100px] text-[9px] uppercase font-black pl-6">SID</TableHead>
+                            <TableHead className="w-[150px] text-[9px] uppercase font-black">Operation</TableHead>
+                            <TableHead className="w-[150px] text-[9px] uppercase font-black">Target</TableHead>
+                            <TableHead className="text-[9px] uppercase font-black">Progress</TableHead>
+                            <TableHead className="text-[9px] uppercase font-black text-right pr-6">Time Left</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.map((row, idx) => {
+                            const percentage = Math.round((row.sofar / row.totalwork) * 100) || 0
 
-                {/* Rows */}
-                {isLoading ? (
-                    <div className="py-20 text-center text-muted-foreground">
-                        <Loader2 className="mx-auto size-8 animate-spin mb-4" />
-                        <p>Loading long operations...</p>
-                    </div>
-                ) : data.length === 0 ? (
-                    <div className="py-20 text-center text-muted-foreground">
-                        <p>No active long operations found.</p>
-                    </div>
-                ) : (
-                    data.map((op, idx) => {
-                        const isSelected = selectedId === op.sid
-
-                        return (
-                            <ContextMenu
-                                key={`${op.sid}-${op.serial}-${idx}`}
-                                trigger={
-                                    <div
-                                        className={twMerge(
-                                            "group flex h-9 items-center border-b border-border/50 text-xs transition-colors hover:bg-muted/50 cursor-pointer select-none",
-                                            isSelected ? "bg-blue-50/80 dark:bg-blue-950/30" : "bg-surface"
-                                        )}
-                                        onClick={() => onSelect?.(op.sid)}
-                                    >
-                                        <div className="w-12 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground opacity-60">{op.inst_id}</div>
-                                        <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.sid}</div>
-                                        <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.serial}</div>
-                                        <div className="w-32 px-2 shrink-0 border-r border-border/50 font-medium truncate" title={op.username}>{op.username}</div>
-                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate" title={op.opname}>{op.opname}</div>
-                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate font-mono text-[11px]" title={op.target}>{op.target}</div>
-                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center">
-                                            {renderProgressBar(op.sofar, op.totalwork)}
+                            return (
+                                <TableRow key={idx} className="hover:bg-blue-500/5 transition-colors border-b border-border/10 group/row">
+                                    <TableCell className="pl-6 py-4">
+                                        <Badge variant="outline" className="h-6 font-black bg-blue-500/10 text-blue-600 border-none px-2 cursor-pointer" onClick={() => onSelectSession?.(row.sid)}>#{row.sid}</Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-foreground leading-tight">{row.opname}</span>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter mt-0.5">{row.username}</span>
                                         </div>
-                                        <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center font-mono">
-                                            {formatTimeRemaining(op.time_remaining)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-muted-foreground truncate" title={row.target}>
+                                            <Database className="size-3 shrink-0" /> {row.target || 'GLOBAL'}
                                         </div>
-                                        <div className="flex-1 px-2 shrink-0 truncate text-muted-foreground" title={op.message}>
-                                            {op.message}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="space-y-2 w-full max-w-[200px]">
+                                            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest leading-none">
+                                                <span className="text-primary">{percentage}%</span>
+                                                <span className="text-muted-foreground opacity-50">{row.sofar} / {row.totalwork} {row.units}</span>
+                                            </div>
+                                            <Progress value={percentage} className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary transition-all duration-1000 ease-in-out" style={{ width: `${percentage}%` }} />
+                                            </Progress>
                                         </div>
-                                    </div>
-                                }
-                            >
-                                <ContextMenuItem onClick={() => onAction?.('KILL_SESSION', op)}>
-                                    <Skull className="mr-2 h-4 w-4 text-destructive" />
-                                    <span className="text-destructive">Kill Session</span>
-                                </ContextMenuItem>
-                                <ContextMenuSeparator />
-                                <ContextMenuItem onClick={() => onAction?.('SHOW_SQL', op)}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Show SQL
-                                </ContextMenuItem>
-                                <ContextMenuItem onClick={() => onAction?.('TRACE_SESSION', op)}>
-                                    <Activity className="mr-2 h-4 w-4" />
-                                    Trace Session
-                                </ContextMenuItem>
-                            </ContextMenu>
-                        )
-                    })
-                )}
-            </div>
-        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <div className="flex flex-col items-end">
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                                                <Timer className="size-3 text-amber-500" /> {row.time_remaining || '0'}s
+                                            </div>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">ET: {row.elapsed_seconds}s</span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     )
 }

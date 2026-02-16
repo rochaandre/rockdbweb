@@ -1,3 +1,21 @@
+"""
+# ==============================================================================
+# ROCKDB - Oracle Database Administration & Monitoring Tool
+# ==============================================================================
+# File: main.py
+# Author: Andre Rocha (TechMax Consultoria)
+# 
+# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+#
+# TERMS:
+# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+# 3. You must maintain this header and original naming/ownership information.
+#
+# This software is provided "AS IS", without warranty of any kind.
+# Copyright (c) 2026 Andre Rocha. All rights reserved.
+# ==============================================================================
+"""
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
@@ -11,8 +29,16 @@ from .db_connections import (
     get_all_connections, get_active_connection, save_connection, 
     update_connection, delete_connection, activate_connection
 )
+from .servers_mod import (
+    get_all_servers, save_server, update_server, delete_server
+)
 from .oracle_connectivity import discover_database_info
-from .dashboard_mod import get_dashboard_metrics, get_tablespace_summary
+from .dashboard_mod import (
+    get_dashboard_metrics, get_tablespace_summary, get_top_queries, 
+    get_top_wait_events, get_long_operations, get_invalid_triggers,
+    get_valid_objects, get_open_cursors, get_active_schemas,
+    get_dashboard_sysaux_occupants
+)
 from .sessions_mod import (
     get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
     get_long_ops, get_blocker_details, get_object_ddl
@@ -23,11 +49,12 @@ from .storage_mod import (
     resize_datafile, add_datafile, get_checkpoint_progress, force_checkpoint,
     get_stats_history_retention, set_stats_history_retention
 )
+from .storage_charts_mod import get_storage_charts_data
 from .redo_logs_mod import (
     get_redo_groups, get_redo_switch_history, get_redo_threads,
     add_redo_group, drop_redo_group, add_redo_member, drop_redo_member,
     switch_logfile, get_standby_redo_groups, get_archived_logs, get_log_buffer_stats,
-    get_redo_management_info
+    get_redo_management_info, get_redo_members
 )
 from .logs_mod import get_alert_logs, get_db_parameters, get_outstanding_alerts
 from .healthcheck_mod import run_healthcheck
@@ -43,6 +70,7 @@ from .jobs_mod import (
     get_legacy_jobs, get_running_jobs, run_legacy_job, 
     set_legacy_job_broken, remove_legacy_job, submit_legacy_job
 )
+from .tools_mod import start_tool_execution, get_tool_execution_status, list_executions
 
 init_db()
 seed_sql_scripts()
@@ -94,8 +122,8 @@ app.add_middleware(
 )
 
 
-# Models
 class ConnectionBase(BaseModel):
+    id: Optional[int] = None
     name: str
     host: str
     port: str
@@ -103,6 +131,11 @@ class ConnectionBase(BaseModel):
     username: str
     password: str
     type: str
+    connection_mode: Optional[str] = 'BASIC'
+    connection_role: Optional[str] = 'NORMAL'
+    connect_string: Optional[str] = None
+    wallet_path: Optional[str] = None
+    tns_admin: Optional[str] = None
 
 class ConnectionResponse(ConnectionBase):
     id: int
@@ -117,6 +150,17 @@ class ConnectionResponse(ConnectionBase):
     log_mode: Optional[str] = None
     is_rac: Optional[bool] = None
     inst_name: Optional[str] = None
+
+class ServerBase(BaseModel):
+    name: str
+    ip: str
+    exporter_port: int = 9100
+    ssh_key: Optional[str] = None
+    type: str
+
+class ServerResponse(ServerBase):
+    id: int
+    created_at: str
 
 class PreferenceSave(BaseModel):
     screen_id: str
@@ -175,6 +219,45 @@ def create_connection(conn: ConnectionBase):
         print(f"Error creating connection: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/config/oracle-roles")
+def get_oracle_roles():
+    roles = ['NORMAL']
+    mapping = {
+        'SYSDBA': 'AUTH_MODE_SYSDBA',
+        'SYSOPER': 'AUTH_MODE_SYSOPER',
+        'SYSBACKUP': 'AUTH_MODE_SYSBACKUP',
+        'SYSDG': 'AUTH_MODE_SYSDG',
+        'SYSKM': 'AUTH_MODE_SYSKM'
+    }
+    for label, attr in mapping.items():
+        if hasattr(oracledb, attr):
+            roles.append(label)
+    return roles
+
+@app.post("/api/connections/test")
+def test_connection_endpoint(conn: ConnectionBase):
+    try:
+        print(f"Testing connection: {conn.name}")
+        conn_dict = conn.dict()
+        
+        # If the password is the masked placeholder, try to fetch it from the DB
+        if conn_dict.get('password') == '••••••••' and conn_dict.get('id'):
+            print(f"Fetching actual password for connection ID {conn_dict['id']}")
+            db = get_db_connection()
+            cursor = db.cursor()
+            cursor.execute("SELECT password FROM connections WHERE id = ?", (conn_dict['id'],))
+            row = cursor.fetchone()
+            db.close()
+            if row:
+                # Use the stored (encrypted) password - get_oracle_connection will decrypt it
+                conn_dict['password'] = row['password']
+        
+        discovery_data = discover_database_info(conn_dict)
+        return {"message": "Success", "discovery": discovery_data}
+    except Exception as e:
+        print(f"Test connection failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.put("/api/connections/{conn_id}")
 def update_db_connection(conn_id: int, conn: ConnectionBase):
     try:
@@ -190,6 +273,34 @@ def delete_existing_connection(conn_id: int):
     try:
         delete_connection(conn_id)
         return {"message": "Connection deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/servers", response_model=List[ServerResponse])
+def read_servers():
+    return get_all_servers()
+
+@app.post("/api/servers", response_model=ServerResponse)
+def create_server(server: ServerBase):
+    try:
+        server_id = save_server(server.dict())
+        return {**server.dict(), "id": server_id, "created_at": "just now"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/servers/{server_id}")
+def update_existing_server(server_id: int, server: ServerBase):
+    try:
+        update_server(server_id, server.dict())
+        return {"message": "Server updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/servers/{server_id}")
+def remove_existing_server(server_id: int):
+    try:
+        delete_server(server_id)
+        return {"message": "Server deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -244,6 +355,86 @@ def read_tablespace_summary():
         raise HTTPException(status_code=404, detail="No active connection")
     try:
         return get_tablespace_summary(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/top-queries")
+def read_top_queries(owner: str = "%"):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_top_queries(active, owner_filter=owner)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/wait-events")
+def read_wait_events(event: str = "%", owner: str = "%"):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_top_wait_events(active, owner_filter=owner, event_filter=event)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/long-operations")
+def read_long_operations():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_long_operations(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/invalid-triggers")
+def read_invalid_triggers(owner: str = "%"):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_invalid_triggers(active, owner_filter=owner)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/valid-objects")
+def read_valid_objects(owner: str = "%"):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_valid_objects(active, owner_filter=owner)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/open-cursors")
+def read_open_cursors(owner: str = "%"):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_open_cursors(active, owner_filter=owner)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/sysaux-occupants")
+def read_sysaux_occupants():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_dashboard_sysaux_occupants(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/schemas")
+def read_dashboard_schemas():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_active_schemas(active)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -337,6 +528,26 @@ def read_storage_files():
         raise HTTPException(status_code=404, detail="No active connection")
     try:
         return get_data_files(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/charts")
+def read_storage_charts():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_storage_charts_data(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/redo/members")
+def read_redo_members():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_redo_members(active)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -620,6 +831,12 @@ def drop_redo_mem(req: RedoMemberDrop):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/storage/redo/switch")
+def switch_redo():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    
     print(f"Switching logfile for connection: {active['name']} ({active['host']})")
     try:
         switch_logfile(active)
@@ -720,7 +937,9 @@ def read_sql_registry():
 @app.get("/api/sql/content")
 def read_sql_content(path: str):
     try:
-        return {"content": get_sql_content(path)}
+        active = get_active_connection()
+        version = active.get('version') if active else None
+        return {"content": get_sql_content(path, version)}
     except FileNotFoundError as fe:
         raise HTTPException(status_code=404, detail=str(fe))
     except Exception as e:
@@ -736,6 +955,7 @@ def run_sql_search(query: str):
 class SqlExecuteRequest(BaseModel):
     sql_text: str
     auto_commit: bool = False
+    bind_vars: Optional[dict] = None
 
 @app.post("/api/sql/execute")
 def run_sql(req: SqlExecuteRequest):
@@ -743,7 +963,12 @@ def run_sql(req: SqlExecuteRequest):
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_generic_sql(active, req.sql_text, auto_commit=req.auto_commit)
+        return execute_generic_sql(
+            active, 
+            req.sql_text, 
+            auto_commit=req.auto_commit, 
+            bind_vars=req.bind_vars
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -865,6 +1090,47 @@ def create_legacy_job(req: JobSubmitRequest):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/tools/execute")
+def run_tool_async(req: ToolExecuteRequest):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        # Note: We reuse ToolExecuteRequest but it might need different fields later
+        # For now, we expect 'tool' and 'sql_text' (sent as 'rel_path' in the request for compatibility or new field)
+        # But let's create a specific request for tools
+        pass
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ToolAsyncRequest(BaseModel):
+    tool: str
+    script: str
+    connection_id: int
+    use_ssh: bool = False
+
+@app.post("/api/tools/start")
+def start_tool(req: ToolAsyncRequest):
+    try:
+        execution_id = start_tool_execution(req.connection_id, req.tool, req.script, req.use_ssh)
+        return {"execution_id": execution_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/tools/status/{execution_id}")
+def get_tool_status(execution_id: str):
+    try:
+        status = get_tool_execution_status(execution_id)
+        if status["status"] == "not_found":
+            raise HTTPException(status_code=404, detail="Execution not found")
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/tools/list")
+def list_tool_executions():
+    return list_executions()
 
 @app.get("/api/healthcheck")
 def read_healthcheck():

@@ -5,4 +5,4 @@ count(*) Archives_Generated
 from v$archived_log
 WHERE thread#=1
 group by TO_CHAR(TRUNC(COMPLETION_TIME), 'DD'),thread#
-order by 1 ;
+order by 1   ;

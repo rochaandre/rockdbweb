@@ -1,72 +1,53 @@
-import { useState, useEffect } from 'react'
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: main-layout.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import React from 'react'
 import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
 import { StatusBar } from './status-bar'
-import { useApp } from '@/context/app-context'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Database, Lock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { usePersistentState } from '@/hooks/use-persistent-state'
+import { Toaster } from "@/components/ui/toaster"
 
 interface MainLayoutProps {
     children: React.ReactNode
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-    const { connection } = useApp()
-    const navigate = useNavigate()
-    const location = useLocation()
-
-    const isConnected = connection.status === 'Connected'
-    const isDatabasesPage = location.pathname === '/databases'
-
-    useEffect(() => {
-        if (!isConnected && !isDatabasesPage) {
-            navigate('/databases')
-        }
-    }, [isConnected, isDatabasesPage, navigate])
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = usePersistentState('sidebar-collapsed', false)
 
     return (
-        <div className="flex h-screen w-full flex-col bg-background overflow-hidden text-foreground">
-            {/* Top Bar covers full width */}
-            <TopBar />
+        <div className="flex h-screen w-screen bg-background overflow-hidden select-none">
+            <Sidebar isCollapsed={isSidebarCollapsed} onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar */}
-                <Sidebar
-                    collapsed={sidebarCollapsed}
-                    onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-                />
+            <div className="flex flex-col flex-1 min-w-0 h-full relative">
+                <TopBar />
 
-                {/* Main Content Area */}
-                <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                    <div className="flex-1 overflow-auto p-2">
-                        {!isConnected && !isDatabasesPage ? (
-                            <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
-                                <div className="border border-border p-4 rounded-xl flex flex-col items-center bg-white shadow-sm">
-                                    <div className="size-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-4">
-                                        <Lock className="size-8" />
-                                    </div>
-                                    <div className="max-w-md">
-                                        <h2 className="text-2xl font-bold">Database Required</h2>
-                                        <p className="text-muted-foreground mt-2">
-                                            You must be connected to an Oracle database to access this screen.
-                                            Please go to the Databases page and establish a connection.
-                                        </p>
-                                    </div>
-                                    <Button onClick={() => navigate('/databases')} className="gap-2 mt-6">
-                                        <Database className="size-4" />
-                                        Go to Databases
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            children
-                        )}
+                <main className="flex-1 min-h-0 overflow-hidden relative">
+                    <div className="absolute inset-0 bg-grid-slate-200/[0.04] [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none" />
+                    <div className="relative h-full flex flex-col">
+                        {children}
                     </div>
-                    <StatusBar />
                 </main>
+
+                <StatusBar />
             </div>
+
+            <Toaster />
         </div>
     )
 }

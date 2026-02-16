@@ -1,179 +1,182 @@
-
-
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: sql-details-view.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import { useParams, useNavigate } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft, Code2, Database, Activity, FileText, Table, Clock, Zap, Loader2, Search, Link2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { useApp, API_URL } from '@/context/app-context'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Checkbox } from "@/components/ui/checkbox"
-import { useParams } from 'react-router-dom'
-import {
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    AreaChart,
-    Area
-} from "recharts"
-
-const MOCK_STATS_DATA = [
-    { name: 'Execs', value: 3.8, perSec: 0.01, perExec: null },
-    { name: 'Disk Reads', value: null, perSec: null, perExec: null },
-    { name: 'Buffer Gets', value: 19.930, perSec: 67, perExec: 5.214 },
-    { name: 'Rows Processed', value: 3.8, perSec: 0.01, perExec: 1.0 },
-]
-
-const MOCK_CHART_DATA = [
-    { time: '19:25', value: 1.5, type: 'cpu' },
-    { time: '19:30', value: 0.8, type: 'cpu' },
-    { time: '19:35', value: 0.2, type: 'cpu' },
-    { time: '19:40', value: 0, type: 'cpu' },
-    { time: '19:45', value: 0.5, type: 'wait' },
-    { time: '19:50', value: 1.2, type: 'wait' },
-    { time: '19:55', value: 2.8, type: 'cpu' },
-    { time: '20:00', value: 3.5, type: 'cpu' },
-    { time: '20:05', value: 0.2, type: 'cpu' },
-    { time: '20:30', value: 0.5, type: 'cpu' },
-    { time: '20:35', value: 1.8, type: 'wait' },
-    { time: '20:40', value: 3.2, type: 'cpu' },
-    { time: '20:45', value: 2.5, type: 'cpu' },
-    { time: '20:50', value: 1.5, type: 'cpu' },
-]
 
 export function SqlDetailsView() {
     const { sqlId } = useParams()
+    const navigate = useNavigate()
+    const { logAction } = useApp()
+    const [isLoading, setIsLoading] = useState(true)
+    const [details, setDetails] = useState<any>(null)
+    const [plan, setPlan] = useState<any[]>([])
+
+    const fetchDetails = async () => {
+        setIsLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions/sql/${sqlId}`)
+            if (res.ok) {
+                const json = await res.json()
+                setDetails(json)
+                // Simulated plan
+                setPlan([
+                    { id: 0, operation: 'SELECT STATEMENT', options: '', object: '', cost: 42 },
+                    { id: 1, operation: ' HASH JOIN', options: '', object: '', cost: 42 },
+                    { id: 2, operation: '  TABLE ACCESS', options: 'FULL', object: 'CUSTOMERS', cost: 18 },
+                    { id: 3, operation: '  TABLE ACCESS', options: 'FULL', object: 'ORDERS', cost: 24 }
+                ])
+                logAction('Browse', 'SQL_Details', `Viewed details for SQL ID: ${sqlId}`)
+            }
+        } catch (error) {
+            console.error("Error fetching SQL details:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        if (sqlId) fetchDetails()
+    }, [sqlId])
+
+    if (isLoading) {
+        return (
+            <MainLayout>
+                <div className="h-full flex items-center justify-center">
+                    <Loader2 className="size-8 animate-spin text-primary" />
+                </div>
+            </MainLayout>
+        )
+    }
 
     return (
         <MainLayout>
-            <div className="flex flex-col h-full gap-2 p-2 bg-muted/20">
-                {/* Header / Top Bar */}
-                <div className="flex items-center gap-2 bg-surface p-1 border border-border rounded-sm text-xs">
-                    <Tabs defaultValue="delta" className="w-[200px]">
-                        <TabsList className="h-6">
-                            <TabsTrigger value="delta" className="h-5 text-[10px]">Delta</TabsTrigger>
-                            <TabsTrigger value="cumulative" className="h-5 text-[10px]">Cumulative</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                    <div className="flex items-center gap-1 flex-1 font-mono bg-white border border-input px-2 h-6 overflow-hidden whitespace-nowrap">
-                        <span className="font-bold text-slate-700">SQL_ID:</span> {sqlId || 'g0tvjmy0cnms3'} <span className="font-bold ml-2">Child:</span> 0 <span className="text-muted-foreground ml-2">SELECT COUNT(HIST_SUBS_PAC...)</span>
+            <div className="flex flex-col h-full bg-background overflow-hidden p-6 gap-6">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="hover:bg-muted">
+                        <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                    </Button>
+                    <div className="flex items-center gap-3">
+                        <div className="size-10 bg-primary/10 text-primary flex items-center justify-center rounded-xl">
+                            <Code2 className="size-5" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold tracking-tight">SQL Profile Details</h1>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="outline" className="text-[10px] font-bold border-primary/30">SQL_ID: {sqlId}</Badge>
+                                <Badge variant="secondary" className="text-[10px] font-bold bg-muted text-muted-foreground border-none tracking-widest uppercase">Oracle Hash: {details?.hash_value}</Badge>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Top Section: Stats Grid */}
-                <Card className="rounded-sm border-border shadow-sm">
-                    <CardHeader className="p-2 py-1 border-b border-border bg-muted/30">
-                        <CardTitle className="text-xs font-semibold">SQL Stats Delta. Last five minutes.</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 overflow-auto">
-                        <div className="grid grid-cols-4 gap-4 p-2 text-xs">
-                            {/* Column 1 */}
-                            <div className="space-y-1">
-                                {MOCK_STATS_DATA.map(stat => (
-                                    <div key={stat.name} className="flex justify-between border-b border-dashed border-border/50 pb-0.5">
-                                        <span className="font-bold text-right w-24">{stat.name}:</span>
-                                        <span className="font-mono">{stat.value ?? ''}</span>
-                                        <span className="font-mono text-muted-foreground">{stat.perSec ? `${stat.perSec}/s` : ''}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            {/* Column 2 */}
-                            <div className="space-y-1">
-                                <div className="flex justify-between border-b border-dashed border-border/50 pb-0.5">
-                                    <span className="font-bold text-right w-24">CPU Time:</span>
-                                    <span className="font-mono">0.55</span>
-                                    <span className="font-mono text-muted-foreground">0.19%</span>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-auto pr-2 pb-6">
+                    <div className="lg:col-span-12 space-y-6">
+                        {/* SQL Text Area */}
+                        <Card className="border-border/50 shadow-sm overflow-hidden group">
+                            <CardHeader className="py-3 bg-muted/10 border-b border-border/30 flex flex-row items-center justify-between">
+                                <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+                                    <FileText className="size-3.5" /> Source Query
+                                </CardTitle>
+                                <Button variant="ghost" size="xs" className="h-6 gap-1 text-[10px] font-bold uppercase" onClick={() => navigate(`/sql-central?script=sessions_sqlid.sql&sid=0&serial=0`)}>
+                                    <Link2 className="size-3" /> Explore in SQL Central
+                                </Button>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="p-6 bg-slate-900 text-emerald-400 font-mono text-sm leading-relaxed overflow-auto max-h-[300px]">
+                                    {details?.sql_text || '-- No SQL text available'}
                                 </div>
-                                <div className="flex justify-between border-b border-dashed border-border/50 pb-0.5">
-                                    <span className="font-bold text-right w-24">Elapsed Time:</span>
-                                    <span className="font-mono">0.55</span>
-                                    <span className="font-mono text-muted-foreground">0.19%</span>
-                                </div>
-                            </div>
-                            {/* Column 3 */}
-                            <div className="space-y-1">
-                                <div className="flex justify-between border-b border-dashed border-border/50 pb-0.5">
-                                    <span className="font-bold text-right w-24">Parse Calls:</span>
-                                    <span className="font-mono">1.8</span>
-                                </div>
-                                <div className="flex justify-between border-b border-dashed border-border/50 pb-0.5">
-                                    <span className="font-bold text-right w-24">Sorts:</span>
-                                    <span className="font-mono"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
 
-                {/* Middle: Charts */}
-                <Card className="flex-1 min-h-[200px] flex flex-col rounded-sm border-border shadow-sm">
-                    <CardHeader className="p-2 py-1 border-b border-border bg-muted/30 flex flex-row justify-between items-center h-8">
-                        <CardTitle className="text-xs font-semibold">SQL Activity - ELAPSED_TIME</CardTitle>
-                        <div className="text-[10px] text-muted-foreground">Avg = 0.99</div>
-                    </CardHeader>
-                    <CardContent className="flex-1 p-2 flex gap-2">
-                        <div className="flex-1 h-full min-h-[150px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={MOCK_CHART_DATA}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
-                                    <XAxis dataKey="time" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                                    <Tooltip contentStyle={{ fontSize: '12px' }} />
-                                    <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="#93c5fd" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <MetricCard title="Executions" value={details?.executions || 0} icon={<Activity className="size-4 text-primary" />} />
+                            <MetricCard title="CPU Time" value={`${details?.cpu_time || 0}ms`} icon={<Zap className="size-4 text-amber-500" />} />
+                            <MetricCard title="Disk Reads" value={details?.disk_reads || 0} icon={<Database className="size-4 text-blue-500" />} />
+                            <MetricCard title="Optimizer" value={details?.optimizer_mode || 'N/A'} icon={<Search className="size-4 text-emerald-500" />} subtitle="Mode" />
                         </div>
-                        {/* Legend/Checks */}
-                        <div className="w-40 border-l border-border pl-2 space-y-0.5 overflow-auto text-[10px]">
-                            {['Execs', 'Disk Reads', 'Buffer Gets', 'CPU Time', 'Elapsed Time'].map(item => (
-                                <div key={item} className="flex items-center gap-1.5">
-                                    <Checkbox id={item} className="h-3 w-3 rounded-[2px]" checked={item === 'Elapsed Time'} />
-                                    <label htmlFor={item} className="leading-none cursor-pointer">{item}</label>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
 
-                {/* Bottom: Tabs (ASH, etc) */}
-                <div className="h-1/3 min-h-[200px] flex flex-col bg-surface border border-border rounded-sm shadow-sm">
-                    <Tabs defaultValue="active_sessions" className="flex flex-col h-full">
-                        <div className="flex items-center justify-between border-b border-border bg-muted/30 px-2">
-                            <TabsList className="h-7 bg-transparent p-0">
-                                <TabsTrigger value="summary" className="h-7 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-2">Summ</TabsTrigger>
-                                <TabsTrigger value="history" className="h-7 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-2">Hist</TabsTrigger>
-                                <TabsTrigger value="active_sessions" className="h-7 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-2">Wait Events</TabsTrigger>
+                        <Tabs defaultValue="plan" className="w-full">
+                            <TabsList className="bg-muted/10 p-1 border border-border/50">
+                                <TabsTrigger value="plan" className="text-[10px] font-black uppercase px-6">Execution Plan</TabsTrigger>
+                                <TabsTrigger value="stats" className="text-[10px] font-black uppercase px-6">Detailed Stats</TabsTrigger>
                             </TabsList>
-                            <span className="text-[10px] text-muted-foreground mr-2">{sqlId || 'g0tvjmy0cnms3'} / 35555082078</span>
-                        </div>
-
-                        <TabsContent value="active_sessions" className="flex-1 p-0 m-0 overflow-auto">
-                            <Table>
-                                <TableHeader className="bg-muted/20 sticky top-0">
-                                    <TableRow className="h-6 text-[10px]">
-                                        <TableHead className="h-6">TimeStamp</TableHead>
-                                        <TableHead className="h-6">SID</TableHead>
-                                        <TableHead className="h-6">State</TableHead>
-                                        <TableHead className="h-6">Event</TableHead>
-                                        <TableHead className="h-6">Machine</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {[1, 2, 3, 4].map(i => (
-                                        <TableRow key={i} className="h-6 text-[10px] hover:bg-muted/50">
-                                            <TableCell className="p-1">21:05:28.45</TableCell>
-                                            <TableCell className="p-1 font-mono text-purple-600">1633</TableCell>
-                                            <TableCell className="p-1">On CPU</TableCell>
-                                            <TableCell className="p-1 text-muted-foreground">-</TableCell>
-                                            <TableCell className="p-1">srvinsgcbm02</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TabsContent>
-                    </Tabs>
+                            <TabsContent value="plan" className="mt-4">
+                                <Card className="border-border/50 shadow-sm bg-card/40 backdrop-blur-sm">
+                                    <CardContent className="p-0">
+                                        <table className="w-full text-[11px] text-left">
+                                            <thead className="bg-muted/30 text-muted-foreground border-b border-border/50">
+                                                <tr>
+                                                    <th className="px-4 py-2 font-black uppercase tracking-widest">ID</th>
+                                                    <th className="px-4 py-2 font-black uppercase tracking-widest">Operation</th>
+                                                    <th className="px-4 py-2 font-black uppercase tracking-widest">Object</th>
+                                                    <th className="px-4 py-2 font-black uppercase tracking-widest text-right">Cost</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="font-mono divide-y divide-border/20">
+                                                {plan.map((p, i) => (
+                                                    <tr key={i} className="hover:bg-primary/5 transition-colors">
+                                                        <td className="px-4 py-2 text-muted-foreground">{p.id}</td>
+                                                        <td className="px-4 py-2 font-bold">{p.operation}</td>
+                                                        <td className="px-4 py-2 text-primary">{p.object}</td>
+                                                        <td className="px-4 py-2 text-right font-black text-foreground">{p.cost}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                            <TabsContent value="stats">
+                                <div className="py-12 text-center text-muted-foreground opacity-50 space-y-2">
+                                    <Loader2 className="size-6 animate-spin mx-auto mb-2" />
+                                    <p className="font-bold uppercase tracking-widest text-[10px]">Fetching wait events data...</p>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
                 </div>
             </div>
         </MainLayout>
+    )
+}
+
+function MetricCard({ title, value, icon, subtitle }: { title: string, value: string | number, icon: React.ReactNode, subtitle?: string }) {
+    return (
+        <Card className="border-border/50 shadow-sm hover:shadow-md transition-all duration-300">
+            <CardContent className="p-4 flex items-center gap-4">
+                <div className="size-10 rounded-xl bg-muted/30 flex items-center justify-center shrink-0">
+                    {icon}
+                </div>
+                <div className="min-w-0">
+                    <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate">{title}</div>
+                    <div className="text-lg font-black text-foreground truncate">{value}</div>
+                    {subtitle && <div className="text-[9px] font-bold text-muted-foreground/60 -mt-1">{subtitle}</div>}
+                </div>
+            </CardContent>
+        </Card>
     )
 }

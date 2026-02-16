@@ -1,0 +1,282 @@
+# ==============================================================================
+# CONSOLIDATED CUSTOM-METRICS.TOML FOR ORACLE MONITORING
+# Covers: Performance, Space, Memory, Backup, Alerts, and Inventory
+# ==============================================================================
+
+# ==============================================================================
+# CONSOLIDATED ORACLE CUSTOM METRICS - ENGLISH VERSION
+# ==============================================================================
+
+# --- SECTION 1: SYSTEM ACTIVITY ---
+# Source: oracle_activity_metric12.sql
+[[metric]]
+context = "activity"
+labels = [ "db_name", "metric_name" ]
+metricsdesc = { value = "System statistics counter value from v$sysstat" }
+request = '''
+SELECT v.instance_name as db_name, s.name as metric_name, s.value 
+FROM v$sysstat s, v$instance v  
+WHERE name IN ('parse count (total)', 'execute count', 'user commits', 'user rollbacks')
+'''
+
+# --- SECTION 2: ARCHIVE LOG GENERATION ---
+# Source: oracle_archive_generated12.sql
+[[metric]]
+context = "archive_logs"
+labels = [ "db_name", "thread" ]
+metricsdesc = { mb_generated = "Megabytes of archives generated", count = "Number of archives generated" }
+request = '''
+SELECT v.instance_name as db_name, thread# as thread, 
+       round(sum(BLOCKS*BLOCK_SIZE)/1048576) as mb_generated, count(*) as count
+FROM gv$archived_log l, gv$instance v
+WHERE l.inst_id = v.inst_id AND COMPLETION_TIME >= sysdate - 1/24 
+GROUP BY v.instance_name, thread#
+'''
+
+# --- SECTION 3: ASM DISK GROUPS ---
+# Source: oracle_asm_diskgroupsize12.sql
+[[metric]]
+context = "asm"
+labels = [ "db_name", "dg_name" ]
+metricsdesc = { total_bytes = "Total capacity of ASM disk group", free_bytes = "Free space in ASM disk group" }
+request = '''
+SELECT v.instance_name as db_name, a.name as dg_name, a.total_mb*1048576 as total_bytes, a.free_mb*1048576 as free_bytes 
+FROM v$asm_diskgroup_stat a, v$instance v
+'''
+
+# --- SECTION 4: QUERY PERFORMANCE ---
+# Source: oracle_big_queries12.sql, oracle_slow_queries12.sql
+[[metric]]
+context = "query_performance"
+labels = [ "db_name" ]
+metricsdesc = { 
+    p95_rows = "95th percentile rows", p99_rows = "99th percentile rows",
+    p95_time_usecs = "95th percentile elapsed time", p99_time_usecs = "99th percentile elapsed time"
+}
+request = '''
+SELECT v.instance_name as db_name, 
+       percentile_disc(0.95) within group (order by rownum) as p95_rows, 
+       percentile_disc(0.99) within group (order by rownum) as p99_rows,
+       percentile_disc(0.95) within group (order by elapsed_time) as p95_time_usecs, 
+       percentile_disc(0.99) within group (order by elapsed_time) as p99_time_usecs 
+FROM v$sql, v$instance v  
+WHERE last_active_time >= sysdate - 5/(24*60)
+GROUP BY v.instance_name
+'''
+
+# --- SECTION 5: FLASH RECOVERY AREA (FRA) ---
+# Source: oracle_fra12.sql
+[[metric]]
+context = "fra"
+labels = [ "db_name", "file_type" ]
+metricsdesc = { percent_used = "FRA used percentage", reclaimable = "FRA reclaimable percentage", files = "File count" }
+request = '''
+SELECT v.instance_name as db_name, replace(file_type,' ','_') as file_type, 
+       percent_space_used as percent_used, percent_space_reclaimable as reclaimable, number_of_files as files 
+FROM v$recovery_area_usage, v$instance v
+'''
+
+# --- SECTION 6: DATABASE SIZE & GROWTH ---
+# Source: oracle_growth12.sql
+[[metric]]
+context = "db_growth"
+labels = [ "db_name" ]
+metricsdesc = { total_size_gb = "DB size GB", used_perc = "Used percentage", growth_day_gb = "Daily growth GB" }
+request = '''
+SELECT v.instance_name as db_name,
+       ROUND(SUM(u.bytes) / 1073741824, 2) as total_size_gb,
+       ROUND((SUM(u.bytes) - (SELECT SUM(bytes) FROM dba_free_space)) / SUM(u.bytes) * 100, 2) as used_perc,
+       ROUND((SUM(u.bytes) - (SELECT SUM(bytes) FROM dba_free_space)) / 1073741824 / (sysdate - min(creation_time)), 2) as growth_day_gb
+FROM (SELECT bytes, creation_time FROM v$datafile UNION ALL SELECT bytes, null FROM v$tempfile UNION ALL SELECT bytes, null FROM v$log) u, v$instance v
+GROUP BY v.instance_name
+'''
+
+# --- SECTION 7: INSTANCE STATUS ---
+# Source: oracle_instance_uptime12.sql
+[[metric]]
+context = "instance"
+labels = [ "db_name", "role", "open_mode", "version" ]
+metricsdesc = { status = "Status (1=UP)" }
+request = '''
+SELECT v.instance_name as db_name, d.database_role as role, replace(d.open_mode,' ','_') as open_mode, v.version, 1 as status
+FROM gv$database d, gv$instance v WHERE d.inst_id=v.inst_id
+'''
+
+# --- SECTION 8: TABLESPACES ---
+# Source: oracle_tbs_data12.sql, oracle_tbs_temp_usage12.sql
+[[metric]]
+context = "tablespace"
+labels = [ "db_name", "tbs_name" ]
+metricsdesc = { used_mb = "Used MB", used_pct = "Used %" }
+request = '''
+SELECT d.instance_name as db_name, a.tablespace_name as tbs_name,
+       trunc(nvl(b.tot_used,0)/1048576) as used_mb,
+       trunc((nvl(b.tot_used,0)/nullif(a.bytes_alloc,0))*100, 2) as used_pct
+FROM v$instance d, 
+     (SELECT tablespace_name, sum(decode(autoextensible,'NO',bytes,'YES',GREATEST(BYTES, maxbytes), BYTES)) bytes_alloc FROM dba_data_files GROUP BY tablespace_name) a,
+     (SELECT tablespace_name, sum(bytes) tot_used FROM dba_segments GROUP BY tablespace_name) b
+WHERE a.tablespace_name = b.tablespace_name (+)
+'''
+
+# --- SECTION 9: SGA POOLS STATUS (INTEGRATED FROM oracle_instance_status12.sql) ---
+# This section follows your provided query exactly.
+[[metric]]
+context = "instance_memory_pools"
+labels = [ "db_name", "host_name" ]
+metricsdesc = { 
+    pools_total = "Total pools size",
+    shared_total = "Shared pool total",
+    shared_free = "Shared pool free",
+    large_total = "Large pool total",
+    large_free = "Large pool free",
+    java_total = "Java pool total",
+    java_free = "Java pool free",
+    streams_total = "Streams pool total",
+    streams_free = "Streams pool free"
+}
+request = '''
+SELECT 
+    gv$instance.instance_name as db_name,
+    gv$instance.host_name,
+    round(sum(decode(pool,null,0,a.bytes))/1048576) as pools_total, 
+    round(sum(decode(pool,'shared pool',a.bytes,0))/1048576) as shared_total, 
+    round(sum(decode(pool,'shared pool',decode(a.name,'free memory',a.bytes,0),0))/1048576) as shared_free, 
+    round(sum(decode(pool,'large pool',a.bytes,0))/1048576) as large_total, 
+    round(sum(decode(pool,'large pool',decode(a.name,'free memory',a.bytes,0),0))/1048576) as large_free, 
+    round(sum(decode(pool,'java pool',a.bytes,0))/1048576) as java_total, 
+    round(sum(decode(pool,'java pool',decode(a.name,'free memory',a.bytes,0),0))/1048576) as java_free, 
+    round(sum(decode(pool,'streams pool',bytes,0))/1048576) as streams_total, 
+    round(sum(decode(pool,'streams pool',decode(a.name,'free memory',a.bytes,0),0))/1048576) as streams_free 
+FROM gv$sgastat a, gv$instance
+WHERE a.inst_id = gv$instance.inst_id
+GROUP BY gv$instance.host_name, gv$instance.instance_name
+'''
+
+# --- SECTION 10: SESSIONS & TEMP ---
+# Source: oracle_sessions_count12.sql, oracle_sessions_temp_usage12.sql
+[[metric]]
+context = "sessions"
+labels = [ "db_name", "status", "type" ]
+metricsdesc = { count = "Session count" }
+request = '''
+SELECT v.instance_name as db_name, s.status, s.type, count(*) as count
+FROM v$session s, v$instance v GROUP BY v.instance_name, s.status, s.type
+'''
+
+[[metric]]
+context = "session_temp"
+labels = [ "db_name", "username", "sid_serial", "sql_id" ]
+metricsdesc = { usage_mb = "Session temp usage MB" }
+request = '''
+SELECT v.instance_name as db_name, nvl(a.username, '(oracle)') as username, 
+       a.sid||','||a.serial# as sid_serial, a.sql_id,
+       round(((b.blocks * (SELECT value FROM v$parameter WHERE name='db_block_size'))/1048576), 2) as usage_mb
+FROM gv$session a, gv$sort_usage b, v$instance v
+WHERE a.saddr = b.session_addr AND a.inst_id=b.inst_id AND a.inst_id=v.inst_id
+'''
+
+# --- SECTION 11: RMAN & ALERTS ---
+# Source: oracle_rman_details12.sql, oracle_outstanding_alerts12.sql
+[[metric]]
+context = "rman"
+labels = [ "db_name", "status" ]
+metricsdesc = { duration_hours = "Backup duration", output_gb = "Backup size GB" }
+request = '''
+SELECT v.instance_name as db_name, status, round(elapsed_seconds/3600, 2) as duration_hours, round(output_bytes/1073741824, 2) as output_gb
+FROM V$RMAN_BACKUP_JOB_DETAILS, v$instance v WHERE start_time >= sysdate - 1
+'''
+
+[[metric]]
+context = "alerts"
+labels = [ "db_name", "reason" ]
+metricsdesc = { active = "Active alert count" }
+request = '''
+SELECT v.instance_name as db_name, replace(reason,' ','_') as reason, 1 as active
+FROM DBA_OUTSTANDING_ALERTS, v$instance v
+'''
+
+# --- SECTION 12: INVENTORY ---
+# Source: oracle_metrics_db12.sql
+[[metric]]
+context = "inventory"
+labels = [ "db_name" ]
+metricsdesc = { unusable_indexes = "Unusable indexes", invalid_objects = "Invalid objects" }
+request = '''
+SELECT v.instance_name as db_name,
+       (SELECT count(*) FROM dba_indexes WHERE status='UNUSABLE') as unusable_indexes,
+       (SELECT count(*) FROM dba_objects WHERE status='INVALID') as invalid_objects
+FROM v$instance v
+'''
+
+# --- SECTION 13: WAIT CLASSES ---
+# Source: oracle_wait_class12.sql
+[[metric]]
+context = "wait_class"
+labels = [ "db_name", "wait_class" ]
+metricsdesc = { value = "Normalized wait time" }
+request = '''
+SELECT v.instance_name as db_name, n.wait_class, round(m.time_waited/nullif(m.INTSIZE_CSEC,0),3) as value
+FROM v$waitclassmetric m, v$system_wait_class n, v$instance v  
+WHERE m.wait_class_id=n.wait_class_id AND n.wait_class != 'Idle'
+'''
+
+# --- SECTION 14: DATABASE REGISTRY & PATCHING ---
+# Monitoring component status (JVM, XML, etc.) and patch history
+[[metric]]
+context = "db_registry"
+labels = [ "db_name", "comp_id", "comp_name", "version" ]
+metricsdesc = { status_val = "Component status (1=VALID, 0=INVALID/OTHER)" }
+request = '''
+SELECT v.instance_name as db_name, r.comp_id, r.comp_name, r.version,
+       decode(r.status, 'VALID', 1, 0) as status_val
+FROM dba_registry r, v$instance v
+'''
+
+[[metric]]
+context = "db_patch_history"
+labels = [ "db_name", "action", "version", "comments" ]
+metricsdesc = { last_patch_time = "Unixtime of the last patch action" }
+request = '''
+SELECT v.instance_name as db_name, h.action, h.version, h.comments,
+       (cast(h.action_time as date) - to_date('01-01-1970','DD-MM-YYYY')) * 86400 as last_patch_time
+FROM (SELECT action_time, action, version, comments FROM dba_registry_history ORDER BY action_time DESC) h, 
+     v$instance v
+WHERE rownum = 1
+'''
+
+# --- SECTION 15: SYSAUX OCCUPANTS (Internal Growth) ---
+# Identifies which internal component (AWR, Optimizer Stats, etc.) is consuming SYSAUX
+[[metric]]
+context = "sysaux_occupants"
+labels = [ "db_name", "occupant_name", "schema_name" ]
+metricsdesc = { used_mb = "Space used by component in SYSAUX (MB)" }
+request = '''
+SELECT v.instance_name as db_name, s.occupant_name, s.schema_name, 
+       round(s.space_usage_kbytes/1024) as used_mb
+FROM v$sysaux_occupants s, v$instance v
+'''
+
+# --- SECTION 16: UNDO & REDO LOG PRESSURE ---
+# Critical for performance and preventing transaction failures
+[[metric]]
+context = "redo_logs"
+labels = [ "db_name" ]
+metricsdesc = { switch_freq_min = "Average minutes between log switches (last 24h)" }
+request = '''
+SELECT v.instance_name as db_name, 
+       round(24*60/nullif(count(l.thread#),0)) as switch_freq_min
+FROM v$loghist l, v$instance v 
+WHERE l.first_time > sysdate - 1
+GROUP BY v.instance_name
+'''
+
+[[metric]]
+context = "blocking_sessions"
+labels = [ "db_name" ]
+metricsdesc = { count = "Number of sessions currently blocked by other sessions" }
+request = '''
+SELECT v.instance_name as db_name, count(*) as count 
+FROM v$session v_s, v$instance v 
+WHERE v_s.blocking_session IS NOT NULL
+GROUP BY v.instance_name
+'''

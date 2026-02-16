@@ -1,121 +1,78 @@
-export interface BackupJob {
-    id: number
-    command_id: string
-    operation: string
-    status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'COMPLETED WITH WARNINGS'
-    start_time: string
-    time_taken: string
-    output_device: string
-    input_bytes: string
-    output_bytes: string
-}
-
-export const ACTIVE_BACKUP_JOBS: BackupJob[] = [
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: backups-data.ts
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+export const MOCK_BACKUP_JOBS = [
     {
-        id: 101,
-        command_id: 'RMAN-001',
-        operation: 'RMAN BACKUP FULL',
-        status: 'RUNNING',
-        start_time: '2026-01-29 13:00:00',
-        time_taken: '00:48:12',
-        output_device: 'DISK',
-        input_bytes: '450 GB',
-        output_bytes: '120 GB'
-    },
-    {
-        id: 102,
-        command_id: 'EXPDP-055',
-        operation: 'EXPORT SCHEMA HR',
-        status: 'RUNNING',
-        start_time: '2026-01-29 13:30:00',
-        time_taken: '00:18:05',
-        output_device: 'DATA_PUMP_DIR',
-        input_bytes: '5 GB',
-        output_bytes: '1.2 GB'
-    }
-]
-
-export const BACKUP_HISTORY: BackupJob[] = [
-    {
-        id: 99,
-        command_id: 'RMAN-000',
-        operation: 'RMAN BACKUP FULL',
+        session_key: 1245,
+        command_id: 'bkup_full_s1',
         status: 'COMPLETED',
-        start_time: '2026-01-28 02:00:00',
-        time_taken: '04:15:00',
-        output_device: 'TAPE',
-        input_bytes: '2.5 TB',
-        output_bytes: '2.5 TB'
+        start_time: '2026-02-15 02:00:10',
+        time_taken_display: '01:45:22',
+        input_type: 'DB FULL',
+        output_device_type: 'DISK',
+        input_bytes_display: '442.12 GB',
+        output_bytes_display: '88.42 GB'
     },
     {
-        id: 98,
-        command_id: 'EXPDP-054',
-        operation: 'EXPORT SCHEMA SALES',
-        status: 'COMPLETED WITH WARNINGS',
-        start_time: '2026-01-28 20:00:00',
-        time_taken: '01:20:00',
-        output_device: 'DATA_PUMP_DIR',
-        input_bytes: '50 GB',
-        output_bytes: '12 GB'
+        session_key: 1244,
+        command_id: 'arc_logs_hr',
+        status: 'COMPLETED',
+        start_time: '2026-02-15 04:30:00',
+        time_taken_display: '00:05:12',
+        input_type: 'ARCHIVELOG',
+        output_device_type: 'DISK',
+        input_bytes_display: '1.24 GB',
+        output_bytes_display: '1.24 GB'
     },
     {
-        id: 97,
-        command_id: 'RMAN-OLD',
-        operation: 'RMAN ARCHIVELOG',
-        status: 'FAILED',
-        start_time: '2026-01-27 12:00:00',
-        time_taken: '00:05:00',
-        output_device: 'DISK',
-        input_bytes: '0',
-        output_bytes: '0'
+        session_key: 1243,
+        command_id: 'bkup_incr_s1',
+        status: 'RUNNING',
+        start_time: '2026-02-16 10:45:00',
+        time_taken_display: '00:12:45',
+        input_type: 'DB INCR',
+        output_device_type: 'DISK',
+        input_bytes_display: '42.12 GB',
+        output_bytes_display: '8.42 GB'
     }
 ]
 
-export interface BackupSet {
-    bs_key: number
-    job_id: number
-    type: 'FULL' | 'INCR' | 'ARCH'
-    tag: string
-    pieces: number
-    completion_time: string
-    elapsed: string
-    size: string
-    device_type: string
-}
-
-export const BACKUP_SETS: BackupSet[] = [
-    { bs_key: 3501, job_id: 99, type: 'FULL', tag: 'TAG20260128T020000', pieces: 4, completion_time: '2026-01-28 06:15:00', elapsed: '04:15:00', size: '2.5 TB', device_type: 'TAPE' },
-    { bs_key: 3502, job_id: 99, type: 'ARCH', tag: 'TAG20260128T061500', pieces: 1, completion_time: '2026-01-28 06:18:00', elapsed: '00:03:00', size: '500 MB', device_type: 'TAPE' },
-    { bs_key: 3499, job_id: 101, type: 'INCR', tag: 'TAG20260127T200000', pieces: 2, completion_time: '2026-01-27 21:20:00', elapsed: '01:20:00', size: '150 GB', device_type: 'DISK' }
+export const MOCK_BACKUP_SETS = [
+    { bs_key: 8812, jobId: 1245, type: 'FULL', tag: 'TAG20260215T0200', device_type: 'DISK', pieces: 4, size_mb: 22100 },
+    { bs_key: 8813, jobId: 1245, type: 'FULL', tag: 'TAG20260215T0200', device_type: 'DISK', pieces: 4, size_mb: 22100 },
+    { bs_key: 8814, jobId: 1245, type: 'FULL', tag: 'TAG20260215T0200', device_type: 'DISK', pieces: 1, size_mb: 450 }
 ]
 
-export interface BackupDatafile {
-    file_id: number
-    bs_key: number
-    name: string
-    tablespace: string
-    checkpoint_scn: string
-    size: string
-}
-
-export const BACKUP_DATAFILES: BackupDatafile[] = [
-    { file_id: 1, bs_key: 3501, name: '+DATA/ORCL/DATAFILE/system.256.123456', tablespace: 'SYSTEM', checkpoint_scn: '15203040', size: '800 MB' },
-    { file_id: 2, bs_key: 3501, name: '+DATA/ORCL/DATAFILE/sysaux.257.123456', tablespace: 'SYSAUX', checkpoint_scn: '15203040', size: '1.2 GB' },
-    { file_id: 3, bs_key: 3501, name: '+DATA/ORCL/DATAFILE/undotbs1.258.123456', tablespace: 'UNDOTBS1', checkpoint_scn: '15203040', size: '500 MB' },
-    { file_id: 4, bs_key: 3501, name: '+DATA/ORCL/DATAFILE/users.259.123456', tablespace: 'USERS', checkpoint_scn: '15203040', size: '100 MB' },
-    { file_id: 5, bs_key: 3499, name: '+DATA/ORCL/DATAFILE/users.259.123456', tablespace: 'USERS', checkpoint_scn: '15203500', size: '5 MB' }
+export const MOCK_DATAFILES = [
+    { 'file#': 1, bs_key: 8812, tablespace: 'SYSTEM', checkpoint_scn: '1125211', size_mb: 850 },
+    { 'file#': 2, bs_key: 8812, tablespace: 'SYSAUX', checkpoint_scn: '1125211', size_mb: 1200 },
+    { 'file#': 3, bs_key: 8813, tablespace: 'USERS', checkpoint_scn: '1125211', size_mb: 24500 }
 ]
 
-export interface BackupSummary {
-    metric: string
-    value: string
-    trend: 'up' | 'down' | 'stable'
-}
-
-export const BACKUP_SUMMARY: BackupSummary[] = [
-    { metric: 'Total Backups (7 Days)', value: '14', trend: 'stable' },
-    { metric: 'Successful Jobs', value: '12', trend: 'stable' },
-    { metric: 'Failed Jobs', value: '2', trend: 'up' },
-    { metric: 'Avg Duration (Full)', value: '04:10:00', trend: 'down' },
-    { metric: 'Total Size (7 Days)', value: '15.4 TB', trend: 'up' }
+export const MOCK_SUMMARY = [
+    { input_type: 'DB FULL', total_backups: 42, size_gb: 420.5, status: 'OPTIMAL' },
+    { input_type: 'DB INCR', total_backups: 156, size_gb: 120.2, status: 'COMPLETED' },
+    { input_type: 'ARCHIVELOG', total_backups: 2412, size_gb: 45.8, status: 'COMPLETED' },
+    { input_type: 'DATAFILE', total_backups: 12, size_gb: 4.2, status: 'WARNING' }
 ]
+
+export const MOCK_NLS = {
+    language: 'AMERICAN',
+    territory: 'AMERICA',
+    db_charset: 'AL32UTF8'
+}

@@ -1,0 +1,136 @@
+services:
+  rockdb-app:
+    build:
+      context: ..
+      dockerfile: docker_rockdb/Dockerfile
+    container_name: rockdb_app
+    ports:
+      - "8080:8080" # RockDB Backend & Frontend
+      - "9161:9161" # Oracle Metrics Exporter
+    volumes:
+      # Persistent storage for the SQLite database
+      - rockdb_data:/opt/rockdbweb
+      # Persistence for SQL scripts
+      - ../sql:/app/sql
+      # Exporter configuration (allows dynamic updates from the app)
+      - ./rockdb_app:/exporter
+      # Prometheus configuration (allows dynamic target updates)
+      - ./prometheus:/etc/prometheus
+      # Shared monitoring directory for Ansible/Jenkins
+      - ../monitoring:/app/monitoring
+    environment:
+      - ROCKDB_DATA_DIR=/opt/rockdbweb
+      - ROCKDB_SCRIPTS_DIR=/app/sql
+      - MONITORING_DIR=/app/monitoring
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-rockdb_secret_key}
+      # Time Machine (InfluxDB) Connectivity
+      - INFLUX_URL=http://rockdb_influxdb:8086
+      - INFLUX_ORG=rockdb
+      - INFLUX_BUCKET=timemachine
+      - INFLUX_TOKEN=rockdb_super_secret_token_change_me
+    # Allow connection to host Oracle DB via host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Pass the config file to the exporter via start.sh arguments
+    command: [ "--config.file=/exporter/config.yaml", "--web.listen-address=:9161" ]
+    restart: always
+    depends_on:
+      - rockdb_influxdb
+    env_file:
+      - .env
+
+  rockdb_docs:
+    image: node:20-slim
+    container_name: rockdb_docs
+    working_dir: /opt/docusaurus
+    ports:
+      - "3005:3005"
+    volumes:
+      - ./docs:/opt/docusaurus
+    command: sh -c "apt-get update && apt-get install -y iputils-ping && if [ ! -f 'package.json' ]; then npx -y create-docusaurus@latest tmp_doc classic --typescript --skip-install && cp -r tmp_doc/. . && rm -rf tmp_doc; fi && npm install && npm run start -- --host 0.0.0.0 --port 3005"
+    restart: unless-stopped
+
+  rockdb_influxdb:
+    build: ./influxdb
+    container_name: rockdb_influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=rockdb_password123
+      - DOCKER_INFLUXDB_INIT_ORG=rockdb
+      - DOCKER_INFLUXDB_INIT_BUCKET=timemachine
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=rockdb_super_secret_token_change_me
+      - DOCKER_INFLUXDB_INIT_RETENTION=30d
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - ./influxdb/setup_buckets.sh:/docker-entrypoint-initdb.d/setup_buckets.sh
+    restart: unless-stopped
+
+  rockdb_prometheus:
+    image: prom/prometheus:latest
+    container_name: rockdb_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+      - '--storage.tsdb.retention.time=15d'
+    ports:
+      - 9090:9090
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prom_data:/prometheus
+    depends_on:
+      - rockdb-app
+
+  grafana:
+    build: ./grafana
+    container_name: grafana
+    user: "0" # Run as root to allow password reset via CLI if needed
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    # Command to reset password and then run the original entrypoint
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        grafana-cli admin reset-admin-password admin
+        /run.sh
+    depends_on:
+      - rockdb_prometheus
+
+  rockdb-jenkins:
+    build:
+      context: ..
+      dockerfile: monitoring/jenkins/Dockerfile
+    container_name: rockdb_jenkins
+    ports:
+      - "8081:8080" # Jenkins UI
+      - "50000:50000" # Jenkins Agent connection
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - ../monitoring:/app/monitoring
+      - /var/run/docker.sock:/var/run/docker.sock # Optional: if Jenkins needs docker access
+    environment:
+      - MONITORING_DIR=/app/monitoring
+    restart: always
+
+volumes:
+  rockdb_data:
+    driver: local
+  influxdb_data:
+    driver: local
+  influxdb_config:
+    driver: local
+  prom_data:
+    driver: local
+  grafana_data:
+    driver: local
+  jenkins_data:
+    driver: local

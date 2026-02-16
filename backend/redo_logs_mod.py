@@ -1,3 +1,21 @@
+"""
+# ==============================================================================
+# ROCKDB - Oracle Database Administration & Monitoring Tool
+# ==============================================================================
+# File: redo_logs_mod.py
+# Author: Andre Rocha (TechMax Consultoria)
+# 
+# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+#
+# TERMS:
+# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+# 3. You must maintain this header and original naming/ownership information.
+#
+# This software is provided "AS IS", without warranty of any kind.
+# Copyright (c) 2026 Andre Rocha. All rights reserved.
+# ==============================================================================
+"""
 from .utils import get_oracle_connection
 
 def get_redo_groups(conn_info):
@@ -261,6 +279,21 @@ def get_redo_management_info(conn_info):
     except Exception as e:
         print(f"Error fetching redo management info: {e}")
         raise e
+    finally:
+        if connection:
+            connection.close()
+
+def get_redo_members(conn_info):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        cursor.execute("SELECT group#, member, type, is_recovery_dest_file FROM v$logfile ORDER BY group#")
+        columns = [col[0].lower() for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching redo members: {e}")
+        return []
     finally:
         if connection:
             connection.close()

@@ -1,50 +1,29 @@
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: asm-data.ts
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+export const MOCK_ASM_DISKS = [
+    { NAME: 'DATA_0000', PATH: '/dev/oracleasm/disks/DISK1', GROUP_NAME: 'DATA', STATE: 'NORMAL', TOTAL_MB: 524288, FREE_MB: 122500 },
+    { NAME: 'DATA_0001', PATH: '/dev/oracleasm/disks/DISK2', GROUP_NAME: 'DATA', STATE: 'NORMAL', TOTAL_MB: 524288, FREE_MB: 122500 },
+    { NAME: 'RECO_0000', PATH: '/dev/oracleasm/disks/DISK3', GROUP_NAME: 'RECO', STATE: 'NORMAL', TOTAL_MB: 262144, FREE_MB: 156000 },
+    { NAME: 'RECO_0001', PATH: '/dev/oracleasm/disks/DISK4', GROUP_NAME: 'RECO', STATE: 'NORMAL', TOTAL_MB: 262144, FREE_MB: 156000 }
+]
 
-export interface AsmDiskGroup {
-    name: string
-    state: 'MOUNTED' | 'DISMOUNTED'
-    type: 'EXTERN' | 'NORMAL' | 'HIGH'
-    totalMb: number
-    freeMb: number
-    usableFreeMb: number
-    offlineDisks: number
-}
-
-export interface AsmDisk {
-    groupName: string
-    diskNumber: number
-    headerStatus: 'MEMBER' | 'CANDIDATE' | 'FORMER'
-    mode: 'ONLINE' | 'OFFLINE'
-    path: string
-    name: string
-    totalMb: number
-    freeMb: number
-    readErrors: number
-    writeErrors: number
-    readTime: number
-    writeTime: number
-    reads: number
-    writes: number
-}
-
-export interface AsmAlert {
-    message: string
-    time: string
-    severity: 'critical' | 'warning' | 'info'
-}
-
-export const MOCK_ASM_DATA = {
-    isAsmEnabled: true,
-    diskGroups: [
-        { name: 'DATA', state: 'MOUNTED', type: 'EXTERN', totalMb: 2048000, freeMb: 512000, usableFreeMb: 512000, offlineDisks: 0 },
-        { name: 'RECO', state: 'MOUNTED', type: 'EXTERN', totalMb: 1024000, freeMb: 800000, usableFreeMb: 800000, offlineDisks: 0 },
-    ] as AsmDiskGroup[],
-    disks: [
-        { groupName: 'DATA', diskNumber: 0, headerStatus: 'MEMBER', mode: 'ONLINE', path: '/dev/oracleasm/disks/DATA01', name: 'DATA_0000', totalMb: 1024000, freeMb: 256000, readErrors: 0, writeErrors: 0, readTime: 120, writeTime: 45, reads: 50000, writes: 20000 },
-        { groupName: 'DATA', diskNumber: 1, headerStatus: 'MEMBER', mode: 'ONLINE', path: '/dev/oracleasm/disks/DATA02', name: 'DATA_0001', totalMb: 1024000, freeMb: 256000, readErrors: 0, writeErrors: 0, readTime: 110, writeTime: 50, reads: 45000, writes: 18000 },
-        { groupName: 'RECO', diskNumber: 0, headerStatus: 'MEMBER', mode: 'ONLINE', path: '/dev/oracleasm/disks/RECO01', name: 'RECO_0000', totalMb: 1024000, freeMb: 800000, readErrors: 0, writeErrors: 0, readTime: 15, writeTime: 10, reads: 5000, writes: 2000 },
-    ] as AsmDisk[],
-    alerts: [
-        { message: 'Diskgroup DATA space usage crossed 70%', time: '2026-01-29 10:00:00', severity: 'warning' },
-        { message: 'ASM instance startup completed', time: '2026-01-28 08:00:00', severity: 'info' }
-    ] as AsmAlert[]
-}
+export const MOCK_ASM_OPERATIONS = [
+    { GROUP_NAME: 'DATA', OPERATION: 'REBAL', STATE: 'WAIT', POWER: 1, ACTUAL: 1, SOFAR: 0, EST_WORK: 0, EST_RATE: 0, EST_MINUTES: 0 },
+    { GROUP_NAME: 'RECO', OPERATION: 'REBAL', STATE: 'DONE', POWER: 1, ACTUAL: 1, SOFAR: 450, EST_WORK: 450, EST_RATE: 12, EST_MINUTES: 0 }
+]

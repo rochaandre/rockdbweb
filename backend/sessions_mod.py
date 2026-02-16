@@ -1,5 +1,38 @@
+"""
+# ==============================================================================
+# ROCKDB - Oracle Database Administration & Monitoring Tool
+# ==============================================================================
+# File: sessions_mod.py
+# Author: Andre Rocha (TechMax Consultoria)
+# 
+# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+#
+# TERMS:
+# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+# 3. You must maintain this header and original naming/ownership information.
+#
+# This software is provided "AS IS", without warranty of any kind.
+# Copyright (c) 2026 Andre Rocha. All rights reserved.
+# ==============================================================================
+"""
 import oracledb
 from .utils import get_oracle_connection
+
+def sanitize_rows(columns, rows):
+    results = []
+    for row in rows:
+        d = {}
+        for col, val in zip(columns, row):
+            if isinstance(val, (bytes, bytearray)):
+                d[col] = val.hex().upper()
+            elif hasattr(val, 'read'): # Lobs
+                try: d[col] = str(val.read())
+                except: d[col] = str(val)
+            else:
+                d[col] = val
+        results.append(d)
+    return results
 
 def get_sessions(conn_info, inst_id=None):
     connection = None
@@ -13,36 +46,18 @@ def get_sessions(conn_info, inst_id=None):
             where_clause += " AND s.inst_id = :inst_id"
             params.append(inst_id)
 
-        # Rich session query matching the UI needs (gv$ version)
-        cursor.execute(f"""
-            SELECT 
-                s.inst_id,
-                s.sid, 
-                s.serial# as "serial#", 
-                s.username, 
-                s.status, 
-                s.program, 
-                s.machine, 
-                s.type,
-                s.sql_id, 
-                s.prev_sql_id, 
-                s.last_call_et, 
-                s.event, 
-                s.wait_class, 
-                s.seconds_in_wait,
-                (SELECT ROUND(sum(physical_reads + block_gets + consistent_gets)/1024, 2) FROM gv$sess_io WHERE sid = s.sid AND inst_id = s.inst_id) as file_io,
-                (SELECT value FROM gv$sesstat st, v$statname sn WHERE st.sid = s.sid AND st.inst_id = s.inst_id AND st.statistic# = sn.statistic# AND sn.name = 'CPU used by this session') as cpu,
-                (SELECT command_name FROM v$sqlcommand WHERE command_type = s.command) as command,
-                s.row_wait_obj# as lck_obj,
-                (SELECT count(*) FROM gv$px_session WHERE qcsid = s.sid AND inst_id = s.inst_id) as pqs,
-                s.schemaname as owner,
-                s.last_call_et as elapsed
-            FROM gv$session s
-            {where_clause}
-            ORDER BY s.last_call_et DESC
-        """, params)
+        # Load version-aware SQL
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_template = get_sql_content("oracle/sessions.sql", version)
+        
+        # Inject where_clause
+        sql_text = sql_template.format(where_clause=where_clause)
+        
+        cursor.execute(sql_text, params)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        return sanitize_rows(columns, rows)
     except Exception as e:
         print(f"Error fetching sessions: {e}")
         raise e
@@ -95,22 +110,15 @@ def get_blocking_sessions(conn_info, inst_id=None):
         cursor = connection.cursor()
         # For RAC, hierarchical queries are tricky. 
         # We fetch all candidates and build the hierarchy in Python.
-        cursor.execute("""
-            SELECT 
-                inst_id,
-                sid, 
-                serial# as serial, 
-                username, 
-                status, 
-                event,
-                blocking_instance,
-                blocking_session
-            FROM gv$session
-            WHERE (blocking_session IS NOT NULL)
-               OR (sid IN (SELECT blocking_session FROM gv$session WHERE blocking_session IS NOT NULL))
-        """)
+        # Load version-aware SQL
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_text = get_sql_content("oracle/blocking_sessions.sql", version)
+        
+        cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
-        sessions = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        sessions_raw = cursor.fetchall()
+        sessions = sanitize_rows(columns, sessions_raw)
         
         # Build hierarchy
         session_map = {f"{s['inst_id']}-{s['sid']}": s for s in sessions}
@@ -131,7 +139,7 @@ def get_blocking_sessions(conn_info, inst_id=None):
             for k, other in session_map.items():
                 if other['blocking_instance'] == s['inst_id'] and other['blocking_session'] == s['sid']:
                     add_with_children(k, level + 1, processed_keys)
-
+        
         processed = set()
         # Start with root blockers
         roots = [f"{s['inst_id']}-{s['sid']}" for s in sessions if not s['blocking_session']]
@@ -144,9 +152,6 @@ def get_blocking_sessions(conn_info, inst_id=None):
                 add_with_children(k, 0, processed)
 
         if inst_id:
-            # Filter results if requested, but maintain hierarchy context if needed?
-            # Usually, if we filter by instance, we might lose the parent/child link if it's cross-instance.
-            # For now, let's return all related to that instance.
             return [r for r in results if r['inst_id'] == inst_id or r.get('blocking_instance') == inst_id]
             
         return results
@@ -169,24 +174,18 @@ def get_long_ops(conn_info, inst_id=None):
             where_clause += " AND inst_id = :inst_id"
             params.append(inst_id)
             
-        cursor.execute(f"""
-            SELECT 
-                inst_id,
-                sid, 
-                serial# as serial, 
-                username, 
-                opname, 
-                target, 
-                sofar, 
-                totalwork, 
-                time_remaining, 
-                message
-            FROM gv$session_longops
-            {where_clause}
-            ORDER BY start_time DESC
-        """, params)
+        # Load version-aware SQL
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_template = get_sql_content("oracle/long_ops.sql", version)
+        
+        # Inject where_clause
+        sql_text = sql_template.format(where_clause=where_clause)
+        
+        cursor.execute(sql_text, params)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        return sanitize_rows(columns, rows)
     except Exception as e:
         print(f"Error fetching long operations: {e}")
         raise e
@@ -201,16 +200,17 @@ def get_blocker_details(conn_info, sid, inst_id=1):
         cursor = connection.cursor()
         
         # 1. Basic Session Info
-        cursor.execute("""
-            SELECT sid, serial# as serial, username, status, inst_id, sql_id, prev_sql_id, schemaname
-            FROM gv$session WHERE sid = :sid AND inst_id = :inst_id
-        """, {"sid": sid, "inst_id": inst_id})
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_basic = get_sql_content("oracle/blocker_details_basic.sql", version)
+        
+        cursor.execute(sql_basic, {"sid": sid, "inst_id": inst_id})
         row = cursor.fetchone()
         if not row:
             return None
         
         columns = [col[0].lower() for col in cursor.description]
-        details = dict(zip(columns, row))
+        details = sanitize_rows(columns, [row])[0]
         
         # 2. SQL Text
         sql_id = details['sql_id'] or details['prev_sql_id']
@@ -233,16 +233,10 @@ def get_blocker_details(conn_info, sid, inst_id=1):
         
         # 4. Execution Plan
         if sql_id:
-            cursor.execute("""
-                SELECT id, operation, options, object_name as object, cost
-                FROM gv$sql_plan
-                WHERE sql_id = :sql_id AND inst_id = :inst_id AND child_number = (
-                    SELECT min(child_number) FROM gv$sql_plan WHERE sql_id = :sql_id AND inst_id = :inst_id
-                )
-                ORDER BY id
-            """, {"sql_id": sql_id, "inst_id": inst_id})
+            sql_plan = get_sql_content("oracle/blocker_details_plan.sql", version)
+            cursor.execute(sql_plan, {"sql_id": sql_id, "inst_id": inst_id})
             cols_plan = [col[0].lower() for col in cursor.description]
-            details['plan'] = [dict(zip(cols_plan, r)) for r in cursor.fetchall()]
+            details['plan'] = sanitize_rows(cols_plan, cursor.fetchall())
         else:
             details['plan'] = []
 
@@ -254,8 +248,8 @@ def get_blocker_details(conn_info, sid, inst_id=1):
             AND l.session_id = :sid AND l.inst_id = :inst_id
         """, {"sid": sid, "inst_id": inst_id})
         cols_obj = [col[0].lower() for col in cursor.description]
-        details['objects'] = [dict(zip(cols_obj, r)) for r in cursor.fetchall()]
-
+        details['objects'] = sanitize_rows(cols_obj, cursor.fetchall())
+        
         return details
     except Exception as e:
         print(f"Error fetching blocker details: {e}")

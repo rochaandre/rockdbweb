@@ -1,211 +1,186 @@
+/**
+ * ==============================================================================
+ * ROCKDB - Oracle Database Administration & Monitoring Tool
+ * ==============================================================================
+ * File: control-bar.tsx
+ * Author: Andre Rocha (TechMax Consultoria)
+ * 
+ * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
+ *
+ * TERMS:
+ * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
+ * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
+ * 3. You must maintain this header and original naming/ownership information.
+ *
+ * This software is provided "AS IS", without warranty of any kind.
+ * Copyright (c) 2026 Andre Rocha. All rights reserved.
+ * ==============================================================================
+ */
+import React from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Pause, Play, RefreshCw, Filter, Settings, Search, Skull, Split, Server } from "lucide-react"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+    Search,
+    RefreshCw,
+    Filter,
+    ChevronDown,
+    LayoutGrid,
+    List,
+    Settings2,
+    Download,
+    AlertCircle,
+    Clock,
+    Zap,
+    ShieldCheck,
+    Activity
+} from 'lucide-react'
+import { Badge } from "@/components/ui/badge"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 
-export interface FilterState {
-    active: boolean
-    inactive: boolean
-    background: boolean
-    killed: boolean
-    parallel: boolean
-}
-
-export interface FilterCounts {
-    active: number
-    inactive: number
-    background: number
-    killed: number
-    parallel: number
-}
-
-interface ControlBarProps {
-    filters: FilterState
-    counts: FilterCounts
-    isPaused: boolean
-    refreshInterval: number
-    onFilterChange: (key: keyof FilterState, checked: boolean) => void
-    onPauseToggle: () => void
-    onUpdate: () => void
-    selectedInstance?: string
-    onInstanceChange?: (val: string) => void
-    onSearch?: () => void
-    onSettings?: () => void
-    onIntervalChange: (val: number) => void
-}
-
-export function ControlBar({
-    filters,
-    counts,
-    isPaused,
-    refreshInterval,
+export function SessionsControlBar({
+    onRefresh,
     onFilterChange,
-    onPauseToggle,
-    onUpdate,
-    onIntervalChange,
-    onSearch,
-    onSettings,
-    selectedInstance = "both",
-    onInstanceChange
-}: ControlBarProps) {
+    filterValue,
+    stats,
+    isRefreshing,
+    viewMode,
+    onViewModeChange
+}: any) {
     return (
-        <div className="flex shrink-0 flex-col gap-2 bg-gradient-to-r from-gray-50 to-gray-100 p-2 border-b border-border shadow-sm">
-            {/* Top Row: Actions and Refresh */}
-            <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                    <Button
-                        size="sm"
-                        variant="primary"
-                        className="h-7 gap-1 bg-green-600 hover:bg-green-700 text-white border-green-700 shadow-sm"
-                        onClick={onUpdate}
-                    >
-                        <RefreshCw className="size-3.5" />
-                        Update
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-7 gap-1 bg-white border border-border shadow-sm hover:bg-gray-50"
-                        onClick={onPauseToggle}
-                    >
-                        {isPaused ? <Play className="size-3.5 text-gray-600" /> : <Pause className="size-3.5 text-gray-600" />}
-                        {isPaused ? 'Resume' : 'Pause'}
-                    </Button>
-                </div>
-
-                <div className="h-5 w-px bg-border mx-1" />
-
-                <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Refresh Rate:</label>
-                    <div className="relative">
+        <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 max-w-xl">
+                    <div className="relative flex-1 group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
-                            type="number"
-                            min={1}
-                            className="h-7 w-16 text-right pr-6 bg-white shadow-sm"
-                            value={refreshInterval}
-                            onChange={(e) => onIntervalChange(Number(e.target.value))}
+                            placeholder="Filter sessions by SID, User, Program, OS User..."
+                            className="h-10 pl-10 bg-card/40 border-border/50 rounded-xl font-medium text-xs focus-visible:ring-primary/20 transition-all"
+                            value={filterValue}
+                            onChange={(e) => onFilterChange(e.target.value)}
                         />
-                        <span className="absolute right-2 top-1.5 text-xs text-muted-foreground">s</span>
                     </div>
                 </div>
 
-                <div className="h-5 w-px bg-border mx-1" />
-
                 <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-muted-foreground whitespace-nowrap flex items-center gap-1">
-                        <Server className="size-3" /> Instance:
-                    </label>
-                    <Select value={selectedInstance} onValueChange={onInstanceChange}>
-                        <SelectTrigger className="h-7 w-[100px] text-xs bg-white shadow-sm">
-                            <SelectValue placeholder="All Nodes" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="both">Both (RAC)</SelectItem>
-                            <SelectItem value="1">Node 1</SelectItem>
-                            <SelectItem value="2">Node 2</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                    <div className="flex items-center bg-muted/30 p-1 rounded-xl border border-border/50 mr-2">
+                        <Button
+                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                            size="icon"
+                            className="size-8 rounded-lg"
+                            onClick={() => onViewModeChange('grid')}
+                        >
+                            <LayoutGrid className="size-4" />
+                        </Button>
+                        <Button
+                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                            size="icon"
+                            className="size-8 rounded-lg"
+                            onClick={() => onViewModeChange('list')}
+                        >
+                            <List className="size-4" />
+                        </Button>
+                    </div>
 
-                <div className="flex-1" />
-
-                <div className="flex gap-1">
                     <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={onSearch}
+                        variant="outline"
+                        size="sm"
+                        className="h-10 px-4 gap-2 rounded-xl bg-card border-border/50 font-black text-[10px] tracking-widest uppercase hover:bg-muted"
                     >
-                        <Search className="size-4 text-muted-foreground" />
+                        <Filter className="size-3.5" /> Advanced
                     </Button>
+
                     <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={onSettings}
+                        variant="default"
+                        size="sm"
+                        className={`h-10 px-6 gap-2 rounded-xl font-black text-[10px] tracking-widest uppercase shadow-lg shadow-primary/20 ${isRefreshing ? 'opacity-80' : ''}`}
+                        onClick={onRefresh}
+                        disabled={isRefreshing}
                     >
-                        <Settings className="size-4 text-muted-foreground" />
+                        <RefreshCw className={`size-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        {isRefreshing ? 'Syncing...' : 'Refresh'}
                     </Button>
                 </div>
             </div>
 
-            {/* Bottom Row: Filters */}
-            <div className="flex items-center gap-4 px-1">
-                <div className="flex items-center gap-2 rounded-md bg-white border border-border px-2 py-1 shadow-sm overflow-x-auto">
-                    <Filter className="size-3.5 text-muted-foreground mr-1 shrink-0" />
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                <SessionMetric
+                    label="Total"
+                    value={stats.total}
+                    icon={<Activity className="size-3.5" />}
+                    variant="primary"
+                />
+                <SessionMetric
+                    label="Active"
+                    value={stats.active}
+                    icon={<Zap className="size-3.5" />}
+                    variant="emerald"
+                    animate
+                />
+                <SessionMetric
+                    label="Inative"
+                    value={stats.inactive}
+                    icon={<Clock className="size-3.5" />}
+                    variant="slate"
+                />
+                <SessionMetric
+                    label="Blocking"
+                    value={stats.blocking}
+                    icon={<AlertCircle className="size-3.5" />}
+                    variant="rose"
+                    alert={stats.blocking > 0}
+                />
+                <SessionMetric
+                    label="Parallel"
+                    value={stats.parallel}
+                    icon={<LayoutGrid className="size-3.5" />}
+                    variant="indigo"
+                />
+                <SessionMetric
+                    label="Background"
+                    value={stats.background}
+                    icon={<ShieldCheck className="size-3.5" />}
+                    variant="amber"
+                />
+            </div>
+        </div>
+    )
+}
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <Checkbox
-                            id="active"
-                            checked={filters.active}
-                            onChange={(e) => onFilterChange('active', e.target.checked)}
-                        />
-                        <label htmlFor="active" className="text-xs cursor-pointer select-none">
-                            {counts.active} Active
-                        </label>
-                    </div>
+function SessionMetric({ label, value, icon, variant, animate, alert }: any) {
+    const colors: any = {
+        primary: "bg-primary/10 text-primary border-primary/20",
+        emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+        rose: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+        amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+        indigo: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+        slate: "bg-slate-500/10 text-slate-600 border-slate-500/20"
+    }
 
-                    <div className="h-3 w-px bg-border mx-1 shrink-0" />
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <Checkbox
-                            id="inactive"
-                            checked={filters.inactive}
-                            onChange={(e) => onFilterChange('inactive', e.target.checked)}
-                        />
-                        <label htmlFor="inactive" className="text-xs cursor-pointer select-none">
-                            {counts.inactive} Inactive
-                        </label>
-                    </div>
-
-                    <div className="h-3 w-px bg-border mx-1 shrink-0" />
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <Checkbox
-                            id="background"
-                            checked={filters.background}
-                            onChange={(e) => onFilterChange('background', e.target.checked)}
-                        />
-                        <label htmlFor="background" className="text-xs cursor-pointer select-none">
-                            {counts.background} Background
-                        </label>
-                    </div>
-
-                    <div className="h-3 w-px bg-border mx-1 shrink-0" />
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <Checkbox
-                            id="killed"
-                            checked={filters.killed}
-                            onChange={(e) => onFilterChange('killed', e.target.checked)}
-                        />
-                        <Skull className="size-3 text-muted-foreground" />
-                        <label htmlFor="killed" className="text-xs cursor-pointer select-none">
-                            {counts.killed} Killed
-                        </label>
-                    </div>
-
-                    <div className="h-3 w-px bg-border mx-1 shrink-0" />
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <Checkbox
-                            id="parallel"
-                            checked={filters.parallel}
-                            onChange={(e) => onFilterChange('parallel', e.target.checked)}
-                        />
-                        <Split className="size-3 text-muted-foreground" />
-                        <label htmlFor="parallel" className="text-xs cursor-pointer select-none">
-                            {counts.parallel} Parallel
-                        </label>
-                    </div>
+    return (
+        <div className={cn(
+            "flex items-center gap-3 px-4 py-2.5 rounded-xl border bg-card/40 backdrop-blur-md transition-all group overflow-hidden relative",
+            colors[variant],
+            alert && "animate-pulse shadow-lg shadow-rose-500/10"
+        )}>
+            {animate && (
+                <div className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500/20">
+                    <div className="h-full bg-emerald-500 animate-[progress_2s_ease-in-out_infinite]" style={{ width: '30%' }} />
                 </div>
+            )}
+            <div className="p-1.5 rounded-lg bg-current opacity-10" />
+            <div className="absolute left-4 p-1.5">
+                {icon}
+            </div>
+            <div className="min-w-0">
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-60 leading-none">{label}</p>
+                <p className="text-sm font-black mt-1 leading-none">{value}</p>
             </div>
         </div>
     )

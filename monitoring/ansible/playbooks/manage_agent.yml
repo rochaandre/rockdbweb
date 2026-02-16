@@ -1,0 +1,88 @@
+---
+- name: Manage Monitoring Agent
+  hosts: all
+  become: yes
+  vars:
+    node_exporter_version: "1.7.0"
+    node_exporter_user: "node_exporter"
+
+  tasks:
+    - name: Install Monitor Agent
+      block:
+        - name: Create node_exporter user
+          user:
+            name: "{{ node_exporter_user }}"
+            shell: /sbin/nologin
+            system: yes
+
+        - name: Download node_exporter
+          get_url:
+            url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+            dest: "/tmp/node_exporter.tar.gz"
+
+        - name: Unarchive node_exporter
+          unarchive:
+            src: "/tmp/node_exporter.tar.gz"
+            dest: "/tmp"
+            remote_src: yes
+
+        - name: Copy binary to /usr/local/bin
+          copy:
+            src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+            dest: "/usr/local/bin/node_exporter"
+            mode: '0755'
+            remote_src: yes
+
+        - name: Create Systemd service
+          copy:
+            dest: /etc/systemd/system/node_exporter.service
+            content: |
+              [Unit]
+              Description=Node Exporter
+              Wants=network-online.target
+              After=network-online.target
+
+              [Service]
+              User={{ node_exporter_user }}
+              Group={{ node_exporter_user }}
+              Type=simple
+              ExecStart=/usr/local/bin/node_exporter
+
+              [Install]
+              WantedBy=multi-user.target
+
+        - name: Reload systemd and start service
+          systemd:
+            name: node_exporter
+            enabled: yes
+            state: started
+            daemon_reload: yes
+      tags: install
+
+    - name: Remove Monitor Agent
+      block:
+        - name: Stop and disable service
+          systemd:
+            name: node_exporter
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Remove files
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /usr/local/bin/node_exporter
+            - /etc/systemd/system/node_exporter.service
+
+        - name: Reload systemd
+          systemd:
+            daemon_reload: yes
+      tags: remove
+
+    - name: Check Agent Status
+      command: systemctl is-active node_exporter
+      register: agent_status
+      ignore_errors: yes
+      tags: check
