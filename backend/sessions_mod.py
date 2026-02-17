@@ -285,3 +285,36 @@ def get_cursor_plan(conn_info, sql_id, inst_id=1):
     finally:
         if connection:
             connection.close()
+
+def get_zombie_count(conn_info, inst_id=None):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        query = """
+            SELECT count(*) 
+            FROM gv$process p
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM gv$session s 
+                WHERE s.paddr = p.addr
+                AND s.inst_id = p.inst_id
+            )
+            AND p.pname IS NULL
+            AND p.program IS NOT NULL
+        """
+        params = {}
+        if inst_id:
+            query += " AND p.inst_id = :inst_id"
+            params["inst_id"] = inst_id
+            
+        cursor.execute(query, params)
+        row = cursor.fetchone()
+        return row[0] if row else 0
+    except Exception as e:
+        print(f"Error fetching zombie count: {e}")
+        return 0
+    finally:
+        if connection:
+            connection.close()

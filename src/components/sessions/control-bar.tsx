@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Pause, Play, RefreshCw, Filter, Settings, Search, Skull, Split, Server } from "lucide-react"
+import { Pause, Play, RefreshCw, Filter, Settings, Search, Skull, Split, Server, AlertTriangle } from "lucide-react"
 import {
     Select,
     SelectContent,
@@ -24,6 +24,7 @@ export interface FilterCounts {
     background: number
     killed: number
     parallel: number
+    zombies: number
 }
 
 interface ControlBarProps {
@@ -212,6 +213,15 @@ export function ControlBar({
                         <label htmlFor="parallel" className="text-xs cursor-pointer select-none">
                             {counts.parallel} Parallel
                         </label>
+                    </div>
+
+                    <div className="h-3 w-px bg-border mx-1 shrink-0" />
+
+                    <div className="flex items-center gap-1.5 shrink-0 px-1 py-0.5 rounded bg-amber-50 border border-amber-100">
+                        <AlertTriangle className="size-3 text-amber-600" />
+                        <span className="text-xs font-bold text-amber-900">
+                            {counts.zombies} Zombies
+                        </span>
                     </div>
                 </div>
             </div>

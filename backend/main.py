@@ -434,6 +434,17 @@ def read_sessions(inst_id: Optional[int] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/sessions/zombies")
+def read_zombie_count(inst_id: Optional[int] = None):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        from .sessions_mod import get_zombie_count
+        return {"count": get_zombie_count(active, inst_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/sessions/instances")
 def read_instances():
     active = get_active_connection()

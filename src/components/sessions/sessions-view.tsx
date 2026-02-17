@@ -18,6 +18,7 @@ export function SessionsView() {
     const [instances, setInstances] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
+    const [zombies, setZombies] = useState(0)
 
     // Persistent States
     const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'sessions')
@@ -51,6 +52,13 @@ export function SessionsView() {
             if (blockRes.ok) {
                 const blockData = await blockRes.json()
                 setBlockingSessions(Array.isArray(blockData) ? blockData : [])
+            }
+
+            // Fetch zombies
+            const zombieRes = await fetch(`${API_URL}/sessions/zombies${instParam}`)
+            if (zombieRes.ok) {
+                const zombieData = await zombieRes.json()
+                setZombies(zombieData.count || 0)
             }
         } catch (error) {
             console.error('Error fetching sessions:', error)
@@ -95,9 +103,10 @@ export function SessionsView() {
             inactive: sessions.filter(s => s.status === 'INACTIVE').length,
             background: sessions.filter(s => s.type === 'BACKGROUND').length,
             killed: sessions.filter(s => s.status === 'KILLED').length,
-            parallel: 0 // TODO: backend should return parallel info
+            parallel: 0, // TODO: backend should return parallel info
+            zombies: zombies
         }
-    }, [sessions])
+    }, [sessions, zombies])
 
     // Filter Logic (Client-Side)
     const filteredData = useMemo(() => {
