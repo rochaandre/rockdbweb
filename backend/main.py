@@ -610,12 +610,12 @@ def read_backup_jobs():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/backups/summary")
-def read_backup_summary():
+def read_backup_summary(days: int = 30):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_backup_summary(active)
+        return get_backup_summary(active, days)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

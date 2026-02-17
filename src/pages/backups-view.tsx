@@ -13,6 +13,7 @@ export function BackupsView() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [jobs, setJobs] = useState<any[]>([])
     const [summary, setSummary] = useState<any[]>([])
+    const [summaryDays, setSummaryDays] = useState(30)
     const [backupImages, setBackupImages] = useState<any[]>([])
     const [nlsParams, setNlsParams] = useState<any>(null)
 
@@ -21,7 +22,7 @@ export function BackupsView() {
         try {
             const [jobsRes, summaryRes, imagesRes, nlsRes] = await Promise.all([
                 fetch(`${API_URL}/backups/jobs`),
-                fetch(`${API_URL}/backups/summary`),
+                fetch(`${API_URL}/backups/summary?days=${summaryDays}`),
                 fetch(`${API_URL}/backups/images`),
                 fetch(`${API_URL}/backups/nls`)
             ])
@@ -38,7 +39,7 @@ export function BackupsView() {
 
     useEffect(() => {
         fetchBackups()
-    }, [])
+    }, [summaryDays])
 
     // Drill-down State
     const [selectedJobId, setSelectedJobId] = useState<number | undefined>(undefined)
@@ -89,16 +90,32 @@ export function BackupsView() {
             <div className="flex flex-col h-full gap-4 p-4 overflow-hidden">
                 <div className="flex items-center justify-between shrink-0">
                     <h1 className="text-xl font-semibold tracking-tight">Backup & Recovery</h1>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRefresh}
-                        className="gap-2"
-                        disabled={isRefreshing}
-                    >
-                        <RefreshCw className={twMerge("size-4", isRefreshing && "animate-spin")} />
-                        Refresh
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50 border border-border">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Range:</span>
+                            <select
+                                value={summaryDays}
+                                onChange={(e) => setSummaryDays(Number(e.target.value))}
+                                className="bg-transparent border-none text-xs font-bold focus:ring-0 cursor-pointer h-6 p-0"
+                            >
+                                <option value={1}>Oculto (1 d)</option>
+                                <option value={7}>Semana (7 d)</option>
+                                <option value={15}>Quinzena (15 d)</option>
+                                <option value={30}>Mês (30 d)</option>
+                                <option value={90}>Trimestre (90 d)</option>
+                            </select>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefresh}
+                            className="gap-2"
+                            disabled={isRefreshing}
+                        >
+                            <RefreshCw className={twMerge("size-4", isRefreshing && "animate-spin")} />
+                            Refresh
+                        </Button>
+                    </div>
                 </div>
 
                 <Tabs

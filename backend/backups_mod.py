@@ -7,21 +7,22 @@ def get_backup_jobs(conn_info):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT 
-                session_key,
-                command_id,
-                status,
-                to_char(start_time, 'DD-MON HH24:MI') as start_time,
-                to_char(end_time, 'DD-MON HH24:MI') as end_time,
-                input_type,
-                output_device_type,
-                input_bytes_display,
-                output_bytes_display,
-                time_taken_display
-            FROM v$rman_backup_job_details
-            WHERE start_time > sysdate - 14
-            ORDER BY start_time DESC
-            FETCH FIRST 50 ROWS ONLY
+            SELECT * FROM (
+                SELECT 
+                    session_key,
+                    command_id,
+                    status,
+                    to_char(start_time, 'DD-MON HH24:MI') as start_time,
+                    to_char(end_time, 'DD-MON HH24:MI') as end_time,
+                    input_type,
+                    output_device_type,
+                    input_bytes_display,
+                    output_bytes_display,
+                    time_taken_display
+                FROM v$rman_backup_job_details
+                WHERE start_time > sysdate - 14
+                ORDER BY start_time DESC
+            ) WHERE rownum <= 50
         """)
         columns = [col[0].lower() for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -32,22 +33,51 @@ def get_backup_jobs(conn_info):
         if connection:
             connection.close()
 
-def get_backup_summary(conn_info):
+def get_backup_summary(conn_info, days=30):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        cursor.execute("""
-            SELECT 
-                input_type,
-                count(*) as total_backups,
-                status,
-                round(sum(output_bytes)/1024/1024/1024, 2) as size_gb
-            FROM v$rman_backup_job_details
-            WHERE start_time > sysdate - 30
-            GROUP BY input_type, status
-            ORDER BY input_type
-        """)
+        
+        # Enhanced query for RAC/21c support and robustness
+        query = """
+            select
+                j.session_recid, j.session_stamp,
+                to_char(j.start_time, 'yyyy-mm-dd hh24:mi:ss') start_time,
+                to_char(j.end_time, 'yyyy-mm-dd hh24:mi:ss') end_time,
+                round(j.output_bytes/1024/1024, 2) output_mbytes, j.status, j.input_type,
+                decode(to_char(j.start_time, 'd'), 1, 'Sunday', 2, 'Monday',
+                3, 'Tuesday', 4, 'Wednesday',
+                5, 'Thursday', 6, 'Friday',
+                7, 'Saturday') dow,
+                j.elapsed_seconds, j.time_taken_display,
+                coalesce(x.cf, 0) as cf, coalesce(x.df, 0) as df, coalesce(x.i0, 0) as i0, coalesce(x.i1, 0) as i1, coalesce(x.l, 0) as l,
+                coalesce(ro.inst_id, 1) as output_instance
+            from GV$RMAN_BACKUP_JOB_DETAILS j
+            left outer join (
+                select
+                    d.session_recid, d.session_stamp,
+                    sum(case when d.controlfile_included = 'YES' then d.pieces else 0 end) CF,
+                    sum(case when d.controlfile_included = 'NO'
+                    and (d.backup_type||to_char(d.incremental_level) = 'D' 
+                         or (d.incremental_level is null and d.backup_type = 'D')) then d.pieces else 0 end) DF,
+                    sum(case when d.backup_type||to_char(d.incremental_level) = 'D0' then d.pieces else 0 end) I0,
+                    sum(case when d.backup_type||to_char(d.incremental_level) = 'I1' then d.pieces else 0 end) I1,
+                    sum(case when d.backup_type = 'L' then d.pieces else 0 end) L
+                from
+                    GV$BACKUP_SET_DETAILS d
+                group by d.session_recid, d.session_stamp
+            ) x on x.session_recid = j.session_recid and x.session_stamp = j.session_stamp
+            left outer join (
+                select session_recid, session_stamp, min(inst_id) as inst_id
+                from GV$RMAN_OUTPUT
+                group by session_recid, session_stamp
+            ) ro on ro.session_recid = j.session_recid and ro.session_stamp = j.session_stamp
+            where j.start_time >= sysdate - :days
+            order by j.start_time DESC
+        """
+        
+        cursor.execute(query, {"days": int(days)})
         columns = [col[0].lower() for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
     except Exception as e:
@@ -144,17 +174,18 @@ def get_backup_images(conn_info):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT 
-                file#,
-                name,
-                tag,
-                status,
-                to_char(checkpoint_change#) as checkpoint_scn,
-                round(bytes/1024/1024, 2) as size_mb,
-                to_char(creation_time, 'DD-MON HH24:MI') as creation_time
-            FROM v$datafile_copy
-            ORDER BY creation_time DESC
-            FETCH FIRST 50 ROWS ONLY
+            SELECT * FROM (
+                SELECT 
+                    file#,
+                    name,
+                    tag,
+                    status,
+                    to_char(checkpoint_change#) as checkpoint_scn,
+                    round((blocks * block_size)/1024/1024, 2) as size_mb,
+                    to_char(creation_time, 'DD-MON HH24:MI') as creation_time
+                FROM v$datafile_copy
+                ORDER BY creation_time DESC
+            ) WHERE rownum <= 50
         """)
         columns = [col[0].lower() for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]

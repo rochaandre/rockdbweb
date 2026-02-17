@@ -226,27 +226,61 @@ export function BackupImagesTable({ images = [] }: { images?: any[] }) {
     )
 }
 
-// --- Summary Table ---
+// --- Summary Table (Detailed History) ---
 export function BackupSummaryTable({ summary = [] }: { summary: any[] }) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {summary.map((item, i) => {
-                return (
-                    <div key={i} className="rounded-lg border border-border bg-surface p-4 shadow-sm flex flex-col justify-between gap-2">
-                        <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{item.input_type}</div>
-                        <div className="text-xl font-bold tracking-tight">{item.total_backups} Backups</div>
-                        <div className="flex justify-between items-end">
-                            <StatusBadge status={item.status} />
-                            <div className="text-xs font-mono text-muted-foreground">{item.size_gb.toFixed(2)} GB</div>
-                        </div>
-                    </div>
-                )
-            })}
-            {summary.length === 0 && (
-                <div className="col-span-full p-8 text-center text-muted-foreground text-sm border border-dashed rounded-md">
-                    No backup summary found.
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+                <span>Backup Execution History</span>
+                <span className="text-[10px] font-normal lowercase italic text-muted-foreground">Showing {summary.length} executions</span>
+            </div>
+            <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/50 p-3 text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                <div className="col-span-1">RecID</div>
+                <div className="col-span-1 text-center">DOW</div>
+                <div className="col-span-2">Start Time</div>
+                <div className="col-span-1">Duration</div>
+                <div className="col-span-1">Type</div>
+                <div className="col-span-1 text-center">Status</div>
+                <div className="col-span-1 text-right">Size (MB)</div>
+                <div className="col-span-3 text-center grid grid-cols-5 gap-1">
+                    <div title="Controlfile">CF</div>
+                    <div title="Datafile">DF</div>
+                    <div title="Incr L0">I0</div>
+                    <div title="Incr L1">I1</div>
+                    <div title="Archivelog">L</div>
                 </div>
-            )}
+                <div className="col-span-1 text-right italic">Inst</div>
+            </div>
+            <div className="divide-y divide-border">
+                {summary.map((item, i) => (
+                    <div key={`${item.session_recid}-${item.session_stamp}-${i}`} className="grid grid-cols-12 gap-2 p-3 text-xs hover:bg-muted/30 items-center transition-colors">
+                        <div className="col-span-1 font-mono text-muted-foreground">{item.session_recid}</div>
+                        <div className="col-span-1 text-center font-semibold text-[10px]">{item.dow}</div>
+                        <div className="col-span-2 text-[11px] font-mono">{item.start_time}</div>
+                        <div className="col-span-1 font-mono text-[10px]">{item.time_taken_display}</div>
+                        <div className="col-span-1 font-bold text-primary truncate" title={item.input_type}>{item.input_type}</div>
+                        <div className="col-span-1 text-center">
+                            <StatusBadge status={item.status} />
+                        </div>
+                        <div className="col-span-1 text-right font-mono font-bold">
+                            {Math.round(item.output_mbytes).toLocaleString()}
+                        </div>
+                        <div className="col-span-3 grid grid-cols-5 gap-1 text-[10px] font-mono text-center">
+                            <div className={twMerge(item.cf > 0 ? "text-primary font-bold" : "text-muted-foreground/30")}>{item.cf}</div>
+                            <div className={twMerge(item.df > 0 ? "text-primary font-bold" : "text-muted-foreground/30")}>{item.df}</div>
+                            <div className={twMerge(item.i0 > 0 ? "text-primary font-bold" : "text-muted-foreground/30")}>{item.i0}</div>
+                            <div className={twMerge(item.i1 > 0 ? "text-primary font-bold" : "text-muted-foreground/30")}>{item.i1}</div>
+                            <div className={twMerge(item.l > 0 ? "text-primary font-bold" : "text-muted-foreground/30")}>{item.l}</div>
+                        </div>
+                        <div className="col-span-1 text-right text-muted-foreground font-bold">#{item.output_instance}</div>
+                    </div>
+                ))}
+                {summary.length === 0 && (
+                    <div className="p-12 text-center text-muted-foreground text-sm italic">
+                        No backup records found for the selected period.
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
