@@ -1,21 +1,3 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: configuration-view.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
 import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'

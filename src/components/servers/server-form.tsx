@@ -21,7 +21,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Server, Globe, Key, ChevronRight, Info } from 'lucide-react'
+import { Server, Key, ChevronRight, Info } from 'lucide-react'
 
 export function ServerForm({ initialData, onSubmit, onCancel }: any) {
     const [formData, setFormData] = useState<any>({

@@ -22,24 +22,18 @@ import {
     Wrench,
     Terminal,
     Play,
-    Copy,
     Database,
     Activity,
-    History,
     ShieldCheck,
     Workflow,
     ExternalLink,
     Zap,
     Cpu,
-    Lock,
     Settings,
-    LayoutDashboard,
-    AlertCircle,
     CheckCircle2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useState } from 'react'
 
 const ORACLE_TOOLS = [
     {

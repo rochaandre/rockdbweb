@@ -1,94 +1,35 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: card.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import * as React from "react"
+import { twMerge } from 'tailwind-merge'
+import type { ComponentProps } from 'react'
 
-import { cn } from "@/lib/utils"
+export interface CardProps extends ComponentProps<'div'> { }
 
-const Card = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn(
-            "rounded-xl border bg-card text-card-foreground shadow",
-            className
-        )}
-        {...props}
-    />
-))
-Card.displayName = "Card"
+export function Card({ className, ...props }: CardProps) {
+    return (
+        <div
+            data-slot="card"
+            className={twMerge('bg-surface flex flex-col gap-6 rounded-xl border border-border p-6 shadow-sm', className)}
+            {...props}
+        />
+    )
+}
 
-const CardHeader = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn("flex flex-col space-y-1.5 p-6", className)}
-        {...props}
-    />
-))
-CardHeader.displayName = "CardHeader"
+export function CardHeader({ className, ...props }: ComponentProps<'div'>) {
+    return <div data-slot="card-header" className={twMerge('flex flex-col gap-1.5', className)} {...props} />
+}
 
-const CardTitle = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn("font-semibold leading-none tracking-tight", className)}
-        {...props}
-    />
-))
-CardTitle.displayName = "CardTitle"
+export function CardTitle({ className, ...props }: ComponentProps<'h3'>) {
+    return <h3 data-slot="card-title" className={twMerge('text-lg font-semibold', className)} {...props} />
+}
 
-const CardDescription = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn("text-sm text-muted-foreground", className)}
-        {...props}
-    />
-))
-CardDescription.displayName = "CardDescription"
+export function CardContent({ className, ...props }: ComponentProps<'div'>) {
+    return <div data-slot="card-content" className={className} {...props} />
+}
 
-const CardContent = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
-))
-CardContent.displayName = "CardContent"
 
-const CardFooter = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn("flex items-center p-6 pt-0", className)}
-        {...props}
-    />
-))
-CardFooter.displayName = "CardFooter"
+export function CardFooter({ className, ...props }: ComponentProps<'div'>) {
+    return <div data-slot="card-content" className={className} {...props} />
+}
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+export function CardDescription({ className, ...props }: ComponentProps<'p'>) {
+    return <p data-slot="card-description" className={twMerge('text-sm text-muted-foreground', className)} {...props} />
+}

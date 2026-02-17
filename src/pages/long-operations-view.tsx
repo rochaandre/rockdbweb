@@ -19,8 +19,7 @@
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Clock, Activity, Loader2, Info, AlertTriangle, CheckCircle2, Search, Filter } from 'lucide-react'
+import { Clock, Activity, Info, AlertTriangle, CheckCircle2, Search, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 

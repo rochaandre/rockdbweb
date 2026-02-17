@@ -1,57 +1,61 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: App.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import React from 'react'
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { MainLayout } from '@/components/layout/main-layout'
-import { DashboardPage } from '@/pages/dashboard-page'
-import { StoragePage } from '@/pages/storage-page'
-import { SessionsPage } from '@/pages/sessions-page'
-import { DatabasesPage } from '@/pages/databases-page'
-import { ServersPage } from '@/pages/servers-page'
-import { LogsPage } from '@/pages/logs-page'
-import { ConfigPage } from '@/pages/config-page'
-import { BackupsPage } from '@/pages/backups-page'
-import { SqlCentralPage } from '@/pages/sql-central-page'
-import { MonitoringPage } from '@/pages/monitoring-page'
+import { SessionsView } from '@/components/sessions/sessions-view'
+import { DashboardView } from '@/pages/dashboard-view'
+import { DatabasesView } from '@/pages/databases-view'
+import { SettingsView } from '@/pages/settings-view'
+import { BackupsView } from '@/pages/backups-view'
+import { StorageView } from '@/pages/storage-view'
+import { LogsView } from '@/pages/logs-view'
+import { ConfigurationView } from '@/pages/configuration-view'
+import { ExplainPlanView } from '@/pages/explain-plan-view'
+import { SqlDetailsView } from '@/pages/sql-details-view'
+import { SqlCentralView } from '@/pages/sql-central-view'
+import { SqlDashboardView } from '@/pages/sql-dashboard-view'
+import { SqlReportView } from '@/pages/sql-report-view'
+import { BlockExplorerView } from '@/pages/block-explorer-view'
+import { AsmExplorerView } from '@/pages/asm-explorer-view'
+import { RedoLogView } from '@/pages/redo-log-view'
+import { JobsView } from '@/pages/jobs-view'
+import { HealthcheckView } from '@/pages/healthcheck-view'
+import { TimeMachineView } from '@/pages/time-machine-view'
+import { ServersView } from '@/pages/servers-view'
+import { LongOperationsView } from '@/pages/long-operations-view'
+import { ToolsView } from '@/pages/tools-view'
 import { AppProvider } from '@/context/app-context'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
-export function App() {
+function App() {
   return (
-    <AppProvider>
-      <Router>
-        <MainLayout>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/storage" element={<StoragePage />} />
-            <Route path="/sessions" element={<SessionsPage />} />
-            <Route path="/databases" element={<DatabasesPage />} />
-            <Route path="/servers" element={<ServersPage />} />
-            <Route path="/logs" element={<LogsPage />} />
-            <Route path="/config" element={<ConfigPage />} />
-            <Route path="/backups" element={<BackupsPage />} />
-            <Route path="/sql-central" element={<SqlCentralPage />} />
-            <Route path="/monitoring" element={<MonitoringPage />} />
-          </Routes>
-        </MainLayout>
-      </Router>
-    </AppProvider>
+    <BrowserRouter>
+      <AppProvider>
+        <Routes>
+          <Route path="/" element={<DashboardView />} />
+          <Route path="/sessions" element={<SessionsView />} />
+          <Route path="/backups" element={<BackupsView />} />
+          <Route path="/databases" element={<DatabasesView />} />
+          <Route path="/storage" element={<StorageView />} />
+          <Route path="/logs" element={<LogsView />} />
+          <Route path="/long-operations" element={<LongOperationsView />} />
+          <Route path="/tools" element={<ToolsView />} />
+          <Route path="/configuration" element={<ConfigurationView />} />
+          <Route path="/settings" element={<SettingsView />} />
+          <Route path="/explain-plan" element={<ExplainPlanView />} />
+          <Route path="/explain-plan/:sqlId" element={<ExplainPlanView />} />
+          <Route path="/sql-details/:sqlId" element={<SqlDetailsView />} />
+          <Route path="/sql-central" element={<SqlCentralView />} />
+          <Route path="/sql-central/:sqlId" element={<SqlCentralView />} />
+          <Route path="/sql-dashboard" element={<SqlDashboardView />} />
+          <Route path="/sql-report/:reportType/:sqlId" element={<SqlReportView />} />
+          <Route path="/block-explorer/:sid" element={<BlockExplorerView />} />
+          <Route path="/asm-explorer" element={<AsmExplorerView />} />
+          <Route path="/redo-log" element={<RedoLogView />} />
+          <Route path="/jobs" element={<JobsView />} />
+          <Route path="/healthcheck" element={<HealthcheckView />} />
+          <Route path="/timemachine" element={<TimeMachineView />} />
+          <Route path="/servers" element={<ServersView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppProvider>
+    </BrowserRouter>
   )
 }
 

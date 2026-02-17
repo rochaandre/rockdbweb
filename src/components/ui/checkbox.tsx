@@ -1,46 +1,39 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: checkbox.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import * as React from "react"
-import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
-import { CheckIcon } from "@radix-ui/react-icons"
+import type { ComponentProps } from 'react'
+import { twMerge } from 'tailwind-merge'
 
-import { cn } from "@/lib/utils"
+export interface CheckboxProps extends Omit<ComponentProps<'input'>, 'type'> {
+    label?: string
+}
 
-const Checkbox = React.forwardRef<
-    React.ElementRef<typeof CheckboxPrimitive.Root>,
-    React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
->(({ className, ...props }, ref) => (
-    <CheckboxPrimitive.Root
-        ref={ref}
-        className={cn(
-            "peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
-            className
-        )}
-        {...props}
-    >
-        <CheckboxPrimitive.Indicator
-            className={cn("flex items-center justify-center text-current")}
-        >
-            <CheckIcon className="h-4 w-4" />
-        </CheckboxPrimitive.Indicator>
-    </CheckboxPrimitive.Root>
-))
-Checkbox.displayName = CheckboxPrimitive.Root.displayName
+export function Checkbox({ className, label, id, ...props }: CheckboxProps) {
+    // If no ID provided and label exists, generate a random one or require usage of ID. 
+    // For simplicity here, assuming user provides ID if label is needed or wraps in label.
 
-export { Checkbox }
+    return (
+        <div className="flex items-center gap-2">
+            <input
+                type="checkbox"
+                id={id}
+                data-slot="checkbox"
+                className={twMerge(
+                    'peer size-4 shrink-0 rounded border border-input shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                    'accent-primary cursor-pointer',
+                    // Note: Standard accent-color is easiest for modern browsers. 
+                    // For custom styling we would hide appearance-none and use bg-image/svg. 
+                    // Given "Tailwind v4", we can rely on accent-* or custom implementation.
+                    // Let's use a robust custom implementation with appearance-none for better consistency
+                    'appearance-none bg-surface checked:bg-primary checked:border-primary',
+                    'checked:[background-image:url("data:image/svg+xml,%3csvg%20viewBox=%270%200%2016%2016%27%20fill=%27white%27%20xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath%20d=%27M12.207%204.793a1%201%200%200%201%200%201.414l-5%205a1%201%200%200%201-1.414%200l-2-2a1%201%200%200%201%201.414-1.414L6.5%209.086l4.293-4.293a1%201%200%200%201%201.414%200z%27/%3e%3c/svg%3e")]',
+                    'checked:[background-size:100%_100%] checked:[background-position:center]',
+                    className
+                )}
+                {...props}
+            />
+            {label && (
+                <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {label}
+                </label>
+            )}
+        </div>
+    )
+}

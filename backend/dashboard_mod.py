@@ -1,21 +1,3 @@
-"""
-# ==============================================================================
-# ROCKDB - Oracle Database Administration & Monitoring Tool
-# ==============================================================================
-# File: dashboard_mod.py
-# Author: Andre Rocha (TechMax Consultoria)
-# 
-# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
-#
-# TERMS:
-# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
-# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
-# 3. You must maintain this header and original naming/ownership information.
-#
-# This software is provided "AS IS", without warranty of any kind.
-# Copyright (c) 2026 Andre Rocha. All rights reserved.
-# ==============================================================================
-"""
 import oracledb
 from .utils import get_oracle_connection
 
@@ -82,7 +64,7 @@ def get_dashboard_metrics(conn_info):
                 db_arch = f"CDB Root: {db_name} ({arch_type})"
         else:
             db_arch = f"NON-CDB: {db_name} ({arch_type})"
-        
+
         top_segments = []
         if len(results) > 13 and results[13]:
             for row in results[13]:

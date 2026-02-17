@@ -16,11 +16,11 @@
  * Copyright (c) 2026 Andre Rocha. All rights reserved.
  * ==============================================================================
  */
-import React from 'react'
+// React import removed
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Layout, FileCode, Search, Database, Layers, Activity } from 'lucide-react'
+import { Layers } from 'lucide-react'
 
 export function SqlPlanPanel({ plan = [] }: { plan: any[] }) {
     return (

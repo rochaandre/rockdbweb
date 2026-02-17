@@ -22,7 +22,7 @@ import { SessionsTable } from '@/components/sessions/sessions-table'
 import { SQLDetailsPanel } from '@/components/sessions/sql-details'
 import { BlockingPanel } from '@/components/sessions/blocking-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AlertCircle, RefreshCw, Search, Users, ShieldAlert, Cpu } from 'lucide-react'
+import { RefreshCw, Search, Users, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usePersistentState } from '@/hooks/use-persistent-state'
@@ -158,7 +158,7 @@ export function SessionsView() {
                                 />
                             </TabsContent>
                             <TabsContent value="blocking" className="m-0 h-full">
-                                <BlockingPanel data={blocking} />
+                                <BlockingPanel />
                             </TabsContent>
                         </div>
 

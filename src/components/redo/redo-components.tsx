@@ -1,0 +1,9 @@
+export function RedoGroupsTable(_props: any) { return <div className="p-4">Redo Groups Placeholder</div> }
+export function RedoFilesTable(_props: any) { return <div className="p-4">Redo Files Placeholder</div> }
+export function RedoHistoryTable(_props: any) { return <div className="p-4">Redo History Placeholder</div> }
+export function LogBufferStats(_props: any) { return <div className="p-4">Log Buffer Stats Placeholder</div> }
+export function RedoThreadsTable(_props: any) { return <div className="p-4">Redo Threads Placeholder</div> }
+export function ArchivesTable(_props: any) { return <div className="p-4">Archives Placeholder</div> }
+export function StandbyGroupsTable(_props: any) { return <div className="p-4">Standby Groups Placeholder</div> }
+export function RedoChartsTab(_props: any) { return <div className="p-4">Redo Charts Placeholder</div> }
+export function RedoResizeTab(_props: any) { return <div className="p-4">Redo Resize Tool Placeholder</div> }

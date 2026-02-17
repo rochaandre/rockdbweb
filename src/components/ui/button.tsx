@@ -1,76 +1,47 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: button.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import { tv } from 'tailwind-variants'
+import { twMerge } from 'tailwind-merge'
+import type { ComponentProps } from 'react'
 
-import { cn } from "@/lib/utils"
-
-const buttonVariants = cva(
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-    {
-        variants: {
-            variant: {
-                default:
-                    "bg-primary text-primary-foreground shadow hover:bg-primary/90",
-                destructive:
-                    "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-                outline:
-                    "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
-                secondary:
-                    "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-                ghost: "hover:bg-accent hover:text-accent-foreground",
-                link: "text-primary underline-offset-4 hover:underline",
-            },
-            size: {
-                default: "h-9 px-4 py-2",
-                sm: "h-8 rounded-md px-3 text-xs",
-                lg: "h-10 rounded-md px-8",
-                icon: "h-9 w-9",
-                xs: "h-7 px-2 text-[10px]",
-            },
+export const buttonVariants = tv({
+    base: [
+        'inline-flex cursor-pointer items-center justify-center font-medium rounded-lg border transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+    ],
+    variants: {
+        variant: {
+            primary: 'border-primary bg-primary text-primary-foreground hover:bg-primary-hover',
+            secondary: 'border-border bg-secondary text-secondary-foreground hover:bg-muted',
+            ghost: 'border-transparent bg-transparent text-muted-foreground hover:text-foreground',
+            destructive: 'border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90',
+            outline: 'border-border bg-transparent text-foreground hover:bg-muted',
         },
-        defaultVariants: {
-            variant: "default",
-            size: "default",
+        size: {
+            sm: 'h-6 px-2 gap-1.5 text-xs [&_svg]:size-3',
+            md: 'h-7 px-3 gap-2 text-sm [&_svg]:size-3.5',
+            lg: 'h-9 px-4 gap-2.5 text-base [&_svg]:size-4',
+            icon: 'h-7 w-7 p-0'
         },
-    }
-)
+    },
+    defaultVariants: { variant: 'primary', size: 'md' },
+})
 
-export interface ButtonProps
-    extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-    asChild?: boolean
+export interface ButtonProps extends ComponentProps<'button'> {
+    variant?: 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline'
+    size?: 'sm' | 'md' | 'lg' | 'icon'
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className, variant, size, asChild = false, ...props }, ref) => {
-        const Comp = asChild ? Slot : "button"
-        return (
-            <Comp
-                className={cn(buttonVariants({ variant, size, className }))}
-                ref={ref}
-                {...props}
-            />
-        )
-    }
-)
-Button.displayName = "Button"
-
-export { Button, buttonVariants }
+export function Button({ className, variant, size, disabled, children, ...props }: ButtonProps) {
+    return (
+        <button
+            type="button"
+            data-slot="button"
+            data-disabled={disabled ? '' : undefined}
+            className={twMerge(buttonVariants({ variant, size }), className)}
+            disabled={disabled}
+            {...props}
+        >
+            {children}
+        </button>
+    )
+}

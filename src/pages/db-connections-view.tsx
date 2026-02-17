@@ -20,13 +20,13 @@ import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Database, Plus, Trash2, Edit2, Play, Power, RefreshCw, Layers, CheckCircle, XCircle } from 'lucide-react'
+import { Database, Plus, Trash2, Edit2, Power, RefreshCw, CheckCircle } from 'lucide-react'
 import { useApp, API_URL } from '@/context/app-context'
 import { ConnectionFormDialog } from '@/components/connections/connection-form-dialog'
 import { Badge } from '@/components/ui/badge'
 
 export function DbConnectionsView() {
-    const { connections, setConnections, activeConnection, setActiveConnection, logAction } = useApp()
+    const { connections, setConnections, setActiveConnection, logAction } = useApp()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingConnection, setEditingConnection] = useState<any>(null)
     const [isSyncing, setIsSyncing] = useState(false)
@@ -107,7 +107,7 @@ export function DbConnectionsView() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {connections.map((conn) => (
+                    {connections.map((conn: any) => (
                         <Card key={conn.id} className={`group relative transition-all hover:shadow-md ${conn.is_active ? 'border-primary ring-1 ring-primary/20' : ''}`}>
                             <CardHeader className="pb-3 border-b border-muted/30">
                                 <div className="flex justify-between items-start">
@@ -155,7 +155,7 @@ export function DbConnectionsView() {
 
                                 <div className="pt-2 border-t border-muted/30 flex gap-2">
                                     {!conn.is_active ? (
-                                        <Button size="sm" variant="default" className="w-full text-xs h-8 gap-1.5" onClick={() => toggleActive(conn.id)}>
+                                        <Button size="sm" variant="primary" className="w-full text-xs h-8 gap-1.5" onClick={() => toggleActive(conn.id)}>
                                             <Power className="size-3.5" /> Connect Now
                                         </Button>
                                     ) : (

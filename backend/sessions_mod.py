@@ -1,38 +1,5 @@
-"""
-# ==============================================================================
-# ROCKDB - Oracle Database Administration & Monitoring Tool
-# ==============================================================================
-# File: sessions_mod.py
-# Author: Andre Rocha (TechMax Consultoria)
-# 
-# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
-#
-# TERMS:
-# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
-# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
-# 3. You must maintain this header and original naming/ownership information.
-#
-# This software is provided "AS IS", without warranty of any kind.
-# Copyright (c) 2026 Andre Rocha. All rights reserved.
-# ==============================================================================
-"""
 import oracledb
 from .utils import get_oracle_connection
-
-def sanitize_rows(columns, rows):
-    results = []
-    for row in rows:
-        d = {}
-        for col, val in zip(columns, row):
-            if isinstance(val, (bytes, bytearray)):
-                d[col] = val.hex().upper()
-            elif hasattr(val, 'read'): # Lobs
-                try: d[col] = str(val.read())
-                except: d[col] = str(val)
-            else:
-                d[col] = val
-        results.append(d)
-    return results
 
 def get_sessions(conn_info, inst_id=None):
     connection = None
@@ -56,8 +23,7 @@ def get_sessions(conn_info, inst_id=None):
         
         cursor.execute(sql_text, params)
         columns = [col[0].lower() for col in cursor.description]
-        rows = cursor.fetchall()
-        return sanitize_rows(columns, rows)
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching sessions: {e}")
         raise e
@@ -117,8 +83,7 @@ def get_blocking_sessions(conn_info, inst_id=None):
         
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
-        sessions_raw = cursor.fetchall()
-        sessions = sanitize_rows(columns, sessions_raw)
+        sessions = [dict(zip(columns, row)) for row in cursor.fetchall()]
         
         # Build hierarchy
         session_map = {f"{s['inst_id']}-{s['sid']}": s for s in sessions}
@@ -139,7 +104,7 @@ def get_blocking_sessions(conn_info, inst_id=None):
             for k, other in session_map.items():
                 if other['blocking_instance'] == s['inst_id'] and other['blocking_session'] == s['sid']:
                     add_with_children(k, level + 1, processed_keys)
-        
+
         processed = set()
         # Start with root blockers
         roots = [f"{s['inst_id']}-{s['sid']}" for s in sessions if not s['blocking_session']]
@@ -152,6 +117,9 @@ def get_blocking_sessions(conn_info, inst_id=None):
                 add_with_children(k, 0, processed)
 
         if inst_id:
+            # Filter results if requested, but maintain hierarchy context if needed?
+            # Usually, if we filter by instance, we might lose the parent/child link if it's cross-instance.
+            # For now, let's return all related to that instance.
             return [r for r in results if r['inst_id'] == inst_id or r.get('blocking_instance') == inst_id]
             
         return results
@@ -184,8 +152,7 @@ def get_long_ops(conn_info, inst_id=None):
         
         cursor.execute(sql_text, params)
         columns = [col[0].lower() for col in cursor.description]
-        rows = cursor.fetchall()
-        return sanitize_rows(columns, rows)
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching long operations: {e}")
         raise e
@@ -210,7 +177,7 @@ def get_blocker_details(conn_info, sid, inst_id=1):
             return None
         
         columns = [col[0].lower() for col in cursor.description]
-        details = sanitize_rows(columns, [row])[0]
+        details = dict(zip(columns, row))
         
         # 2. SQL Text
         sql_id = details['sql_id'] or details['prev_sql_id']
@@ -236,7 +203,7 @@ def get_blocker_details(conn_info, sid, inst_id=1):
             sql_plan = get_sql_content("oracle/blocker_details_plan.sql", version)
             cursor.execute(sql_plan, {"sql_id": sql_id, "inst_id": inst_id})
             cols_plan = [col[0].lower() for col in cursor.description]
-            details['plan'] = sanitize_rows(cols_plan, cursor.fetchall())
+            details['plan'] = [dict(zip(cols_plan, r)) for r in cursor.fetchall()]
         else:
             details['plan'] = []
 
@@ -248,8 +215,8 @@ def get_blocker_details(conn_info, sid, inst_id=1):
             AND l.session_id = :sid AND l.inst_id = :inst_id
         """, {"sid": sid, "inst_id": inst_id})
         cols_obj = [col[0].lower() for col in cursor.description]
-        details['objects'] = sanitize_rows(cols_obj, cursor.fetchall())
-        
+        details['objects'] = [dict(zip(cols_obj, r)) for r in cursor.fetchall()]
+
         return details
     except Exception as e:
         print(f"Error fetching blocker details: {e}")

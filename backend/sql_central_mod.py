@@ -1,21 +1,3 @@
-"""
-# ==============================================================================
-# ROCKDB - Oracle Database Administration & Monitoring Tool
-# ==============================================================================
-# File: sql_central_mod.py
-# Author: Andre Rocha (TechMax Consultoria)
-# 
-# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
-#
-# TERMS:
-# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
-# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
-# 3. You must maintain this header and original naming/ownership information.
-#
-# This software is provided "AS IS", without warranty of any kind.
-# Copyright (c) 2026 Andre Rocha. All rights reserved.
-# ==============================================================================
-"""
 import os
 import sqlite3
 from .utils import get_db_connection, get_oracle_connection, SCRIPTS_DIR
@@ -52,13 +34,13 @@ def get_versioned_sql_path(rel_path, version=None):
         return os.path.join(BASE_SQL_DIR, rel_path)
 
     # Resolve based on version
-    version_prefix = "v11g"
+    version_prefix = "v12c"
     if version:
         try:
-            # Check if version is >= 12.1
+            # Check if version is < 12.1
             v_num = float('.'.join(version.split('.')[:2]))
-            if v_num >= 12.1:
-                version_prefix = "v12c"
+            if v_num < 12.1:
+                version_prefix = "v11g"
         except:
             pass
 
@@ -218,15 +200,6 @@ def execute_generic_sql(conn_info, sql_text, auto_commit=False, bind_vars=None):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         
-        # 1. Perform $VARIABLE replacement (for scripts that use this legacy syntax)
-        if bind_vars:
-            import re
-            for k, v in bind_vars.items():
-                # Case-insensitive replacement of $KEY or $key with the value
-                # We use a negative lookahead to ensure we don't match partial variable names (e.g. $SID vs $SID_EXTRA)
-                pattern = re.compile(re.escape(f"${k}") + r"(?![a-zA-Z0-9_])", re.IGNORECASE)
-                sql_text = pattern.sub(str(v), sql_text)
-
         # Split script if multiple statements (simple split by semicolon)
         statements = [s.strip() for s in sql_text.split(';') if s.strip()]
         
@@ -280,47 +253,42 @@ def seed_sql_scripts():
             'tools': 8
         }
         
-        # Scanning SQL scripts from directory
-        print(f"Scanning SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
-        if not os.path.exists(BASE_SQL_DIR):
-            print(f"WARNING: Scripts directory not found: {BASE_SQL_DIR}", flush=True)
-            return
+        # Check if already seeded (simple check for basic scripts)
+        cursor.execute("SELECT COUNT(*) FROM cfgmenu WHERE codmenutype != 8")
+        if cursor.fetchone()[0] == 0:
+            print(f"Seeding SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
+            if not os.path.exists(BASE_SQL_DIR):
+                print(f"WARNING: Scripts directory not found: {BASE_SQL_DIR}", flush=True)
+                return
 
-        # Get existing link_urls to avoid duplicates
-        cursor.execute("SELECT link_url FROM cfgmenu")
-        existing_urls = {row[0] for row in cursor.fetchall()}
-
-        scripts_to_insert = []
-        for root, dirs, files in os.walk(BASE_SQL_DIR):
-            for file in files:
-                if file.endswith('.sql'):
-                    rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)
-                    
-                    if rel_path in existing_urls:
-                        continue
-
-                    # Determine type from path
-                    parts = rel_path.split(os.sep)
-                    ctype = 1 # Default to Table
-                    for part in parts:
-                        if part in type_mapping:
-                            ctype = type_mapping[part]
-                            break
-                    
-                    name = file.replace('.sql', '')
-                    label = name.replace('_', ' ').title()
-                    
-                    scripts_to_insert.append((
-                        name,
-                        label,
-                        rel_path,
-                        'file', # Generic icon
-                        ctype,
-                        'file-text' # codmenutype_icon_url
-                    ))
-        
-        if scripts_to_insert:
-            print(f"Found {len(scripts_to_insert)} new scripts to register", flush=True)
+            scripts_to_insert = []
+            
+            for root, dirs, files in os.walk(BASE_SQL_DIR):
+                for file in files:
+                    if file.endswith('.sql'):
+                        rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)
+                        
+                        # Determine type from path
+                        parts = rel_path.split(os.sep)
+                        # Expected: oracle/<type>/... or <type>/...
+                        ctype = 1 # Default to Table
+                        for part in parts:
+                            if part in type_mapping:
+                                ctype = type_mapping[part]
+                                break
+                        
+                        name = file.replace('.sql', '')
+                        label = name.replace('_', ' ').title()
+                        
+                        scripts_to_insert.append((
+                            name,
+                            label,
+                            rel_path,
+                            'file', # Generic icon
+                            ctype,
+                            'file-text' # codmenutype_icon_url
+                        ))
+            
             cursor.executemany("""
                 INSERT OR IGNORE INTO cfgmenu (name, link_label, link_url, icon_url, codmenutype, codmenutype_icon_url)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -346,7 +314,6 @@ def seed_sql_scripts():
         conn.commit()
     finally:
         conn.close()
-
 def search_sql_content(query):
     """Scans all .sql files in BASE_SQL_DIR for the given query string."""
     matches = []

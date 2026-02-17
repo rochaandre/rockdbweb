@@ -1,34 +1,23 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: dashboard-layout.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import { Sidebar } from './sidebar'
-import { TopBar } from './top-bar'
+import type { ComponentProps } from 'react'
+import { twMerge } from 'tailwind-merge'
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+interface DashboardLayoutProps extends ComponentProps<'div'> {
+    statusMessage?: string
+}
+
+export function DashboardLayout({ className, children, statusMessage, ...props }: DashboardLayoutProps) {
     return (
-        <div className="flex h-screen w-screen overflow-hidden bg-background">
-            <Sidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-                <TopBar />
-                <main className="flex-1 overflow-auto bg-muted/5 p-6">
-                    {children}
-                </main>
-            </div>
+        <div className={twMerge("flex h-screen w-full flex-col bg-background text-foreground overflow-hidden", className)} {...props}>
+            <header className="flex h-8 shrink-0 items-center border-b border-border bg-gradient-to-r from-blue-100 to-blue-50 px-4 shadow-sm">
+                <h1 className="text-xs font-bold text-slate-700">Sessions - PRD</h1>
+            </header>
+            <main className="flex flex-1 flex-col gap-2 overflow-hidden p-2">
+                {children}
+            </main>
+            <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border bg-muted px-2 text-xs text-muted-foreground">
+                <span>Refreshed at 10:35:02 +3</span>
+                <span>{statusMessage}</span>
+            </footer>
         </div>
     )
 }

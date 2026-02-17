@@ -1,127 +1,141 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: sessions-table.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import React from 'react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import {
-    Activity,
-    Clock,
-    Terminal,
-    Monitor,
-    User,
-    AlertCircle,
-    Zap,
-    ChevronRight,
-    ShieldAlert,
-    Hash,
-    Activity as PulseIcon
-} from 'lucide-react'
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { twMerge } from 'tailwind-merge'
+import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
+import { Skull, Activity, FileCode } from 'lucide-react'
+import { useState } from 'react'
+import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 
-export function SessionsTable({ data = [], onSelect, selectedSid }: { data: any[], onSelect: (s: any) => void, selectedSid?: string }) {
+export interface SessionsTableProps {
+    sessions: any[]
+    onSelectSql: (sqlId: string, sid: number) => void
+    onKill: (sid: number, serial: number, inst_id?: number) => Promise<void>
+    filter: string
+}
+
+export function SessionsTable({ sessions, onSelectSql, onKill, filter }: SessionsTableProps) {
+    const [selectedId, setSelectedId] = useState<number | null>(null)
+    const [menuOpen, setMenuOpen] = useState(false)
+    const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
+    const [menuSession, setMenuSession] = useState<any>(null)
+
+    const filteredSessions = sessions.filter(s =>
+        !filter ||
+        s.sid?.toString().includes(filter) ||
+        s.username?.toLowerCase().includes(filter.toLowerCase()) ||
+        s.command?.toLowerCase().includes(filter.toLowerCase()) ||
+        s.event?.toLowerCase().includes(filter.toLowerCase())
+    )
+
+    const handleContextMenu = (e: React.MouseEvent, session: any) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setMenuPosition({ x: e.clientX, y: e.clientY })
+        setMenuSession(session)
+        setMenuOpen(true)
+        setSelectedId(session.sid)
+        onSelectSql(session.sql_id || '', session.sid)
+    }
+
+    const virtualAnchor = {
+        getBoundingClientRect: () => ({
+            width: 0,
+            height: 0,
+            x: menuPosition.x,
+            y: menuPosition.y,
+            top: menuPosition.y,
+            left: menuPosition.x,
+            right: menuPosition.x,
+            bottom: menuPosition.y,
+            toJSON: () => { }
+        })
+    }
+
     return (
-        <div className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden shadow-2xl">
-            <Table>
-                <TableHeader className="bg-muted/20 border-b border-border/30">
-                    <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-[80px] text-[9px] uppercase font-black pl-6">SID</TableHead>
-                        <TableHead className="text-[9px] uppercase font-black">Database User</TableHead>
-                        <TableHead className="text-[9px] uppercase font-black">Status</TableHead>
-                        <TableHead className="text-[9px] uppercase font-black">Wait Event</TableHead>
-                        <TableHead className="text-[9px] uppercase font-black">Program / Module</TableHead>
-                        <TableHead className="text-[9px] uppercase font-black pr-6 text-right">Logon Time</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {data.map((session, idx) => {
-                        const isActive = session.status === 'ACTIVE'
-                        const isBlocker = session.blocking_status === 'BLOCKER'
-                        const isWaiting = session.blocking_status === 'WAITING'
-                        const isSelected = selectedSid === session.sid
+        <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm relative">
+            <table className="w-full text-xs text-left border-collapse table-fixed">
+                <thead className="bg-muted/50 sticky top-0 z-10 text-xs font-medium text-muted-foreground border-b border-border shadow-sm">
+                    <tr>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-12 text-right">SID</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-14 text-right">OS PID</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-16 text-right">SERIAL#</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 text-left">USERNAME</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-14 text-right">File IO</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-16 text-right">CPU Usage</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 text-left">COMMAND</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-14 text-center">LckObj</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-16 text-left">STATUS</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-8 text-right">PQs</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 text-left">OWNER</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-16 text-right">Progress,%</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-14 text-right">Elapsed,s</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-14 text-right">Remain,s</th>
+                        <th className="border-r border-border/50 px-2 py-1.5 w-14 text-right">Temp,M</th>
+                        <th className="px-2 py-1.5 text-left">Event</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-surface">
+                    {filteredSessions.map((session) => (
+                        <tr
+                            key={session.sid}
+                            onClick={() => {
+                                setSelectedId(session.sid)
+                                onSelectSql(session.sql_id || '', session.sid)
+                            }}
+                            onContextMenu={(e) => handleContextMenu(e, session)}
+                            className={twMerge(
+                                "group cursor-pointer select-none h-9 border-b border-border/50 text-xs transition-colors hover:bg-muted/50",
+                                selectedId === session.sid ? "bg-blue-50/80 dark:bg-blue-950/30" : ""
+                            )}
+                        >
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.sid}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.ospid}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session['serial#']}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap font-medium text-foreground">{session.username}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.file_io}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.cpu}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.command}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-center overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.lck_obj}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.status}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.pqs}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.owner}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.compl_pct || 0}%</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.elaps_s || 0}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.rem_s || 0}</td>
+                            <td className="border-r border-border/50 px-2 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground/60">{session.temp || 0}</td>
+                            <td className="px-2 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">{session.event}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
 
-                        return (
-                            <TableRow
-                                key={idx}
-                                onClick={() => onSelect(session)}
-                                className={cn(
-                                    "cursor-pointer transition-all border-b border-border/10 group/row",
-                                    isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-primary/5 border-l-2 border-l-transparent",
-                                    isBlocker ? "bg-rose-500/5" : ""
-                                )}
-                            >
-                                <TableCell className="pl-6 py-4">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className={cn(
-                                            "h-6 font-mono font-black border-none px-2",
-                                            isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                                        )}>{session.sid}</Badge>
-                                        {isBlocker && <ShieldAlert className="size-3.5 text-rose-500 animate-pulse" />}
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-black text-foreground">{session.username || 'INTERNAL'}</span>
-                                            {isWaiting && <Badge variant="destructive" className="h-4 text-[8px] font-black px-1">WAITING</Badge>}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 opacity-40 group-hover/row:opacity-100 transition-opacity">
-                                            <Monitor className="size-3" />
-                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter truncate max-w-[150px]">{session.osuser} @ {session.machine}</span>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <div className={cn(
-                                            "size-2 rounded-full",
-                                            isActive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-slate-400 opacity-40"
-                                        )} />
-                                        <span className={cn(
-                                            "text-[10px] font-black uppercase tracking-widest",
-                                            isActive ? "text-emerald-600" : "text-muted-foreground opacity-60"
-                                        )}>{session.status}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex flex-col">
-                                        <span className="text-[11px] font-bold text-foreground leading-tight truncate max-w-[200px]" title={session.event}>{session.event}</span>
-                                        <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60 mt-0.5 italic">{session.wait_class} | {session.seconds_in_wait}s</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <Terminal className="size-3.5 text-primary/50" />
-                                        <span className="text-xs font-bold text-foreground truncate max-w-[180px]" title={session.program}>{session.program}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="pr-6 text-right">
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-[11px] font-bold text-foreground">{session.logon_time.split(' ')[1]}</span>
-                                        <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">{session.logon_time.split(' ')[0]}</span>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        )
-                    })}
-                </TableBody>
-            </Table>
+            {/* Global Context Menu */}
+            <MenuPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                <MenuPrimitive.Portal>
+                    <MenuPrimitive.Positioner
+                        anchor={virtualAnchor}
+                        side="right"
+                        align="start"
+                        sideOffset={0}
+                    >
+                        <MenuPrimitive.Popup
+                            className="z-50 min-w-[8rem] overflow-hidden rounded-md border border-border bg-surface p-1 text-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                        >
+                            <ContextMenuItem onClick={() => menuSession && onKill(menuSession.sid, menuSession['serial#'], menuSession.inst_id)}>
+                                <Skull className="mr-2 size-3.5 text-destructive" />
+                                Kill Session
+                            </ContextMenuItem>
+                            <ContextMenuItem onClick={() => menuSession && onSelectSql(menuSession.sql_id || '', menuSession.sid)}>
+                                <Activity className="mr-2 size-3.5" />
+                                Trace Session
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={() => menuSession && onSelectSql(menuSession.sql_id || '', menuSession.sid)}>
+                                <FileCode className="mr-2 size-3.5" />
+                                Show SQL
+                            </ContextMenuItem>
+                        </MenuPrimitive.Popup>
+                    </MenuPrimitive.Positioner>
+                </MenuPrimitive.Portal>
+            </MenuPrimitive.Root>
         </div>
     )
 }

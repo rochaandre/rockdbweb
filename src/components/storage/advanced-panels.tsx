@@ -1,334 +1,478 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: advanced-panels.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import {
-    Database,
-    HardDrive,
-    Activity,
-    TrendingUp,
-    Clock,
-    ChevronRight,
-    Layers,
-    Search,
-    ShieldCheck,
-    AlertTriangle,
-    Info,
-    Server,
-    Zap,
-    BarChart3,
-    FileCode,
-    Box,
-    Layout,
-    PieChart as PieIcon
-} from 'lucide-react'
-import { cn } from "@/lib/utils"
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, BarChart, Bar } from 'recharts'
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ReTooltip } from "recharts"
+import { AlertCircle, CheckCircle, Clock, Save, RefreshCw } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useState, useEffect } from 'react'
+import { API_URL } from "@/context/app-context"
 
-// --- ASM Panel ---
-export const ASMPanel = ({ diskGroups = [] }: { diskGroups?: any[] }) => (
-    <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl group transition-all duration-500 hover:shadow-primary/5">
-        <CardHeader className="border-b border-border/30 bg-muted/20 py-5">
-            <div className="flex items-center gap-4">
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <Database className="size-5" />
-                </div>
-                <div>
-                    <CardTitle className="text-base font-black tracking-tight uppercase">ASM Disk Groups</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mt-0.5 italic">Automatic Storage Management utilization</CardDescription>
-                </div>
-            </div>
-        </CardHeader>
-        <CardContent className="p-0">
-            <div className="overflow-auto scrollbar-hide">
-                <Table>
-                    <TableHeader className="bg-muted/10">
-                        <TableRow className="border-b border-border/30">
-                            <TableHead className="w-[150px] text-[10px] uppercase font-black tracking-widest pl-8">Disk Group</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black tracking-widest">Type / State</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black tracking-widest">Utilization</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black tracking-widest pr-8 text-right">Capacity</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {diskGroups.map((group, idx) => {
-                            const usagePercent = Math.round(((group.TOTAL_MB - group.FREE_MB) / group.TOTAL_MB) * 100)
-                            const isCrit = usagePercent > 85
-                            const isWarn = usagePercent > 70
+import { Badge } from "@/components/ui/badge"
+import { History } from "lucide-react"
 
-                            return (
-                                <TableRow key={idx} className="hover:bg-primary/5 transition-colors border-b border-border/10">
-                                    <TableCell className="pl-8 py-5">
-                                        <div className="flex flex-col">
-                                            <span className="font-mono text-sm font-black text-foreground">{group.NAME}</span>
-                                            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase mt-0.5">{group.BLOCK_SIZE} Block</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="h-5 text-[9px] font-black uppercase tracking-widest border-none bg-muted text-muted-foreground px-2">{group.TYPE}</Badge>
-                                            <Badge variant="outline" className="h-5 text-[9px] font-black uppercase tracking-widest border-none bg-emerald-500/10 text-emerald-600 px-2">{group.STATE}</Badge>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="space-y-2.5 w-full max-w-[200px]">
-                                            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-                                                <span className={cn(isCrit ? 'text-rose-500' : isWarn ? 'text-amber-500' : 'text-primary')}>{usagePercent}% USED</span>
-                                                <span className="text-muted-foreground/50">{Math.round((group.TOTAL_MB - group.FREE_MB) / 1024)}GB</span>
-                                            </div>
-                                            <Progress value={usagePercent} className="h-1.5 bg-muted rounded-full">
-                                                <div className={cn("h-full transition-all duration-1000", isCrit ? 'bg-rose-500' : isWarn ? 'bg-amber-500' : 'bg-primary')} style={{ width: `${usagePercent}%` }} />
-                                            </Progress>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="pr-8 text-right">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-xs font-black text-foreground">{(group.TOTAL_MB / 1024).toFixed(1)} GB</span>
-                                            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase">Free: {(group.FREE_MB / 1024).toFixed(1)} GB</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )
-                        })}
-                    </TableBody>
-                </Table>
-            </div>
-        </CardContent>
-    </Card>
-)
+// --- SYSAUX Panel ---
+export function SysauxPanel({ data = { occupants: [], top_objects: [], availability: 'N/A' } }: { data: any }) {
+    const { occupants, top_objects, availability } = data
+    const [retention, setRetention] = useState<number | null>(null)
+    const [advRetention, setAdvRetention] = useState<number | null>(null)
+    const [newRetention, setNewRetention] = useState<string>('')
+    const [isUpdating, setIsUpdating] = useState(false)
 
-// --- SYSAUX Detail Panel ---
-export const SysauxPanel = ({ data = [], occupants = [], chartData = [] }: { data?: any[], occupants?: any[], chartData?: any[] }) => {
-    const totalBytes = data.reduce((acc, curr) => acc + (curr.BYTES || 0), 0)
+    const fetchRetention = async () => {
+        try {
+            const res = await fetch(`${API_URL}/storage/stats/retention`)
+            if (res.ok) {
+                const data = await res.json()
+                setRetention(data.retention)
+                setAdvRetention(data.advisor_retention)
+                setNewRetention((data.advisor_retention || data.retention || 0).toString())
+            }
+        } catch (err) { console.error(err) }
+    }
+
+    useEffect(() => {
+        fetchRetention()
+    }, [])
+
+    const handleUpdateRetention = async () => {
+        setIsUpdating(true)
+        try {
+            const res = await fetch(`${API_URL}/storage/stats/retention`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ days: parseInt(newRetention) })
+            })
+            if (res.ok) {
+                const data = await res.json()
+                setRetention(data.retention)
+                setAdvRetention(data.advisor_retention)
+                // If it worked, make sure current input matches the one we just got
+                setNewRetention((data.advisor_retention || data.retention || 0).toString())
+            }
+        } catch (err) { console.error(err) }
+        finally { setIsUpdating(false) }
+    }
+
+    const chartData = occupants.slice(0, 5).map((o: any) => ({ name: o.name, value: o.space_mb }))
+    const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6']
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl border-l-[6px] border-l-amber-500">
-                <CardHeader className="bg-muted/20 border-b border-border/30 py-5">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
-                                <Layers className="size-5" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+            <div className="lg:col-span-2 space-y-4">
+                <div className="rounded-md border border-border bg-surface">
+                    <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+                        <span>SYSAUX Occupants</span>
+                        {availability && availability !== 'N/A' && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                                <History className="size-3" />
+                                Available since: {availability}
                             </div>
-                            <div>
-                                <CardTitle className="text-base font-black tracking-tight uppercase">SYSAUX Occupants</CardTitle>
-                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mt-0.5 italic">Internal component space distribution</CardDescription>
-                            </div>
-                        </div>
-                        <Badge variant="outline" className="border-amber-500/20 text-amber-600 font-black text-[10px] bg-amber-500/5 px-3 py-1 uppercase tracking-widest">Total: {(totalBytes / 1024 / 1024).toFixed(2)} MB</Badge>
+                        )}
                     </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="max-h-[500px] overflow-auto scrollbar-hide">
-                        <Table>
-                            <TableHeader className="bg-muted/10 sticky top-0 z-10 backdrop-blur-md">
-                                <TableRow className="border-b border-border/30">
-                                    <TableHead className="w-[180px] text-[10px] uppercase font-black tracking-widest pl-8">Component / Schema</TableHead>
-                                    <TableHead className="text-[10px] uppercase font-black tracking-widest">Status / Occupant</TableHead>
-                                    <TableHead className="text-[10px] uppercase font-black tracking-widest pr-8 text-right">Space Usage</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {occupants.map((occ, i) => (
-                                    <TableRow key={i} className="hover:bg-amber-500/5 transition-colors border-b border-border/10">
-                                        <TableCell className="pl-8 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-xs text-foreground uppercase tracking-tight">{occ.OCCUPANT_NAME}</span>
-                                                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase">{occ.SCHEMA_NAME}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <p className="text-[10px] font-medium text-muted-foreground italic leading-relaxed truncate max-w-[300px]" title={occ.OCCUPANT_DESC}>{occ.OCCUPANT_DESC}</p>
-                                        </TableCell>
-                                        <TableCell className="pr-8 text-right">
-                                            <span className="text-xs font-mono font-black text-amber-600">{Math.round(occ.SPACE_USAGE_KBYTES / 1024)} MB</span>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                    <div className="grid grid-cols-5 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                        <div>Schema</div>
+                        <div className="col-span-2">Name</div>
+                        <div>Space</div>
+                        <div className="text-right">Action</div>
                     </div>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl flex flex-col">
-                <CardHeader className="bg-muted/20 border-b border-border/30 py-5">
-                    <div className="flex items-center gap-4">
-                        <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                            <PieIcon className="size-5" />
-                        </div>
-                        <CardTitle className="text-sm font-black tracking-tight uppercase">Space Ratio</CardTitle>
-                    </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col pt-8 pb-6">
-                    <div className="h-[250px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={chartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={70}
-                                    outerRadius={95}
-                                    paddingAngle={8}
-                                    dataKey="value"
-                                    animationDuration={1500}
-                                >
-                                    {chartData.map((entry: any, index: number) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', fontSize: '10px', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.5)' }}
-                                    itemStyle={{ fontWeight: 'black', textTransform: 'uppercase' }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    <div className="mt-8 space-y-3 px-6">
-                        {chartData.map((item: any, i: number) => (
-                            <div key={i} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-                                <div className="flex items-center gap-3">
-                                    <div className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                    <span className="text-muted-foreground/70">{item.name}</span>
+                    <div className="overflow-auto max-h-[400px]">
+                        {occupants.map((o: any, i: number) => (
+                            <div key={i} className="grid grid-cols-5 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30 items-center">
+                                <div className="text-muted-foreground truncate">{o.schema}</div>
+                                <div className="col-span-2 font-medium">{o.name}</div>
+                                <div className="font-mono text-xs">{o.space_gb > 0 ? `${o.space_gb} GB` : `${o.space_mb} MB`}</div>
+                                <div className="text-right">
+                                    {o.move_procedure && (
+                                        <Badge variant="outline" className="text-[9px] h-4 uppercase cursor-help border-primary/20 text-primary" title={o.move_procedure}>
+                                            Move Proc.
+                                        </Badge>
+                                    )}
                                 </div>
-                                <span className="text-foreground">{item.percentage}%</span>
                             </div>
                         ))}
                     </div>
-                </CardContent>
-            </Card>
+                    {occupants.length === 0 && (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No SYSAUX occupant data found.</div>
+                    )}
+                </div>
+
+                {/* Top Statistics Objects Breakdown */}
+                {top_objects.length > 0 && (
+                    <div className="rounded-md border border-border bg-surface overflow-hidden">
+                        <div className="px-3 py-2 border-b border-border bg-muted/20 text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex justify-between items-center">
+                            <span>SM/OPTSTAT Deep Dive (WRI$_OPTSTAT% High Usage)</span>
+                            <Badge variant="outline" className="text-[8px] h-3.5 bg-primary/5 text-primary border-primary/20">
+                                Info: Optimizer Stats History
+                            </Badge>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-x divide-border">
+                            <div className="p-0">
+                                {top_objects.slice(0, 5).map((obj: any, i: number) => (
+                                    <div key={i} className="flex justify-between items-center p-2.5 border-b border-border/40 hover:bg-muted/30 last:border-0 transition-colors">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[11px] font-bold text-foreground font-mono">{obj.segment_name}</p>
+                                            <p className="text-[9px] text-muted-foreground uppercase font-medium">{obj.segment_type}</p>
+                                        </div>
+                                        <Badge variant="secondary" className="font-mono text-[10px] bg-muted/50">{obj.mb} MB</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-0">
+                                {top_objects.slice(5, 10).map((obj: any, i: number) => (
+                                    <div key={i} className="flex justify-between items-center p-2.5 border-b border-border/40 hover:bg-muted/30 last:border-0 transition-colors">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[11px] font-bold text-foreground font-mono">{obj.segment_name}</p>
+                                            <p className="text-[9px] text-muted-foreground uppercase font-medium">{obj.segment_type}</p>
+                                        </div>
+                                        <Badge variant="secondary" className="font-mono text-[10px] bg-muted/50">{obj.mb} MB</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Space Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={chartData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
+                                    {chartData.map((_: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
+                                    ))}
+                                </Pie>
+                                <ReTooltip contentStyle={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }} itemStyle={{ color: 'var(--foreground)' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-amber-500/10 border-amber-500/20">
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Clock className="size-4 text-amber-500" />
+                            <CardTitle className="text-sm font-medium text-amber-500">Stats Retention</CardTitle>
+                        </div>
+                        <Button variant="ghost" size="icon" className="size-6 h-6 w-6" onClick={fetchRetention}>
+                            <RefreshCw className="size-3" />
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center border-b border-border/50 pb-1">
+                                <span className="text-[10px] text-muted-foreground uppercase">DBMS_STATS History</span>
+                                <span className="text-sm font-bold">{retention !== null ? `${retention}d` : '...'}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-border/50 pb-1">
+                                <span className="text-[10px] text-muted-foreground uppercase">Advisor Task (Set)</span>
+                                <span className="text-sm font-bold text-primary">{advRetention !== null ? `${advRetention}d` : '...'}</span>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Modify Retention (Days)</label>
+                            <div className="flex gap-2">
+                                <Input
+                                    type="number"
+                                    value={newRetention}
+                                    onChange={e => setNewRetention(e.target.value)}
+                                    className="h-8 text-xs"
+                                />
+                                <Button
+                                    size="sm"
+                                    className="h-8 gap-1"
+                                    onClick={handleUpdateRetention}
+                                    disabled={isUpdating}
+                                >
+                                    <Save className="size-3" />
+                                    Apply
+                                </Button>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground italic">
+                            Uses DBMS_SQLTUNE & DBMS_STATS to sync advisor and history policies.
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-blue-500/10 border-blue-500/20">
+                    <CardHeader className="pb-2 flex flex-row items-center gap-2">
+                        <AlertCircle className="size-4 text-blue-500" />
+                        <CardTitle className="text-sm font-medium text-blue-500">Recommendation</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-xs text-muted-foreground">
+                        SM/AWR is consuming significant space. Consider changing AWR retention or purging old snapshots if SYSAUX is critical.
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     )
 }
 
-// --- Fra (Fast Recovery Area) Panel ---
-export const FRAPanel = ({ data = [], usageChart = [] }: { data?: any[], usageChart?: any[] }) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl group transition-all duration-500 hover:shadow-emerald-500/5 border-l-[6px] border-l-emerald-500">
-            <CardHeader className="bg-muted/20 border-b border-border/30 py-5">
-                <div className="flex items-center gap-4">
-                    <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner group-hover:rotate-12 transition-transform">
-                        <Activity className="size-5" />
+// --- UNDO Panel ---
+export function UndoPanel({ data = { stats: [], retention: 900, max_query_len: 0 } }: { data: any }) {
+    const { stats, retention, max_query_len } = data
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+                <div className="rounded-md border border-border bg-surface">
+                    <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+                        <span>UNDO Statistics</span>
+                        <div className="flex gap-2">
+                            <Clock className="size-3 text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground">Updates every 10 min</span>
+                        </div>
                     </div>
-                    <div>
-                        <CardTitle className="text-base font-black tracking-tight uppercase">Fast Recovery Area</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mt-0.5 italic">Managed recovery files usage distribution</CardDescription>
+                    <div className="grid grid-cols-6 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                        <div>Start</div>
+                        <div>End</div>
+                        <div>Blocks</div>
+                        <div>Txns</div>
+                        <div>Max Query</div>
+                        <div>Inst</div>
                     </div>
+                    {stats.map((s: any, i: number) => (
+                        <div key={i} className="grid grid-cols-6 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30">
+                            <div className="text-muted-foreground">{s.begin_time}</div>
+                            <div className="text-muted-foreground">{s.end_time}</div>
+                            <div className="font-mono">{s.undoblks}</div>
+                            <div>{s.txncount}</div>
+                            <div>{s.maxquerylen}s</div>
+                            <div>{s.inst_id}</div>
+                        </div>
+                    ))}
+                    {stats.length === 0 && (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No UNDO statistics available.</div>
+                    )}
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Retention Policy</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between items-end border-b border-border pb-2">
+                            <span className="text-xs text-muted-foreground">Configured</span>
+                            <span className="text-xl font-bold">{retention}s</span>
+                        </div>
+                        <div className="flex justify-between items-end border-b border-border pb-2">
+                            <span className="text-xs text-muted-foreground">Longest Active</span>
+                            <span className="text-xl font-bold text-primary">{max_query_len}s</span>
+                        </div>
+                        {retention > max_query_len ? (
+                            <div className="flex items-start gap-2 text-[10px] text-green-600 bg-green-500/10 p-2 rounded">
+                                <CheckCircle className="size-3 shrink-0 mt-0.5" />
+                                Retention is sufficient for recent activity.
+                            </div>
+                        ) : (
+                            <div className="flex items-start gap-2 text-[10px] text-amber-600 bg-amber-500/10 p-2 rounded">
+                                <AlertCircle className="size-3 shrink-0 mt-0.5" />
+                                Warning: Longest query exceeds configured retention!
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
+
+// --- TEMP Panel ---
+export function TempPanel({ usage = [] }: { usage: any[] }) {
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+                <div className="rounded-md border border-border bg-surface">
+                    <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+                        <span>Active Temporary Segment Usage</span>
+                    </div>
+                    <div className="grid grid-cols-6 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                        <div>SID,Serial</div>
+                        <div>User</div>
+                        <div>SQL ID</div>
+                        <div>Tablepace</div>
+                        <div>Inst</div>
+                        <div>Used (MB)</div>
+                    </div>
+                    {usage.map((t, i) => (
+                        <div key={i} className="grid grid-cols-6 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30 items-center">
+                            <div className="font-mono text-xs text-muted-foreground">{t.sid_serial}</div>
+                            <div className="truncate">{t.username}</div>
+                            <div className="font-mono text-xs">{t.sql_id}</div>
+                            <div>{t.tablespace}</div>
+                            <div>{t.inst_id}</div>
+                            <div className="font-bold">{t.mb_used}</div>
+                        </div>
+                    ))}
+                    {usage.length === 0 && (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No active temporary segments found.</div>
+                    )}
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Temp History (MB)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[200px] p-0 flex items-center justify-center text-xs text-muted-foreground">
+                        History tracking in progress...
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
+
+// --- Storage Charts ---
+export function StorageCharts() {
+    const [data, setData] = useState<any>(null)
+    const [loading, setLoading] = useState(true)
+
+    const fetchData = async () => {
+        try {
+            const res = await fetch(`${API_URL}/storage/charts`)
+            if (res.ok) {
+                setData(await res.json())
+            }
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchData()
+    }, [])
+
+    if (loading) return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+            {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-[250px] bg-muted/20 animate-pulse rounded-lg border border-border" />
+            ))}
+        </div>
+    )
+
+    if (!data) return <div className="p-8 text-center text-muted-foreground uppercase text-xs font-bold">No storage metric data available</div>
+
+    const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#10b981']
+    const CHART_COLORS = {
+        used: '#3b82f6',
+        free: '#22c55e',
+        reclaimable: '#f59e0b'
+    }
+
+    const renderPie = (chartData: any[], title: string, subtitle?: string) => (
+        <Card className="flex flex-col h-full bg-surface border-border/50 shadow-none">
+            <CardHeader className="py-3 px-4 shrink-0 flex flex-row items-center justify-between border-b border-border/10">
+                <div className="space-y-0.5">
+                    <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">{title}</CardTitle>
+                    {subtitle && <p className="text-[9px] text-muted-foreground/60 font-mono">{subtitle}</p>}
+                </div>
+                <div className="p-1.5 bg-muted/20 rounded">
+                    <History className="size-3 text-muted-foreground/40" />
                 </div>
             </CardHeader>
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader className="bg-muted/10 sticky top-0 z-10 backdrop-blur-md">
-                        <TableRow className="border-b border-border/30">
-                            <TableHead className="w-[180px] text-[10px] uppercase font-black tracking-widest pl-8">File Type</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black tracking-widest">Usage %</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black tracking-widest">Reclaimable</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black tracking-widest pr-8 text-right">File Count</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {data.map((row, i) => (
-                            <TableRow key={i} className="hover:bg-emerald-500/5 transition-colors border-b border-border/10">
-                                <TableCell className="pl-8 py-4">
-                                    <span className="text-xs font-black text-foreground uppercase tracking-tight">{row.FILE_TYPE}</span>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                                            <div className="h-full bg-emerald-500 opacity-60" style={{ width: `${row.PERCENT_SPACE_USED}%` }} />
-                                        </div>
-                                        <span className="text-[10px] font-mono font-black text-emerald-600">{row.PERCENT_SPACE_USED}%</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <span className="text-[10px] font-mono font-bold text-muted-foreground">{row.PERCENT_SPACE_RECLAIMABLE}%</span>
-                                </TableCell>
-                                <TableCell className="pr-8 text-right">
-                                    <Badge variant="outline" className="h-5 text-[9px] font-black border-none bg-muted text-muted-foreground">{row.NUMBER_OF_FILES}</Badge>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-
-        {/* Usage Trend Card */}
-        <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl group transition-all duration-500">
-            <CardHeader className="bg-muted/20 border-b border-border/30 py-5">
-                <div className="flex items-center gap-4">
-                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                        <TrendingUp className="size-5" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-base font-black tracking-tight uppercase">FRA Space Statistics</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mt-0.5 italic">Total capacity vs available space</CardDescription>
-                    </div>
+            <CardContent className="flex-1 min-h-[200px] p-4 relative flex flex-col items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={chartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={70}
+                            paddingAngle={3}
+                            dataKey="value"
+                            animationDuration={800}
+                        >
+                            {chartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} strokeWidth={0} />
+                            ))}
+                        </Pie>
+                        <ReTooltip
+                            contentStyle={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                            itemStyle={{ padding: '2px 0' }}
+                            formatter={(value: any) => [`${(value || 0).toLocaleString()} MB`, '']}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+                {/* Center text */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pt-4">
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter opacity-60">Total</span>
+                    <span className="text-xs font-bold font-mono">
+                        {chartData.reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}M
+                    </span>
                 </div>
-            </CardHeader>
-            <CardContent className="pt-8 pb-6 px-10 flex flex-col items-center justify-center space-y-8">
-                <div className="h-[200px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={usageChart}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" opacity={0.1} />
-                            <XAxis
-                                dataKey="name"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fontSize: 9, fontWeight: 700, fill: 'hsl(var(--muted-foreground))', opacity: 0.5 }}
-                                dy={10}
-                            />
-                            <YAxis hide />
-                            <Tooltip
-                                cursor={{ fill: 'hsl(var(--primary))', opacity: 0.05 }}
-                                contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', fontSize: '10px' }}
-                            />
-                            <Bar dataKey="value" radius={[8, 8, 8, 8]} barSize={50}>
-                                {usageChart.map((entry: any, index: number) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8 w-full">
-                    {usageChart.map((item: any, i: number) => (
-                        <div key={i} className="flex flex-col gap-1">
-                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-50">{item.name}</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-xl font-black text-foreground">{item.value}</span>
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">GB</span>
-                            </div>
-                            <div className="h-1 w-full bg-muted rounded-full mt-1">
-                                <div className="h-full rounded-full" style={{ backgroundColor: item.color, width: '100%' }} />
-                            </div>
+                {/* Custom Legend */}
+                <div className="w-full mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 px-2">
+                    {chartData.map((entry, i) => (
+                        <div key={i} className="flex items-center gap-2 group">
+                            <div className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: entry.color || COLORS[i % COLORS.length] }} />
+                            <span className="text-[9px] text-muted-foreground truncate uppercase font-medium group-hover:text-foreground transition-colors">{entry.name}</span>
+                            <span className="ml-auto text-[9px] font-mono text-muted-foreground/60">{Math.round((entry.value / chartData.reduce((a, b) => a + b.value, 0)) * 100)}%</span>
                         </div>
                     ))}
                 </div>
             </CardContent>
         </Card>
-    </div>
-)
+    )
+
+    // Data Mapping
+    const fraData = data.fra ? [
+        { name: 'Used', value: Math.max(0, data.fra.used_mb - data.fra.reclaimable_mb), color: CHART_COLORS.used },
+        { name: 'Rec.', value: data.fra.reclaimable_mb, color: CHART_COLORS.reclaimable },
+        { name: 'Free', value: data.fra.free_mb, color: CHART_COLORS.free }
+    ].filter(v => v.value > 0) : []
+
+    const dfData = data.datafiles ? [
+        { name: 'Used', value: data.datafiles.used_mb, color: CHART_COLORS.used },
+        { name: 'Free', value: data.datafiles.free_mb, color: CHART_COLORS.free }
+    ].filter(v => v.value > 0) : []
+
+    const undoTotalUsed = data.undo?.reduce((acc: any, u: any) => acc + u.used_mb, 0) || 0
+    const undoTotalFree = data.undo?.reduce((acc: any, u: any) => acc + u.free_mb, 0) || 0
+    const undoData = undoTotalUsed + undoTotalFree > 0 ? [
+        { name: 'Used', value: undoTotalUsed, color: CHART_COLORS.used },
+        { name: 'Free', value: undoTotalFree, color: CHART_COLORS.free }
+    ] : []
+
+    const tempTotalUsed = data.temp?.reduce((acc: any, t: any) => acc + t.used_mb, 0) || 0
+    const tempTotalFree = data.temp?.reduce((acc: any, t: any) => acc + t.free_mb, 0) || 0
+    const tempData = tempTotalUsed + tempTotalFree > 0 ? [
+        { name: 'Used', value: tempTotalUsed, color: CHART_COLORS.used },
+        { name: 'Free', value: tempTotalFree, color: CHART_COLORS.free }
+    ] : []
+
+    const pgaData = data.pga?.length > 0 ? data.pga.map((p: any) => ({ name: p.name.replace('aggregate PGA ', '').replace('total PGA ', ''), value: p.mb })) : []
+    const topTsData = data.top_tablespaces?.length > 0 ? data.top_tablespaces.map((t: any) => ({ name: t.name, value: t.mb })) : []
+
+    const sgaData = data.sga?.length > 0 ? data.sga.slice(0, 8).map((s: any) => ({ name: s.name, value: s.mb })) : []
+
+    return (
+        <div className="space-y-6 pb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+                {dfData.length > 0 && renderPie(dfData, "Datafiles Storage", "Total Space Usage")}
+                {fraData.length > 0 && renderPie(fraData, "Flash Recovery Area", data.fra?.name)}
+                {sgaData.length > 0 && renderPie(sgaData, "SGA Components", `Total: ${data.sga_total_mb}M`)}
+                {undoData.length > 0 && renderPie(undoData, "Undo Retention", "Active Tablespaces")}
+                {tempData.length > 0 && renderPie(tempData, "Temp Usage", "Tablespace Metrics")}
+                {pgaData.length > 0 && renderPie(pgaData, "PGA Memory", "Aggregate Metrics")}
+                {topTsData.length > 0 && renderPie(topTsData, "Top Tablespaces", "By Allocated Size")}
+            </div>
+
+            <div className="flex items-center justify-center p-8 bg-muted/5 border border-dashed border-border rounded-lg">
+                <div className="text-center space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Growth Analytics</p>
+                    <p className="text-xs text-muted-foreground/60 italic">Historical data collection from Time Machine snapshots is active.</p>
+                </div>
+            </div>
+        </div>
+    )
+}

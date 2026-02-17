@@ -1,78 +1,133 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: sql-report-view.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
+
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { FileText, Download, Printer, Share2, Search, Filter } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ArrowLeft, Copy, Printer, FileType } from 'lucide-react'
 
 export function SqlReportView() {
+    const { reportType, sqlId } = useParams()
+    const navigate = useNavigate()
+
+    const getTitle = () => {
+        switch (reportType) {
+            case 'bind-capture': return 'Bind Variables Capture'
+            case 'statistics': return 'SQL Statistics'
+            case 'optimizer-env': return 'Optimizer Environment'
+            case 'plan-history': return 'Plan Switch History'
+            case 'xplan': return 'XPlan'
+            case 'xplan-all': return 'XPlan All'
+            case 'xplan-stats': return 'XPlan AllStats'
+            default: return 'SQL Report'
+        }
+    }
+
     return (
         <MainLayout>
-            <div className="flex flex-col h-full bg-background overflow-hidden p-6 gap-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">SQL Execution Reports</h1>
-                        <p className="text-muted-foreground text-sm flex items-center gap-2">
-                            <FileText className="size-3" /> Historical performance analysis and optimization reports
-                        </p>
-                    </div>
+            <div className="flex flex-col h-full bg-background">
+                {/* Header / Toolbar */}
+                <div className="border-b border-border bg-muted/20 p-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="gap-2 h-9 font-bold">
-                            <Download className="size-4" /> Export CSV
+                        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Back
                         </Button>
-                        <Button size="sm" className="gap-2 h-9 font-bold bg-primary shadow-lg shadow-primary/20">
-                            <Plus className="size-4" /> New Report
-                        </Button>
+                        <h1 className="text-sm font-semibold ml-2">{getTitle()} - PRD</h1>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" className="h-7"><FileType className="h-4 w-4 mr-1" /> HTML</Button>
+                        <Button variant="ghost" size="sm" className="h-7"><Copy className="h-4 w-4 mr-1" /> Copy</Button>
+                        <Button variant="ghost" size="sm" className="h-7"><Printer className="h-4 w-4 mr-1" /> Print</Button>
                     </div>
                 </div>
 
-                <div className="relative w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Filter by SQL ID, Username or Date..." className="pl-10 bg-muted/30 border-none shadow-inner h-11 text-sm rounded-xl" />
+                {/* Info Box */}
+                <div className="bg-blue-50/50 border-b border-blue-200 p-4 shadow-sm">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-blue-900">Instance ID:</span>
+                            <span>1</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-blue-900">SQL ID:</span>
+                            <Link to="/sessions" className="text-blue-600 underline hover:text-blue-800 font-mono">
+                                {sqlId}
+                            </Link>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-blue-900">Database:</span>
+                            <span>CDBPRD</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-blue-900">Time:</span>
+                            <span>{new Date().toLocaleString()}</span>
+                        </div>
+                    </div>
+                    {/* See Also Links */}
+                    <div className="mt-3 pt-3 border-t border-blue-200 text-xs flex gap-3 flex-wrap">
+                        <span className="font-semibold text-blue-900">See also:</span>
+                        {[
+                            { label: 'SQL Statistics', type: 'statistics' },
+                            { label: 'Plan Switch History', type: 'plan-history' },
+                            { label: 'XPlan', type: 'xplan' },
+                            { label: 'Optimizer Env', type: 'optimizer-env' },
+                            { label: 'Stage in SQL Central', path: `/sql-central/${sqlId}` }
+                        ].map((link, i) => (
+                            link.path ? (
+                                <Link key={i} to={link.path} className="text-blue-600 hover:underline">
+                                    {link.label}
+                                </Link>
+                            ) : (
+                                <Link key={i} to={`/sql-report/${link.type}/${sqlId}`} className="text-blue-600 hover:underline">
+                                    {link.label}
+                                </Link>
+                            )
+                        ))}
+                    </div>
                 </div>
 
-                <Card className="border-none shadow-none bg-muted/20 flex-1 overflow-hidden">
-                    <CardHeader className="py-4 px-6 border-b border-border/50">
-                        <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                            <Filter className="size-4" /> Recently Generated Reports
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 overflow-auto h-full">
-                        <div className="p-8 text-center space-y-4 opacity-40">
-                            <div className="size-20 bg-muted rounded-full mx-auto flex items-center justify-center">
-                                <FileText className="size-10" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-black uppercase tracking-widest">No Reports Found</h3>
-                                <p className="text-sm max-w-md mx-auto mt-2">Historical SQL reports are generated periodically or on-demand. Start by choosing 'New Report' above.</p>
-                            </div>
+                {/* Report Content */}
+                <div className="flex-1 overflow-auto p-6 space-y-6">
+                    {/* Section 1 */}
+                    <div className="space-y-2">
+                        <h2 className="text-lg font-bold">SQL {getTitle()}</h2>
+                        <div className="text-sm text-muted-foreground">
+                            NO DATA.<br />
+                            <span className="text-xs opacity-70">source: v$sql_bind_capture</span>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    {/* Section 2 */}
+                    <div className="space-y-2">
+                        <h2 className="text-lg font-bold">Peeked Bind Variables</h2>
+                        <div className="text-sm text-muted-foreground">
+                            <span className="text-xs opacity-70">source: v$sql_bind_data</span>
+                        </div>
+                    </div>
+
+                    {/* SQL Text Section */}
+                    <div className="space-y-2">
+                        <h2 className="text-lg font-bold">SQL Text</h2>
+                        <div className="bg-muted/10 border border-border rounded-md p-4 font-mono text-xs whitespace-pre-wrap">
+                            {`SELECT COUNT(HIST_SUBS_PAC.CD_HIST_SUBS_PAC)
+FROM 
+    (
+        SELECT COUNT(*) QT_CANC, CD_HIST_SUBS_PAC_CANC
+        FROM DBAMV.HIST_SUBS_PAC
+        WHERE CD_HIST_SUBS_PAC_CANC IS NOT NULL
+        GROUP BY CD_HIST_SUBS_PAC_CANC
+    ) VERIFICA_CANC, HIST_SUBS_PAC
+WHERE EXISTS (
+    SELECT 'X' 
+    FROM DBAMV.PW_LOG_IMPORT_ALERG LOG_IMPORT
+    WHERE HIST_SUBS_PAC.CD_HIST_SUBS_PAC = LOG_IMPORT.CD_HIST_SUBS_PAC
+    AND NVL(LOG_IMPORT.QT_CANC, 0) < NVL(VERIFICA_CANC.QT_CANC, 0)
+)
+AND VERIFICA_CANC.CD_HIST_SUBS_PAC_CANC(+) = HIST_SUBS_PAC.CD_HIST_SUBS_PAC`}
+                        </div>
+                    </div>
+                </div>
             </div>
         </MainLayout>
-    )
-}
-
-function Plus({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14" /><path d="M12 5v14" /></svg>
     )
 }

@@ -1,209 +1,260 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: database-form.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-    Database,
-    ShieldCheck,
-    Globe,
-    Server,
-    Key,
-    Info,
-    ChevronRight,
-    Monitor,
-    CheckCircle2,
-    AlertCircle,
-    Activity,
-    Box,
-    Layout
-} from 'lucide-react'
-import { Checkbox } from "@/components/ui/checkbox"
+import { Loader2, Play } from "lucide-react"
 
-export function DatabaseForm({
-    initialData,
-    onSubmit,
-    onCancel,
-    isTesting = false,
-    testStatus = null
-}: any) {
-    const [formData, setFormData] = useState<any>({
-        label: '',
+export interface DatabaseConnection {
+    id: string
+    name: string
+    host: string
+    port: string
+    service: string
+    username: string
+    password?: string
+    type: 'PROD' | 'DEV' | 'TEST'
+    status: 'Connected' | 'Online' | 'Offline' | 'Connecting...'
+    version?: string
+    patch?: string
+    os?: string
+    db_type?: string
+    role?: string
+    apply_status?: string
+    log_mode?: string
+    is_rac?: boolean
+    inst_name?: string
+    connection_mode?: 'BASIC' | 'STRING'
+    connection_role?: 'NORMAL' | 'SYSDBA' | 'SYSOPER' | 'SYSBACKUP' | 'SYSDG' | 'SYSKM'
+    connect_string?: string
+    wallet_path?: string
+    tns_admin?: string
+}
+
+interface DatabaseFormProps {
+    initialData?: DatabaseConnection
+    onSave: (data: DatabaseConnection) => void
+    onCancel: () => void
+    onTest?: (data: DatabaseConnection) => void
+    isTesting?: boolean
+}
+
+export function DatabaseForm({ initialData, onSave, onCancel, onTest, isTesting }: DatabaseFormProps) {
+    const [formData, setFormData] = useState<Partial<DatabaseConnection>>({
+        name: '',
         host: '',
         port: '1521',
-        service_name: '',
-        sid: '',
+        service: '',
         username: '',
-        password: '',
-        is_sysdba: false,
-        use_ssh: false,
-        ssh_host: '',
-        ssh_port: '22',
-        ssh_user: '',
-        ssh_key_path: ''
+        type: 'DEV',
+        status: 'Offline',
+        connection_mode: 'BASIC',
+        connection_role: 'NORMAL',
+        connect_string: '',
+        wallet_path: '',
+        tns_admin: '',
+        ...initialData
     })
 
-    useEffect(() => {
-        if (initialData) {
-            setFormData({ ...formData, ...initialData })
-        }
-    }, [initialData])
+    const [availableRoles, setAvailableRoles] = useState<string[]>(['NORMAL'])
 
-    const handleChange = (e: any) => {
-        const { id, value } = e.target
-        setFormData((prev: any) => ({ ...prev, [id]: value }))
+    // Fetch available Oracle roles from backend
+    useEffect(() => {
+        const fetchRoles = async () => {
+            try {
+                const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:8080' : ''
+                const res = await fetch(`${API_URL}/api/config/oracle-roles`)
+                if (res.ok) {
+                    const roles = await res.json()
+                    setAvailableRoles(roles)
+                }
+            } catch (err) {
+                console.error("Failed to fetch Oracle roles:", err)
+            }
+        }
+        fetchRoles()
+    }, [])
+
+    // Auto-generate TNS String when Name, Host, Port, Service or Wallet changes
+    useEffect(() => {
+        if (formData.host && formData.port && formData.service) {
+            const protocol = formData.wallet_path ? 'TCPS' : 'TCP';
+            const security = formData.wallet_path ? `(SECURITY=(MY_WALLET_DIRECTORY=${formData.wallet_path}))` : '';
+
+            const suggestedTNS = `(DESCRIPTION=(ADDRESS=(PROTOCOL=${protocol})(HOST=${formData.host})(PORT=${formData.port}))${security}(CONNECT_DATA=(SERVICE_NAME=${formData.service})))`;
+
+            // Always update the connection string automatically
+            setFormData(prev => ({ ...prev, connect_string: suggestedTNS }));
+        }
+    }, [formData.name, formData.host, formData.port, formData.service, formData.wallet_path]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value })
     }
 
-    const handleCheckboxChange = (id: string, checked: boolean) => {
-        setFormData((prev: any) => ({ ...prev, [id]: checked }))
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        onSave(formData as DatabaseConnection)
     }
 
     return (
-        <Card className="shadow-2xl border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden rounded-2xl">
-            <CardHeader className="border-b border-border/30 bg-muted/20 py-6">
-                <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                        <Database className="size-6" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-xl font-black tracking-tight uppercase">Database Connection</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 mt-0.5 italic">Configure Oracle database access parameters</CardDescription>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-8 space-y-8">
-                {/* General Information */}
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Info className="size-4 text-primary" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Identification</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="label" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Profile Name</Label>
-                            <Input id="label" placeholder="e.g. Production Core" value={formData.label} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-bold focus:ring-primary/20" />
-                        </div>
-                    </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 py-2">
+                {/* 1. Display Name (Full) */}
+                <div className="space-y-2">
+                    <Label htmlFor="name">Display Name</Label>
+                    <Input id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="e.g. My Oracle DB" />
                 </div>
 
-                <div className="h-px bg-border/20" />
-
-                {/* Database Settings */}
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Server className="size-4 text-emerald-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Database Connectivity</h3>
+                {/* 2. Environment / Mode (Same line) */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="type">Environment</Label>
+                        <select
+                            id="type"
+                            name="type"
+                            value={formData.type}
+                            onChange={handleChange}
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        >
+                            <option value="PROD">Production</option>
+                            <option value="DEV">Development</option>
+                            <option value="TEST">Testing</option>
+                        </select>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2 space-y-2">
-                            <Label htmlFor="host" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Hostname / IP</Label>
-                            <Input id="host" placeholder="10.0.0.1" value={formData.host} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="port" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Port</Label>
-                            <Input id="port" value={formData.port} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-mono font-bold" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="service_name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Service Name</Label>
-                            <Input id="service_name" placeholder="orclpdb1" value={formData.service_name} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="sid" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">SID (Optional)</Label>
-                            <Input id="sid" placeholder="orcl" value={formData.sid} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-bold" />
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="connection_mode">Connection Mode</Label>
+                        <select
+                            id="connection_mode"
+                            name="connection_mode"
+                            value={formData.connection_mode}
+                            onChange={handleChange}
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-medium"
+                        >
+                            <option value="BASIC">Direct (Host/Port/Service)</option>
+                            <option value="STRING">TNS Connection String</option>
+                        </select>
                     </div>
                 </div>
 
-                <div className="h-px bg-border/20" />
+                <div className="border-t pt-4 mt-2">
+                    {/* 3. Network Configuration (Host, Port, Service) - ALWAYS VISIBLE and MANDATORY */}
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Network Configuration</h4>
+                    <div className="grid grid-cols-6 gap-4 mb-4">
+                        <div className="col-span-3 space-y-2">
+                            <Label htmlFor="host">Host</Label>
+                            <Input id="host" name="host" value={formData.host} onChange={handleChange} required placeholder="hostname or IP" />
+                        </div>
+                        <div className="col-span-1 space-y-2">
+                            <Label htmlFor="port">Port</Label>
+                            <Input id="port" name="port" value={formData.port} onChange={handleChange} required placeholder="1521" />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                            <Label htmlFor="service">Service Name</Label>
+                            <Input id="service" name="service" value={formData.service} onChange={handleChange} required placeholder="ORCL" />
+                        </div>
+                    </div>
 
-                {/* Auth Settings */}
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Key className="size-4 text-amber-500" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Authentication</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="username" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Username</Label>
-                            <Input id="username" placeholder="system" value={formData.username} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
-                            <Input id="password" type="password" value={formData.password} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-bold" />
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-4 bg-muted/10 rounded-xl border border-border/20">
-                        <Checkbox
-                            id="is_sysdba"
-                            checked={formData.is_sysdba}
-                            onCheckedChange={(checked) => handleCheckboxChange('is_sysdba', !!checked)}
+                    {/* 4. Connection String (The output of the fields above, but editable) */}
+                    <div className="space-y-2 mb-4">
+                        <Label htmlFor="connect_string" className="text-blue-600 font-medium flex justify-between">
+                            <span>Connection String (TNS)</span>
+                            <span className="text-[10px] text-muted-foreground font-normal italic">Auto-generated from fields above</span>
+                        </Label>
+                        <textarea
+                            id="connect_string"
+                            name="connect_string"
+                            value={formData.connect_string}
+                            onChange={handleChange}
+                            required
+                            placeholder="(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=...)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=...)))"
+                            className="flex min-h-[100px] w-full rounded-md border border-input bg-muted/20 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-[11px]"
                         />
-                        <div className="grid gap-1.5 leading-none">
-                            <label htmlFor="is_sysdba" className="text-xs font-black uppercase tracking-widest text-foreground cursor-pointer">SYSDBA Connection</label>
-                            <p className="text-[9px] text-muted-foreground font-bold italic">Connect using administrative privileges (AS SYSDBA)</p>
-                        </div>
+                    </div>
+
+                    {/* 5. TNS_ADMIN Path (Optional) */}
+                    <div className="space-y-2 mb-4">
+                        <Label htmlFor="tns_admin">TNS_ADMIN Path (Optional - directory containing tnsnames.ora)</Label>
+                        <Input
+                            id="tns_admin"
+                            name="tns_admin"
+                            value={formData.tns_admin}
+                            onChange={handleChange}
+                            placeholder="/path/to/tns_admin_dir"
+                            className="bg-slate-50 border-dashed"
+                        />
+                    </div>
+
+                    {/* 6. Wallet Path (Always available but optional) */}
+                    <div className="space-y-2 mb-4">
+                        <Label htmlFor="wallet_path" className="flex justify-between">
+                            <span>Oracle Wallet Path (Optional)</span>
+                            <span className="text-[10px] text-muted-foreground italic">Use /opt/rockdbweb/wallets for persistence</span>
+                        </Label>
+                        <Input
+                            id="wallet_path"
+                            name="wallet_path"
+                            value={formData.wallet_path}
+                            onChange={handleChange}
+                            placeholder="/opt/rockdbweb/wallets"
+                            className="bg-slate-50 border-dashed"
+                        />
                     </div>
                 </div>
 
-                {/* Optional SSH Tunneling removed here as requested in previous refactor */}
-            </CardContent>
-            <CardFooter className="bg-muted/10 border-t border-border/30 p-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
+                {/* 5. Username / Password */}
+                <div className="border-t pt-4 mt-2 grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input id="username" name="username" value={formData.username} onChange={handleChange} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input id="password" name="password" type="password" placeholder="••••••••" value={formData.password || ''} onChange={handleChange} />
+                    </div>
+                </div>
+
+                {/* 6. Connect As (Role) */}
+                <div className="space-y-2">
+                    <Label htmlFor="connection_role" className="text-orange-600 font-semibold">Connect As (Role)</Label>
+                    <select
+                        id="connection_role"
+                        name="connection_role"
+                        value={formData.connection_role}
+                        onChange={handleChange}
+                        className="flex h-9 w-full rounded-md border border-orange-200 bg-orange-50/30 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500 font-medium"
+                    >
+                        {availableRoles.map(role => (
+                            <option key={role} value={role}>{role.charAt(0) + role.slice(1).toLowerCase()}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+                {onTest && (
                     <Button
-                        variant="outline"
-                        onClick={() => onSubmit(formData, true)}
-                        className="h-10 px-6 gap-2 font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted"
+                        type="button"
+                        variant="secondary"
+                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-100"
+                        onClick={() => onTest(formData as DatabaseConnection)}
                         disabled={isTesting}
                     >
-                        {isTesting ? <Activity className="size-3.5 animate-spin" /> : <Globe className="size-3.5" />}
-                        Test Connection
+                        {isTesting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Testing...
+                            </>
+                        ) : (
+                            <>
+                                <Play className="mr-2 h-4 w-4" />
+                                Test Connection
+                            </>
+                        )}
                     </Button>
-
-                    {testStatus && (
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${testStatus.success ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'} animate-in fade-in zoom-in duration-300`}>
-                            {testStatus.success ? <CheckCircle2 className="size-3.5" /> : <AlertCircle className="size-3.5" />}
-                            <span className="text-[10px] font-black uppercase tracking-tighter">{testStatus.message}</span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        onClick={onCancel}
-                        className="h-10 px-6 font-black uppercase text-[10px] tracking-widest text-muted-foreground hover:text-foreground"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={() => onSubmit(formData)}
-                        className="h-10 px-8 gap-2 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
-                    >
-                        Save Configuration <ChevronRight className="size-3.5" />
-                    </Button>
-                </div>
-            </CardFooter>
-        </Card>
+                )}
+                <Button type="submit">Save Connection</Button>
+            </div>
+        </form>
     )
 }

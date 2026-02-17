@@ -20,14 +20,14 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Search, Server, Plus, MoreVertical, Cpu, HardDrive, Network, Activity, ShieldCheck, Terminal } from 'lucide-react'
+import { Search, Server, Plus, Network, ShieldCheck, Terminal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useState, useEffect } from 'react'
 import { API_URL, useApp } from '@/context/app-context'
 import { ServerFormDialog } from '@/components/servers/server-form-dialog'
 
 export function ServersView() {
-    const { logAction } = useApp()
+    const { } = useApp()
     const [servers, setServers] = useState<any[]>([])
     const [searchTerm, setSearchTerm] = useState('')
     const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -121,10 +121,10 @@ export function ServersView() {
                                 </div>
                             </CardContent>
                             <div className="p-2 border-t border-border/30 bg-muted/5 flex gap-1">
-                                <Button variant="ghost" size="xs" className="flex-1 text-[10px] h-7 font-bold gap-1.5" onClick={() => { setEditingServer(server); setIsDialogOpen(true) }}>
+                                <Button variant="ghost" size="sm" className="flex-1 text-[10px] h-7 font-bold gap-1.5" onClick={() => { setEditingServer(server); setIsDialogOpen(true) }}>
                                     Edit
                                 </Button>
-                                <Button variant="ghost" size="xs" className="flex-1 text-[10px] h-7 font-bold gap-1.5 text-muted-foreground hover:text-foreground">
+                                <Button variant="ghost" size="sm" className="flex-1 text-[10px] h-7 font-bold gap-1.5 text-muted-foreground hover:text-foreground">
                                     Shell
                                 </Button>
                             </div>

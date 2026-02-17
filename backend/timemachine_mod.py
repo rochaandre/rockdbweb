@@ -1,21 +1,3 @@
-"""
-# ==============================================================================
-# ROCKDB - Oracle Database Administration & Monitoring Tool
-# ==============================================================================
-# File: timemachine_mod.py
-# Author: Andre Rocha (TechMax Consultoria)
-# 
-# LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
-#
-# TERMS:
-# 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
-# 2. YOU MAY NOT MODIFY, transform, or build upon this code.
-# 3. You must maintain this header and original naming/ownership information.
-#
-# This software is provided "AS IS", without warranty of any kind.
-# Copyright (c) 2026 Andre Rocha. All rights reserved.
-# ==============================================================================
-"""
 import os
 import time
 import json
@@ -33,14 +15,6 @@ client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 query_api = client.query_api()
 
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
-    if isinstance(obj, (datetime, timezone)):
-        return obj.isoformat()
-    if isinstance(obj, bytes):
-        return obj.decode('utf-8', errors='ignore')
-    return str(obj)
-
 def store_snapshot(sessions, long_ops, blocking):
     """Stores a snapshot of database sessions and performance metrics into InfluxDB."""
     try:
@@ -49,14 +23,14 @@ def store_snapshot(sessions, long_ops, blocking):
         
         # 1. Sessions Point
         # We store the main metrics as fields and the session list as a JSON string field for 10s snapshots
-        session_data = json.dumps(sessions, default=json_serial)
+        session_data = json.dumps(sessions)
         p = Point("oracle_performance") \
             .tag("type", "workload_snapshot") \
             .field("session_count", len(sessions)) \
             .field("active_sessions", len([s for s in sessions if s.get('status') == 'ACTIVE'])) \
             .field("sessions_json", session_data) \
-            .field("long_ops_json", json.dumps(long_ops, default=json_serial)) \
-            .field("blocking_json", json.dumps(blocking, default=json_serial)) \
+            .field("long_ops_json", json.dumps(long_ops)) \
+            .field("blocking_json", json.dumps(blocking)) \
             .time(timestamp, WritePrecision.NS)
         
         points.append(p)
