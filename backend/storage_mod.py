@@ -1,5 +1,5 @@
 import oracledb
-from .utils import get_oracle_connection
+from .utils import get_oracle_connection, safe_value
 
 def get_tablespaces_detailed(conn_info):
     connection = None
@@ -33,7 +33,7 @@ def get_tablespaces_detailed(conn_info):
             ORDER BY t.tablespace_name
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching detailed tablespaces: {e}")
         raise e
@@ -60,7 +60,7 @@ def get_data_files(conn_info):
             ORDER BY tablespace_name, file_name
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching data files: {e}")
         raise e
@@ -80,7 +80,7 @@ def get_segments(conn_info, tablespace_name):
         
         cursor.execute(sql_text, ts=tablespace_name)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching segments: {e}")
         raise e
@@ -105,11 +105,11 @@ def get_sysaux_occupants(conn_info):
             ORDER BY space_usage_kbytes DESC
         """)
         cols_occ = [col[0].lower() for col in cursor.description]
-        occupants = [dict(zip(cols_occ, row)) for row in cursor.fetchall()]
+        occupants = [{k: safe_value(v) for k, v in zip(cols_occ, row)} for row in cursor.fetchall()]
 
         # 2. Stats History Availability
         cursor.execute("SELECT dbms_stats.get_stats_history_availability FROM dual")
-        avail = cursor.fetchone()[0]
+        avail = safe_value(cursor.fetchone()[0])
         
         # 3. Top WRI$_OPTSTAT Objects (Space Hogs)
         cursor.execute("""
@@ -122,7 +122,7 @@ def get_sysaux_occupants(conn_info):
             ) WHERE rownum <= 10
         """)
         cols_obj = [col[0].lower() for col in cursor.description]
-        top_objects = [dict(zip(cols_obj, row)) for row in cursor.fetchall()]
+        top_objects = [{k: safe_value(v) for k, v in zip(cols_obj, row)} for row in cursor.fetchall()]
         
         return {
             "occupants": occupants,
@@ -151,7 +151,7 @@ def get_undo_stats(conn_info):
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
         stats_rows = cursor.fetchall()
-        stats = [dict(zip(columns, row)) for row in stats_rows]
+        stats = [{k: safe_value(v) for k, v in zip(columns, row)} for row in stats_rows]
 
         # 2. Retention Parameters
         cursor.execute("SELECT value FROM v$parameter WHERE name = 'undo_retention'")
@@ -164,7 +164,7 @@ def get_undo_stats(conn_info):
         return {
             "stats": stats,
             "retention": retention,
-            "max_query_len": max_q
+            "max_query_len": safe_value(max_q)
         }
     except Exception as e:
         print(f"Error fetching undo stats: {e}")
@@ -187,7 +187,7 @@ def get_temp_usage(conn_info):
             ORDER BY t.blocks DESC
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching temp usage: {e}")
         raise e
@@ -202,7 +202,7 @@ def get_control_files(conn_info):
         cursor = connection.cursor()
         cursor.execute("SELECT inst_id, name, status, block_size, file_size_blks FROM gv$controlfile")
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching control files: {e}")
         raise e
@@ -224,7 +224,7 @@ def get_checkpoint_progress(conn_info):
             FROM v$inst_recovery
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching checkpoint progress: {e}")
         raise e

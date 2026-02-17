@@ -181,10 +181,11 @@ function FileTreeItem({ node, level, onSelect, selectedId, onAddScript, onDelete
     )
 }
 
-function NewScriptDialog({ folder, onOpenChange, onSuccess }: {
+function NewScriptDialog({ folder, onOpenChange, onSuccess, initialContent }: {
     folder: string
     onOpenChange: (open: boolean) => void
     onSuccess: () => void
+    initialContent?: string
 }) {
     const [name, setName] = useState('')
     const [label, setLabel] = useState('')
@@ -202,7 +203,8 @@ function NewScriptDialog({ folder, onOpenChange, onSuccess }: {
                     folder,
                     name,
                     label: label || name,
-                    codmenutype: parseInt(type)
+                    codmenutype: parseInt(type),
+                    content: initialContent
                 })
             })
             if (res.ok) {
@@ -312,6 +314,7 @@ export function SqlCentralView() {
     const [registry, setRegistry] = useState<SqlScript[]>([])
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
     const [editorContent, setEditorContent] = useState('')
+    const [rawContent, setRawContent] = useState('')
     const [topTab, setTopTab] = usePersistentState('sql-central', 'topTab', 'editor')
     const [bottomTab, setBottomTab] = usePersistentState('sql-central', 'bottomTab', 'grid')
     const [execResults, setExecResults] = useState<any[]>([])
@@ -324,7 +327,9 @@ export function SqlCentralView() {
     const [toolOutput, setToolOutput] = useState<any>(null)
     const [contentSearchPaths, setContentSearchPaths] = useState<string[]>([])
     const { sqlId } = useParams()
-    const hasAutoExecuted = useRef(false)
+    const hasAutoExecuted = useRef<string | boolean>(false)
+    const editorRef = useRef<HTMLTextAreaElement>(null)
+    const [freeSqlContent, setFreeSqlContent] = usePersistentState('sql-central', 'freeSqlContent', '-- Scratchpad\nSELECT * FROM dual;')
 
     const fetchRegistry = async () => {
         try {
@@ -375,8 +380,9 @@ export function SqlCentralView() {
 
     // Handle sqlId selection from URL
     useEffect(() => {
-        if (sqlId && registry.length > 0 && !hasAutoExecuted.current) {
-            const script = registry.find(s => s.name.toLowerCase() === sqlId.toLowerCase())
+        if (sqlId && registry.length > 0) {
+            const script = registry.find(s => s.name.toLowerCase() === sqlId.toLowerCase() || s.link_url.toLowerCase().endsWith(sqlId.toLowerCase()))
+
             if (script) {
                 const node: TreeNode = {
                     id: `script-${script.id}`,
@@ -385,11 +391,19 @@ export function SqlCentralView() {
                     icon: script.type_icon,
                     script: script
                 }
-                handleScriptSelect(node, true)
-                hasAutoExecuted.current = true
+
+                const currentParams = searchParams.toString()
+                const trackingKey = `${sqlId}?${currentParams}`
+                const shouldExecute = hasAutoExecuted.current !== trackingKey
+
+                handleScriptSelect(node, shouldExecute)
+
+                if (shouldExecute) {
+                    hasAutoExecuted.current = trackingKey
+                }
             }
         }
-    }, [sqlId, registry])
+    }, [sqlId, registry, searchParams])
 
     const tree = useMemo(() => {
         let filtered = registry
@@ -410,20 +424,19 @@ export function SqlCentralView() {
         setExecResults([]) // Clear previous results
         setToolOutput(null)
         setBottomTab('grid') // Default to grid on new selection
+        setTopTab('editor') // Switch to editor view when selecting a script
         if (node.script) {
             try {
-                const res = await fetch(`${API_URL}/sql/content?path=${encodeURIComponent(node.script.link_url)}`)
+                const paramsMap = Object.fromEntries(Array.from(searchParams.entries()))
+                const varsJson = JSON.stringify(paramsMap)
+                const res = await fetch(`${API_URL}/sql/content?path=${encodeURIComponent(node.script.link_url)}&vars=${encodeURIComponent(varsJson)}`)
                 const data = await res.json()
                 const content = data.content || ''
-                setEditorContent(content)
+                setRawContent(content)
+                setEditorContent(content) // Set directly as backend already substituted
 
                 if ((autoExecute || forceExecute) && content) {
-                    // Extract query params for bind variables
-                    const bindVars: Record<string, string> = {}
-                    searchParams.forEach((value, key) => {
-                        bindVars[key] = value
-                    })
-                    handleExecute(content, bindVars)
+                    handleExecute(content, paramsMap)
                 }
             } catch (err) {
                 console.error('Error fetching script content:', err)
@@ -431,8 +444,26 @@ export function SqlCentralView() {
         }
     }
 
+    // Effect to set editor content when raw content changes
+    useEffect(() => {
+        if (!rawContent) return
+        setEditorContent(rawContent)
+    }, [rawContent])
+
     const handleExecute = async (overrideContent?: string, bindVars?: Record<string, any>) => {
-        const sql = typeof overrideContent === 'string' ? overrideContent : editorContent
+        const activeContent = topTab === 'free-sql' ? freeSqlContent : editorContent
+        let sql = typeof overrideContent === 'string' ? overrideContent : activeContent
+
+        // If not a forced execution and we have a selection, execute only the selection
+        if (!overrideContent && editorRef.current) {
+            const start = editorRef.current.selectionStart
+            const end = editorRef.current.selectionEnd
+            const selection = activeContent.substring(start, end).trim()
+            if (selection) {
+                sql = selection
+            }
+        }
+
         if (!sql.trim() || (!selectedNode?.script && topTab !== 'free-sql')) return
 
         setIsLoading(true)
@@ -562,8 +593,15 @@ export function SqlCentralView() {
                             size="icon"
                             className="h-8 w-8 text-primary hover:bg-primary/5"
                             title="Save to Disk"
-                            onClick={handleSave}
-                            disabled={!selectedNode?.script || isLoading}
+                            onClick={() => {
+                                if (topTab === 'free-sql') {
+                                    setNewScriptFolder('root')
+                                    setShowNewScript(true)
+                                } else {
+                                    handleSave()
+                                }
+                            }}
+                            disabled={(topTab !== 'free-sql' && !selectedNode?.script) || isLoading}
                         >
                             <Save className="h-4 w-4" />
                         </Button>
@@ -652,6 +690,13 @@ export function SqlCentralView() {
                                     >
                                         SQL Editor
                                     </TabsTrigger>
+                                    <TabsTrigger
+                                        value="free-sql"
+                                        className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background text-[11px] font-bold uppercase px-4 shadow-none transition-all"
+                                        onClick={() => setSelectedNode(null)}
+                                    >
+                                        Free SQL
+                                    </TabsTrigger>
                                 </TabsList>
                             </Tabs>
                         </div>
@@ -665,9 +710,16 @@ export function SqlCentralView() {
                                     ))}
                                 </div>
                                 <textarea
+                                    ref={editorRef}
                                     className="flex-1 resize-none p-2.5 font-mono text-[11px] focus:outline-none leading-5 text-slate-800 bg-transparent selection:bg-primary/20"
-                                    value={editorContent}
-                                    onChange={e => setEditorContent(e.target.value)}
+                                    value={topTab === 'free-sql' ? freeSqlContent : editorContent}
+                                    onChange={e => {
+                                        if (topTab === 'free-sql') {
+                                            setFreeSqlContent(e.target.value)
+                                        } else {
+                                            setEditorContent(e.target.value)
+                                        }
+                                    }}
                                     spellCheck={false}
                                     placeholder="Enter SQL here..."
                                 />
@@ -830,6 +882,7 @@ export function SqlCentralView() {
                     folder={newScriptFolder}
                     onOpenChange={setShowNewScript}
                     onSuccess={fetchRegistry}
+                    initialContent={topTab === 'free-sql' ? freeSqlContent : undefined}
                 />
             )}
         </MainLayout>

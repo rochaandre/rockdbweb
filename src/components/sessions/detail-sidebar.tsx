@@ -54,8 +54,8 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
             <Card className="gap-0 border-primary bg-blue-50/50 p-0 overflow-hidden">
                 <div className="bg-gradient-to-b from-blue-100 to-blue-50 p-2 border-b border-blue-200">
                     <div className="grid grid-cols-[100px_1fr] gap-x-2 gap-y-1 text-xs text-slate-800">
-                        <span className="font-bold text-right text-blue-600">OS PID:</span>
-                        <span className="font-mono font-bold text-blue-700">{session.ospid}</span>
+                        <span className="font-bold text-right">SID:</span>
+                        <span>{session.sid}</span>
 
                         <span className="font-bold text-right">Serial #:</span>
                         <span>{session.serial || session['serial#']}</span>
@@ -63,37 +63,33 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                         <span className="font-bold text-right">User Name:</span>
                         <span className="font-mono">{session.username}</span>
 
-                        <span className="font-bold text-right">Service:</span>
-                        <span className="text-[10px] truncate">{session.service}</span>
-
-                        <span className="font-bold text-right">OS User:</span>
-                        <span>{session.osuser}</span>
-
-                        <span className="font-bold text-right">Terminal:</span>
-                        <span className="text-[10px] truncate">{session.terminal}</span>
-
                         <span className="font-bold text-right">Program:</span>
-                        <span className="text-[10px] truncate">{session.program}</span>
-
-                        <span className="font-bold text-right">Module:</span>
-                        <span className="text-[10px] truncate">{session.module}</span>
+                        <span>{session.program}</span>
 
                         <span className="font-bold text-right">Machine:</span>
-                        <span className="text-[10px] truncate">{session.machine}</span>
+                        <span>{session.machine}</span>
 
                         <span className="font-bold text-right">Last Call ET:</span>
-                        <span>{session.elapsed}s</span>
+                        <span>{session.lastCallEt || session.last_call_et}</span>
 
 
                         <span className="font-bold text-right">SQL ID:</span>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">
-                                    {session.sql_id || 'None'}
+                                    {session.sqlId || session.sql_id || 'None'}
                                 </span>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-56" align="start">
-                                <DropdownMenuItem onClick={() => navigate(`/sql-central/${session.sql_id}`)}>
+                                <DropdownMenuItem onClick={() => {
+                                    const sql_id = session.sqlId || session.sql_id
+                                    const addr = session.sql_address || session.ADDRESS || ''
+                                    const hash = session.sql_hash_value || session.HASH_VALUE || ''
+                                    const child = session.child || session.sql_child_number || 0
+                                    const inst = session.inst_id || 1
+                                    const plan_hash = session.plan_hash || session.SQL_PLAN_HASH || ''
+                                    navigate(`/sql-central/sqlarea_replace?SQL_ID=${sql_id}&SQL_ADDR=${addr}&SQL_HASH=${hash}&SQL_CHILD=${child}&inst_id=${inst}&SQL_PLAN_HASH=${plan_hash}`)
+                                }}>
                                     Show in SQL Central
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => navigate(`/block-explorer/${session.sid}`)}>
@@ -104,29 +100,29 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                                     <DropdownMenuSubTrigger>Reports</DropdownMenuSubTrigger>
                                     <DropdownMenuPortal>
                                         <DropdownMenuSubContent>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/statistics/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/statistics/${session.sqlId}`)}>
                                                 SQL Statistics
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/bind-capture/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/bind-capture/${session.sqlId}`)}>
                                                 Bind Variables Capture
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/optimizer-env/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/optimizer-env/${session.sqlId}`)}>
                                                 Optimizer Environment
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/plan-history/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/plan-history/${session.sqlId}`)}>
                                                 Plan Switch History
                                             </DropdownMenuItem>
                                             <DropdownMenuItem disabled>
                                                 SQL Monitor (External)
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-all/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-all/${session.sqlId}`)}>
                                                 XPlan All
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sqlId}`)}>
                                                 XPlan AllStats Last
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sql_id}`)}>
+                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sqlId}`)}>
                                                 XPlan AllStats
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
@@ -136,7 +132,7 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>
 
-                                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(session.sql_id)}>
+                                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(session.sqlId)}>
                                     Copy Text
                                 </DropdownMenuItem>
 
@@ -149,9 +145,6 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
 
                         <span className="font-bold text-right">Child:</span>
                         <span className="text-blue-600 underline cursor-pointer">{session.child || 0}</span>
-
-                        <span className="font-bold text-right">Plan Hash:</span>
-                        <span className="font-mono text-[10px]">{session.plan_hash || '0'}</span>
                     </div>
                 </div>
             </Card>

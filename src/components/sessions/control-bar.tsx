@@ -39,6 +39,8 @@ interface ControlBarProps {
     onSearch?: () => void
     onSettings?: () => void
     onIntervalChange: (val: number) => void
+    instances?: any[]
+    isLoading?: boolean
 }
 
 export function ControlBar({
@@ -53,7 +55,9 @@ export function ControlBar({
     onSearch,
     onSettings,
     selectedInstance = "both",
-    onInstanceChange
+    onInstanceChange,
+    instances = [],
+    isLoading = false
 }: ControlBarProps) {
     return (
         <div className="flex shrink-0 flex-col gap-2 bg-gradient-to-r from-gray-50 to-gray-100 p-2 border-b border-border shadow-sm">
@@ -65,9 +69,10 @@ export function ControlBar({
                         variant="primary"
                         className="h-7 gap-1 bg-green-600 hover:bg-green-700 text-white border-green-700 shadow-sm"
                         onClick={onUpdate}
+                        disabled={isLoading}
                     >
-                        <RefreshCw className="size-3.5" />
-                        Update
+                        <RefreshCw className={`size-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                        {isLoading ? 'Updating...' : 'Update'}
                     </Button>
                     <Button
                         size="sm"
@@ -107,9 +112,12 @@ export function ControlBar({
                             <SelectValue placeholder="All Nodes" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="both">Both (RAC)</SelectItem>
-                            <SelectItem value="1">Node 1</SelectItem>
-                            <SelectItem value="2">Node 2</SelectItem>
+                            <SelectItem value="both">All Instances</SelectItem>
+                            {instances.map((inst: any) => (
+                                <SelectItem key={inst.inst_id} value={inst.inst_id.toString()}>
+                                    Node {inst.inst_id} ({inst.instance_name})
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>

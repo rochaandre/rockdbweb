@@ -1,3 +1,5 @@
+ARG BASE_IMAGE=container-registry.oracle.com/database/observability-exporter:2.2.1
+
 # --- Stage 1: Build the React Frontend ---
 FROM node:18-slim AS build-frontend
 
@@ -13,7 +15,8 @@ RUN npm run build
 
 # --- Stage 2: Final Image (Python Backend + Frontend) ---
 # Use the Oracle Database Observability Exporter as the base image
-FROM container-registry.oracle.com/database/observability-exporter:2.2.1
+# We use an ARG to allow local tagging and avoid constant registry checks
+FROM ${BASE_IMAGE}
 
 # Switch to root to install system dependencies
 USER root

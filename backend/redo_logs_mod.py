@@ -1,4 +1,4 @@
-from .utils import get_oracle_connection
+from .utils import get_oracle_connection, safe_value
 
 def get_redo_groups(conn_info):
     connection = None
@@ -13,7 +13,7 @@ def get_redo_groups(conn_info):
             ORDER BY thread#, group#
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching redo groups: {e}")
         raise e
@@ -64,7 +64,7 @@ def get_redo_switch_history(conn_info, days=7, inst_id=None):
         """
         cursor.execute(sql)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching redo switch history: {e}")
         raise e
@@ -173,7 +173,7 @@ def get_standby_redo_groups(conn_info):
             ORDER BY thread#, group#
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching standby redo groups: {e}")
         return []
@@ -196,7 +196,7 @@ def get_archived_logs(conn_info, limit=50):
             ORDER BY first_time DESC
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchmany(limit)]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching archived logs: {e}")
         return []
@@ -224,7 +224,7 @@ def get_log_buffer_stats(conn_info):
         if row:
             stats['log_buffer_size'] = round(int(row[0]) / 1024 / 1024, 2)
             
-        return stats
+        return {k: safe_value(v) for k, v in stats.items()}
     except Exception as e:
         print(f"Error fetching log buffer stats: {e}")
         return {}
@@ -257,7 +257,7 @@ def get_redo_management_info(conn_info):
         columns = [col[0].lower() for col in cursor.description]
         status_info = dict(zip(columns, row)) if row else {}
         
-        return {**params, **status_info}
+        return {k: safe_value(v) for k, v in {**params, **status_info}.items()}
     except Exception as e:
         print(f"Error fetching redo management info: {e}")
         raise e
@@ -271,7 +271,7 @@ def get_redo_members(conn_info):
         cursor = connection.cursor()
         cursor.execute("SELECT group#, member, type, is_recovery_dest_file FROM v$logfile ORDER BY group#")
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching redo members: {e}")
         return []

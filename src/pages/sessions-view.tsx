@@ -25,16 +25,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RefreshCw, Search, Users, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { usePersistentState } from '@/hooks/use-persistent-state'
 import { useApp, API_URL } from '@/context/app-context'
 import { Badge } from '@/components/ui/badge'
 
 export function SessionsView() {
-    const { logAction } = useApp()
+    const { logAction, connection } = useApp()
     const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'all')
     const [searchQuery, setSearchQuery] = useState('')
     const [sessions, setSessions] = useState<any[]>([])
     const [blocking, setBlocking] = useState<any[]>([])
+    const [instances, setInstances] = useState<any[]>([])
+    const [selectedInstId, setSelectedInstId] = useState<string>('all')
     const [isLoading, setIsLoading] = useState(false)
     const [selectedSqlId, setSelectedSqlId] = useState<string | null>(null)
     const [selectedSid, setSelectedSid] = useState<number | null>(null)
@@ -42,12 +51,19 @@ export function SessionsView() {
     const fetchSessions = async () => {
         setIsLoading(true)
         try {
+            const instParam = selectedInstId !== 'all' ? `?inst_id=${selectedInstId}` : ''
             const [sessRes, blockRes] = await Promise.all([
-                fetch(`${API_URL}/sessions`),
-                fetch(`${API_URL}/sessions/blocking`)
+                fetch(`${API_URL}/sessions${instParam}`),
+                fetch(`${API_URL}/sessions/blocking${instParam}`)
             ])
-            if (sessRes.ok) setSessions(await sessRes.json())
-            if (blockRes.ok) setBlocking(await blockRes.json())
+            if (sessRes.ok) {
+                const data = await sessRes.json()
+                setSessions(Array.isArray(data) ? data : [])
+            }
+            if (blockRes.ok) {
+                const data = await blockRes.json()
+                setBlocking(Array.isArray(data) ? data : [])
+            }
         } catch (error) {
             console.error('Error fetching sessions:', error)
         } finally {
@@ -55,11 +71,32 @@ export function SessionsView() {
         }
     }
 
+    const fetchInstances = async () => {
+        try {
+            const res = await fetch(`${API_URL}/sessions/instances`)
+            if (res.ok) {
+                const data = await res.json()
+                setInstances(data)
+            }
+        } catch (error) {
+            console.error('Error fetching instances:', error)
+        }
+    }
+
+    useEffect(() => {
+        if (connection.is_rac) {
+            fetchInstances()
+        } else {
+            setInstances([])
+            setSelectedInstId('all')
+        }
+    }, [connection.id, connection.is_rac])
+
     useEffect(() => {
         fetchSessions()
         const interval = setInterval(fetchSessions, 15000)
         return () => clearInterval(interval)
-    }, [])
+    }, [selectedInstId, connection.id])
 
     const handleSqlSelect = (sqlId: string, sid: number) => {
         setSelectedSqlId(sqlId)
@@ -92,7 +129,22 @@ export function SessionsView() {
                             <Users className="size-3" /> {sessions.length} Connections Active
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        {(instances.length > 0 || connection.is_rac) && (
+                            <Select value={selectedInstId} onValueChange={setSelectedInstId}>
+                                <SelectTrigger className="w-[124px] h-9">
+                                    <SelectValue placeholder="Instance" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Clusters</SelectItem>
+                                    {instances.map((inst) => (
+                                        <SelectItem key={inst.inst_id} value={inst.inst_id.toString()}>
+                                            Node {inst.inst_id} ({inst.instance_name})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                         <div className="relative w-full md:w-64">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -143,18 +195,45 @@ export function SessionsView() {
                         <div className="xl:col-span-8 overflow-auto min-h-0 border border-border rounded-lg bg-card shadow-sm">
                             <TabsContent value="all" className="m-0 h-full">
                                 <SessionsTable
-                                    sessions={sessions}
-                                    onSelectSql={handleSqlSelect}
-                                    onKill={handleKill}
-                                    filter={searchQuery}
+                                    data={sessions.filter(s =>
+                                        (s.username?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                                        (s.sid?.toString() || '').includes(searchQuery) ||
+                                        (s.event?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+                                    )}
+                                    selectedId={selectedSid}
+                                    onSelect={(sid) => {
+                                        const s = sessions.find(x => x.sid === sid)
+                                        if (s) handleSqlSelect(s.sql_id || s.sqlId || '', s.sid)
+                                    }}
+                                    onAction={(action, session) => {
+                                        if (action === 'KILL_SESSION') handleKill(session.sid, session.serial || session['serial#'])
+                                        if (action === 'Show SQL') handleSqlSelect(session.sql_id || session.sqlId || '', session.sid)
+                                    }}
                                 />
+                                {sessions.length === 0 && !isLoading && (
+                                    <div className="flex flex-col items-center justify-center p-20 text-muted-foreground bg-white">
+                                        <Users className="size-12 mb-4 opacity-10" />
+                                        <p className="text-lg font-medium">No sessions found</p>
+                                        <p className="text-sm">If you are connected, try refreshing or check your filters.</p>
+                                    </div>
+                                )}
                             </TabsContent>
                             <TabsContent value="active" className="m-0 h-full">
                                 <SessionsTable
-                                    sessions={sessions.filter(s => s.status === 'ACTIVE')}
-                                    onSelectSql={handleSqlSelect}
-                                    onKill={handleKill}
-                                    filter={searchQuery}
+                                    data={sessions.filter(s => s.status === 'ACTIVE' && (
+                                        (s.username?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                                        (s.sid?.toString() || '').includes(searchQuery) ||
+                                        (s.event?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+                                    ))}
+                                    selectedId={selectedSid}
+                                    onSelect={(sid) => {
+                                        const s = sessions.find(x => x.sid === sid)
+                                        if (s) handleSqlSelect(s.sql_id || s.sqlId || '', s.sid)
+                                    }}
+                                    onAction={(action, session) => {
+                                        if (action === 'KILL_SESSION') handleKill(session.sid, session.serial || session['serial#'])
+                                        if (action === 'Show SQL') handleSqlSelect(session.sql_id || session.sqlId || '', session.sid)
+                                    }}
                                 />
                             </TabsContent>
                             <TabsContent value="blocking" className="m-0 h-full">

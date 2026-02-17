@@ -187,6 +187,45 @@ export function DatafilesTable({ files = [], bsKey }: { files?: any[], bsKey?: n
     )
 }
 
+// --- Images Table ---
+export function BackupImagesTable({ images = [] }: { images?: any[] }) {
+    return (
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Backup Images / Datafile Copies
+            </div>
+            <div className="grid grid-cols-12 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                <div className="col-span-1">File#</div>
+                <div className="col-span-5">Name</div>
+                <div className="col-span-2">Tag</div>
+                <div className="col-span-1">Status</div>
+                <div className="col-span-2">Created</div>
+                <div className="col-span-1 text-right">Size</div>
+            </div>
+            {images.map((img, i) => (
+                <div key={i} className="grid grid-cols-12 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30 items-center">
+                    <div className="col-span-1 font-mono text-xs text-muted-foreground">{img['file#']}</div>
+                    <div className="col-span-5 text-xs truncate font-mono text-muted-foreground" title={img.name}>{img.name}</div>
+                    <div className="col-span-2 font-mono text-[10px] truncate" title={img.tag}>{img.tag}</div>
+                    <div className="col-span-1">
+                        <span className={twMerge(
+                            "inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium border border-border",
+                            img.status === 'AVAILABLE' ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600"
+                        )}>
+                            {img.status}
+                        </span>
+                    </div>
+                    <div className="col-span-2 text-xs text-muted-foreground">{img.creation_time}</div>
+                    <div className="col-span-1 text-right font-mono text-[10px]">{img.size_mb} MB</div>
+                </div>
+            ))}
+            {images.length === 0 && (
+                <div className="p-8 text-center text-muted-foreground text-sm">No datafile copies found.</div>
+            )}
+        </div>
+    )
+}
+
 // --- Summary Table ---
 export function BackupSummaryTable({ summary = [] }: { summary: any[] }) {
     return (

@@ -1,62 +1,44 @@
 {
-  "name": "rockdb0.1",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "main": "electron/main.js",
-  "scripts": {
-    "dev": "vite",
-    "server": "node server/index.js",
-    "python-server": "python3 -m uvicorn backend.main:app --reload --port 8000",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "electron:dev": "vite --port 5180 & APP_MODE=dev electron-forge start",
-    "electron:prod": "npm run build && APP_MODE=prod electron-forge start",
-    "electron:package": "electron-forge package",
-    "electron:make": "electron-forge make"
-  },
-  "dependencies": {
-    "@base-ui/react": "^1.1.0",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@radix-ui/react-progress": "^1.1.8",
-    "@radix-ui/react-scroll-area": "^1.2.10",
-    "@radix-ui/react-select": "^2.2.6",
-    "@tailwindcss/vite": "^4.1.18",
-    "clsx": "^2.1.1",
-    "cors": "^2.8.6",
-    "crypto-js": "^4.2.0",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "lucide-react": "^0.563.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^7.13.0",
-    "recharts": "^3.7.0",
-    "sqlite3": "^5.1.7",
-    "tailwind-merge": "^3.4.0",
-    "tailwind-variants": "^3.2.2",
-    "tailwindcss": "^4.1.18"
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^7.11.1",
-    "@electron-forge/maker-deb": "^7.11.1",
-    "@electron-forge/maker-rpm": "^7.11.1",
-    "@electron-forge/maker-squirrel": "^7.11.1",
-    "@electron-forge/maker-zip": "^7.11.1",
-    "@eslint/js": "^9.39.1",
-    "@types/node": "^24.10.9",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "electron": "^40.1.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
-  }
+    "name": "rockdb-docs",
+    "version": "0.0.0",
+    "private": true,
+    "scripts": {
+        "docusaurus": "docusaurus",
+        "start": "docusaurus start",
+        "build": "docusaurus build",
+        "swizzle": "docusaurus swizzle",
+        "deploy": "docusaurus deploy",
+        "clear": "docusaurus clear",
+        "serve": "docusaurus serve",
+        "write-translations": "docusaurus write-translations",
+        "write-heading-ids": "docusaurus write-heading-ids",
+        "typecheck": "tsc"
+    },
+    "dependencies": {
+        "@docusaurus/core": "^3.0.0",
+        "@docusaurus/preset-classic": "^3.0.0",
+        "@mdx-js/react": "^3.0.0",
+        "clsx": "^2.1.1",
+        "prism-react-renderer": "^2.3.0",
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0"
+    },
+    "devDependencies": {
+        "@docusaurus/module-type-aliases": "^3.0.0",
+        "@docusaurus/tsconfig": "^3.0.0",
+        "@docusaurus/types": "^3.0.0",
+        "typescript": "~5.2.2"
+    },
+    "browserslist": {
+        "production": [
+            ">0.5%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    }
 }

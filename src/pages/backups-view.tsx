@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BackupJobsTable, BackupSetsTable, DatafilesTable, ExpdpGenerator, BackupSummaryTable, RmanGenerator } from '@/components/backups/backup-components'
+import { BackupJobsTable, BackupSetsTable, DatafilesTable, ExpdpGenerator, BackupSummaryTable, RmanGenerator, BackupImagesTable } from '@/components/backups/backup-components'
 import { useApp, API_URL } from '@/context/app-context'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
@@ -13,18 +13,21 @@ export function BackupsView() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [jobs, setJobs] = useState<any[]>([])
     const [summary, setSummary] = useState<any[]>([])
+    const [backupImages, setBackupImages] = useState<any[]>([])
     const [nlsParams, setNlsParams] = useState<any>(null)
 
     const fetchBackups = async () => {
         setIsRefreshing(true)
         try {
-            const [jobsRes, summaryRes, nlsRes] = await Promise.all([
+            const [jobsRes, summaryRes, imagesRes, nlsRes] = await Promise.all([
                 fetch(`${API_URL}/backups/jobs`),
                 fetch(`${API_URL}/backups/summary`),
+                fetch(`${API_URL}/backups/images`),
                 fetch(`${API_URL}/backups/nls`)
             ])
             if (jobsRes.ok) setJobs(await jobsRes.json())
             if (summaryRes.ok) setSummary(await summaryRes.json())
+            if (imagesRes.ok) setBackupImages(await imagesRes.json())
             if (nlsRes.ok) setNlsParams(await nlsRes.json())
         } catch (error) {
             console.error('Error fetching backups:', error)
@@ -106,6 +109,12 @@ export function BackupsView() {
                     <div className="border-b border-border shrink-0">
                         <TabsList className="bg-transparent p-0 gap-6">
                             <TabsTrigger
+                                value="summary"
+                                className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                Summary
+                            </TabsTrigger>
+                            <TabsTrigger
                                 value="progress"
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
@@ -115,13 +124,13 @@ export function BackupsView() {
                                 value="reports"
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
-                                Reports (Drill-down)
+                                Backup Sets
                             </TabsTrigger>
                             <TabsTrigger
-                                value="summary"
+                                value="images"
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
-                                Summary
+                                Backup Images
                             </TabsTrigger>
                             <TabsTrigger
                                 value="rman"
@@ -137,6 +146,10 @@ export function BackupsView() {
                             </TabsTrigger>
                         </TabsList>
                     </div>
+
+                    <TabsContent value="summary" className="flex-1 mt-4 overflow-auto">
+                        <BackupSummaryTable summary={summary} />
+                    </TabsContent>
 
                     <TabsContent value="progress" className="flex-1 mt-4 overflow-auto">
                         <BackupJobsTable data={jobs.filter(j => j.status === 'RUNNING')} showHeader={false} />
@@ -158,8 +171,8 @@ export function BackupsView() {
                         )}
                     </TabsContent>
 
-                    <TabsContent value="summary" className="flex-1 mt-4 overflow-auto">
-                        <BackupSummaryTable summary={summary} />
+                    <TabsContent value="images" className="flex-1 mt-4 overflow-auto">
+                        <BackupImagesTable images={backupImages} />
                     </TabsContent>
 
                     <TabsContent value="rman" className="flex-1 mt-4 overflow-auto">

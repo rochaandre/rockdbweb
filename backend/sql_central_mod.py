@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from .utils import get_db_connection, get_oracle_connection, SCRIPTS_DIR
+from .utils import get_db_connection, get_oracle_connection, SCRIPTS_DIR, safe_value
 
 BASE_SQL_DIR = SCRIPTS_DIR
 
@@ -62,13 +62,41 @@ def get_versioned_sql_path(rel_path, version=None):
     # 3. Default/Legacy path
     return os.path.join(BASE_SQL_DIR, rel_path)
 
-def get_sql_content(rel_path, version=None):
+def parse_sql_variables(content, variables):
+    """
+    Substitutes variables in the SQL content.
+    variables: dict of {key: value}
+    Replaces $key or :key with value (case-insensitive key match).
+    """
+    if not variables:
+        return content
+    
+    import re
+    # Normalize variables to a case-insensitive lookup
+    norm_vars = {k.lower(): v for k, v in variables.items()}
+    
+    def replace_match(match):
+        var_name = match.group(2).lower()
+        if var_name in norm_vars:
+            return str(norm_vars[var_name])
+        return match.group(0) # No match, return original text ($VAR or :VAR)
+
+    # Regex: $ or : followed by word characters (A-Z, 0-9, _)
+    # We use a negative lookbehind (?<!\w) to ensure we don't match $ in internal views like gv$sql
+    return re.sub(r'(?<!\w)([$:])(\w+)', replace_match, content)
+
+def get_sql_content(rel_path, version=None, variables=None):
     full_path = get_versioned_sql_path(rel_path, version)
     if not os.path.exists(full_path):
         raise FileNotFoundError(f"Script not found: {rel_path}")
     
     with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
-        return f.read()
+        content = f.read()
+    
+    if variables:
+        content = parse_sql_variables(content, variables)
+        
+    return content
 
 def save_sql_content(rel_path, content):
     if ".." in rel_path or rel_path.startswith("/"):
@@ -83,7 +111,7 @@ def save_sql_content(rel_path, content):
         f.write(content)
     return True
 
-def create_sql_script(folder, name, label, codmenutype):
+def create_sql_script(folder, name, label, codmenutype, content=None):
     # Sanitize inputs
     if not name or not folder:
         raise ValueError("Name and folder are required")
@@ -110,12 +138,15 @@ def create_sql_script(folder, name, label, codmenutype):
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     
-    # Create empty file
+    # Create file
     if os.path.exists(full_path):
         raise FileExistsError(f"Script already exists: {rel_path}")
     
     with open(full_path, 'w', encoding='utf-8') as f:
-        f.write("-- New Script\nSELECT 'Hello' FROM dual;")
+        if content is not None:
+            f.write(content)
+        else:
+            f.write("-- New Script\nSELECT 'Hello' FROM dual;")
 
     # Register in SQLite
     conn = get_db_connection()
@@ -207,6 +238,10 @@ def execute_generic_sql(conn_info, sql_text, auto_commit=False, bind_vars=None):
         for stmt in statements:
             try:
                 if bind_vars:
+                    # Support $VAR string substitution for legacy scripts/compatibility
+                    for k, v in bind_vars.items():
+                        stmt = stmt.replace(f"${k}", str(v))
+                    
                     # Filter bind vars that actually exist in the statement
                     # Oracle oracledb uses :name syntax
                     stmt_binds = {k: v for k, v in bind_vars.items() if f":{k}" in stmt}
@@ -218,7 +253,7 @@ def execute_generic_sql(conn_info, sql_text, auto_commit=False, bind_vars=None):
                     cursor.execute(stmt)
                 if cursor.description:
                     columns = [col[0].lower() for col in cursor.description]
-                    rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                    rows = [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
                     results.append({"type": "grid", "data": rows, "sql": stmt})
                 else:
                     results.append({"type": "message", "text": "Statement executed successfully", "sql": stmt})
@@ -237,7 +272,7 @@ def execute_generic_sql(conn_info, sql_text, auto_commit=False, bind_vars=None):
             connection.close()
 
 def seed_sql_scripts():
-    """Scans the sql/ directory and populates cfgmenu if empty."""
+    """Scans the sql/ directory and populates cfgmenu with new scripts."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -246,55 +281,55 @@ def seed_sql_scripts():
         type_mapping = {
             'table': 1,
             'pie': 2,
-            'line': 3, # Reusing Bar icon or adding Line
+            'line': 3,
             'gauge': 4,
             'plsql': 5,
             'textplain': 7,
             'tools': 8
         }
         
-        # Check if already seeded (simple check for basic scripts)
-        cursor.execute("SELECT COUNT(*) FROM cfgmenu WHERE codmenutype != 8")
-        if cursor.fetchone()[0] == 0:
-            print(f"Seeding SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
-            if not os.path.exists(BASE_SQL_DIR):
-                print(f"WARNING: Scripts directory not found: {BASE_SQL_DIR}", flush=True)
-                return
+        print(f"Seeding/Syncing SQL scripts from directory: {BASE_SQL_DIR}", flush=True)
+        if not os.path.exists(BASE_SQL_DIR):
+            print(f"WARNING: Scripts directory not found: {BASE_SQL_DIR}", flush=True)
+            return
 
-            scripts_to_insert = []
-            
-            for root, dirs, files in os.walk(BASE_SQL_DIR):
-                for file in files:
-                    if file.endswith('.sql'):
-                        rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)
-                        
-                        # Determine type from path
-                        parts = rel_path.split(os.sep)
-                        # Expected: oracle/<type>/... or <type>/...
-                        ctype = 1 # Default to Table
-                        for part in parts:
-                            if part in type_mapping:
-                                ctype = type_mapping[part]
-                                break
-                        
-                        name = file.replace('.sql', '')
-                        label = name.replace('_', ' ').title()
-                        
-                        scripts_to_insert.append((
-                            name,
-                            label,
-                            rel_path,
-                            'file', # Generic icon
-                            ctype,
-                            'file-text' # codmenutype_icon_url
-                        ))
-            
+        scripts_to_insert = []
+        
+        for root, dirs, files in os.walk(BASE_SQL_DIR):
+            for file in files:
+                if file.endswith('.sql'):
+                    rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)
+                    
+                    # Determine type from path
+                    parts = rel_path.split(os.sep)
+                    # Expected: oracle/<type>/... or <type>/...
+                    ctype = 1 # Default to Table
+                    for part in parts:
+                        if part in type_mapping:
+                            ctype = type_mapping[part]
+                            break
+                    
+                    name = file.replace('.sql', '')
+                    label = name.replace('_', ' ').title()
+                    
+                    scripts_to_insert.append((
+                        name,
+                        label,
+                        rel_path,
+                        'file', # Generic icon
+                        ctype,
+                        'file-text', # codmenutype_icon_url
+                        'Y' # active
+                    ))
+        
+        if scripts_to_insert:
+            print(f"Syncing {len(scripts_to_insert)} scripts to cfgmenu...", flush=True)
             cursor.executemany("""
-                INSERT OR IGNORE INTO cfgmenu (name, link_label, link_url, icon_url, codmenutype, codmenutype_icon_url)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO cfgmenu (name, link_label, link_url, icon_url, codmenutype, codmenutype_icon_url, active)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, scripts_to_insert)
         
-        # Always ensure example tools are registered
+        # Always ensure example tools are registered (including non-.sql extensions)
         tool_scripts = [
             ('SQLcl Example', 'oracle/tools/sqlcl_example.sql', 8),
             ('RMAN Example', 'oracle/tools/rman_example.rcv', 8),

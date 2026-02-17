@@ -6,6 +6,8 @@ SELECT
     status, 
     event,
     sql_id,
+    sql_address,
+    sql_hash_value,
     blocking_instance,
     blocking_session
 FROM gv$session

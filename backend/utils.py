@@ -55,7 +55,6 @@ def get_scripts_dir():
     
     # Priority 2: Standard project path
     abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sql"))
-    print(f"Using default scripts directory: {abs_path}", flush=True)
     return abs_path
 
 DB_PATH = get_db_path()
@@ -117,11 +116,17 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS servers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            ip TEXT NOT NULL,
-            exporter_port INTEGER NOT NULL DEFAULT 9100,
+            name TEXT,
+            label TEXT,
+            ip TEXT,
+            host TEXT,
+            port INTEGER DEFAULT 22,
+            username TEXT,
+            password TEXT,
             ssh_key TEXT,
-            type TEXT CHECK(type IN ('PROD', 'DEV', 'TEST')),
+            key_path TEXT,
+            exporter_port INTEGER NOT NULL DEFAULT 9100,
+            type TEXT CHECK(type IN ('PROD', 'DEV', 'TEST', 'LINUX', 'UNIX')),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -139,7 +144,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             link_label TEXT,
-            link_url TEXT,
+            link_url TEXT UNIQUE,
             icon_url TEXT,
             codmenutype INTEGER,
             codmenutype_icon_url TEXT,
@@ -148,6 +153,13 @@ def init_db():
             FOREIGN KEY (codmenutype) REFERENCES codmenutype(id)
         )
     """)
+    
+    # Migration: Ensure link_url is unique for existing databases
+    try:
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cfgmenu_link_url ON cfgmenu(link_url)")
+    except Exception as e:
+        print(f"Migration Notice: Could not create unique index on link_url (likely duplicates exist): {e}")
+        # If it fails due to duplicates, we'll let seed_sql_scripts handle or clean it manually
     
     # Seed codmenutype
     menu_types = [
@@ -177,6 +189,23 @@ def init_db():
         ("tns_admin", "TEXT")
     ]
     
+    server_columns_to_add = [
+        ("label", "TEXT"),
+        ("host", "TEXT"),
+        ("port", "INTEGER DEFAULT 22"),
+        ("username", "TEXT"),
+        ("password", "TEXT"),
+        ("key_path", "TEXT")
+    ]
+    
+    cursor.execute("PRAGMA table_info(servers)")
+    existing_server_columns = [col[1] for col in cursor.fetchall()]
+    
+    for col_name, col_type in server_columns_to_add:
+        if col_name not in existing_server_columns:
+            print(f"Adding column {col_name} to servers table...")
+            cursor.execute(f"ALTER TABLE servers ADD COLUMN {col_name} {col_type}")
+
     cursor.execute("PRAGMA table_info(connections)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     
@@ -276,3 +305,25 @@ def get_oracle_connection(conn_info):
         print("Full Traceback:", flush=True)
         traceback.print_exc(file=sys.stdout)
         raise e
+
+def safe_value(v):
+    """
+    Safely converts Oracle-specific data types (LOBs, RAWs/bytes) 
+    to JSON-serializable formats for FastAPI.
+    """
+    if v is None:
+        return v
+    # Handle Oracle LOB objects (CLOB/BLOB)
+    if hasattr(v, 'read'):
+        try:
+            return v.read()
+        except Exception as e:
+            return f"-- Error reading LOB: {str(e)} --"
+    # Handle RAW/Bytes - FastAPI jsonable_encoder fails on non-UTF8 bytes
+    if isinstance(v, bytes):
+        try:
+            return v.decode('utf-8')
+        except UnicodeDecodeError:
+            # For memory addresses and other binary data, use Hex
+            return v.hex().upper()
+    return v

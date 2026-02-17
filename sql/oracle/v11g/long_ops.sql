@@ -10,7 +10,9 @@ SELECT
     time_remaining, 
     message,
     sql_id,
-    NULL as con_id -- Normalization
+    NULL as con_id, -- Normalization
+    sql_address,
+    sql_hash_value
 FROM gv$session_longops
 {where_clause}
 ORDER BY start_time DESC

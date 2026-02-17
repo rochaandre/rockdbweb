@@ -17,7 +17,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     const navigate = useNavigate()
     const location = useLocation()
 
-    const isConnected = connection.status === 'Connected'
+    const isConnected = connection.status === 'Connected' || connection.status === 'Online'
     const isDatabasesPage = location.pathname === '/databases'
 
     useEffect(() => {

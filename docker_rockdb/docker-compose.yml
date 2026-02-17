@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: docker_rockdb/Dockerfile
+      args:
+        - BASE_IMAGE=${BASE_IMAGE:-container-registry.oracle.com/database/observability-exporter:2.2.1}
     container_name: rockdb_app
     ports:
       - "8080:8080" # RockDB Backend & Frontend

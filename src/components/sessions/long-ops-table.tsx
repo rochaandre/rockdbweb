@@ -1,11 +1,11 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
-import { Skull, FileText, Activity, Loader2 } from "lucide-react"
+import { Skull, FileText, Activity, Loader2, Database } from "lucide-react"
 import { useState, useEffect } from 'react'
 import { API_URL } from '@/context/app-context'
 
 export interface LongOpsTableProps {
-    onSelect?: (op: any) => void
+    onSelect?: (sid: number) => void
     onAction?: (action: string, session: any) => void
     selectedId?: number | null
     instId?: number
@@ -105,7 +105,7 @@ export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKe
                                             "group flex h-9 items-center border-b border-border/50 text-xs transition-colors hover:bg-muted/50 cursor-pointer select-none",
                                             isSelected ? "bg-blue-50/80 dark:bg-blue-950/30" : "bg-surface"
                                         )}
-                                        onClick={() => onSelect?.(op)}
+                                        onClick={() => onSelect?.(op.sid)}
                                     >
                                         <div className="w-12 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground opacity-60">{op.inst_id}</div>
                                         <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.sid}</div>
@@ -133,6 +133,10 @@ export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKe
                                 <ContextMenuItem onClick={() => onAction?.('SHOW_SQL', op)}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     Show SQL
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => onAction?.('SQL_CENTRAL', op)}>
+                                    <Database className="mr-2 h-4 w-4 text-primary" />
+                                    Show in SQL Central
                                 </ContextMenuItem>
                                 <ContextMenuItem onClick={() => onAction?.('TRACE_SESSION', op)}>
                                     <Activity className="mr-2 h-4 w-4" />

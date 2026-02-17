@@ -21,7 +21,7 @@ from .utils import get_db_connection
 def get_all_servers():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, ip, exporter_port, ssh_key, type, created_at FROM servers")
+    cursor.execute("SELECT id, label, host, port, username, key_path, exporter_port, ssh_key, type, created_at FROM servers")
     rows = cursor.fetchall()
     conn.close()
     
@@ -38,10 +38,11 @@ def save_server(data):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    sql = """INSERT INTO servers (name, ip, exporter_port, ssh_key, type) 
-             VALUES (?, ?, ?, ?, ?)"""
-    params = (data['name'], data['ip'], data.get('exporter_port', 9100), 
-              data.get('ssh_key'), data.get('type', 'PROD'))
+    sql = """INSERT INTO servers (label, host, port, username, password, key_path, exporter_port, ssh_key, type) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+    params = (data['label'], data['host'], data.get('port', 22), 
+              data.get('username'), data.get('password'), data.get('key_path'),
+              data.get('exporter_port', 9100), data.get('ssh_key'), data.get('type', 'LINUX'))
     
     cursor.execute(sql, params)
     last_id = cursor.lastrowid
@@ -67,11 +68,15 @@ def update_server(server_id, data):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    fields = ["name", "ip", "exporter_port", "type"]
-    params = [data[f] for f in fields]
+    fields = ["label", "host", "port", "username", "key_path", "exporter_port", "type"]
+    params = [data.get(f) for f in fields]
     
     sql = "UPDATE servers SET " + ", ".join([f"{f}=?" for f in fields])
     
+    if 'password' in data and data['password'] and data['password'] != '••••••••':
+        sql += ", password=?"
+        params.append(data['password'])
+        
     if 'ssh_key' in data and data['ssh_key'] != '••••••••' and data['ssh_key'] is not None:
         sql += ", ssh_key=?"
         params.append(data['ssh_key'])

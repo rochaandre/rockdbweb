@@ -9,6 +9,8 @@ SELECT  distinct
     s.type,
     s.sql_id, 
     s.sql_child_number as child,
+    s.sql_address,
+    s.sql_hash_value,
     q.sql_plan_hash_value as plan_hash,
     s.prev_sql_id, 
     s.last_call_et, 

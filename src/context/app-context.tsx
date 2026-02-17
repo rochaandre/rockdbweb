@@ -79,7 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 const data = await res.json()
                 setConnectionState({
                     ...data,
-                    status: 'Online',
+                    status: 'Connected',
                     user: data.username
                 })
                 localStorage.setItem('last_connection_id', data.id.toString())

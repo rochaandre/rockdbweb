@@ -23,6 +23,21 @@ Build the RockDB backend image locally using the provided `Dockerfile`:
 docker build -t rockdb-app .
 ```
 
+### Acelerando o Build (Evitando Download)
+Se você percebe que o Docker tenta validar a imagem da Oracle a todo momento, você pode fazer o download uma única vez e usar uma tag local:
+
+1. **Download e Tag Local**:
+   ```bash
+   docker pull container-registry.oracle.com/database/observability-exporter:2.2.1
+   docker tag container-registry.oracle.com/database/observability-exporter:2.2.1 oracle-exporter:local
+   ```
+
+2. **Build usando a imagem local**:
+   ```bash
+   docker build --build-arg BASE_IMAGE=oracle-exporter:local -t rockdb-app .
+   ```
+   *Isso evita que o Docker consulte o registro remoto da Oracle durante cada build.*
+
 *Note: The build process handles system dependencies (Python 3.11, Oracle Linux utilities) and installs the required Python packages.*
 
 ## Step 3: Run with Docker Compose

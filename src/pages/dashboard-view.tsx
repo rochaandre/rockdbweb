@@ -647,7 +647,7 @@ export function DashboardView() {
                                             (!activityFilter || q.sql_text?.toLowerCase().includes(activityFilter.toLowerCase()) || q.sql_id?.toLowerCase().includes(activityFilter.toLowerCase())) &&
                                             (!schemaFilter || q.owner?.toLowerCase().includes(schemaFilter.toLowerCase()))
                                         ).map((query: any, idx: number) => (
-                                            <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-slate-50 px-2 cursor-pointer group rounded" onClick={() => navigate(`/sql-central/sql_details?sql_id=${query.sql_id}`)}>
+                                            <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-slate-50 px-2 cursor-pointer group rounded" onClick={() => navigate(`/sql-central/sqlarea_replace?SQL_ID=${query.sql_id}`)}>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[10px] font-bold text-slate-400 font-mono bg-slate-100 px-1 rounded">{query.sql_id}</span>

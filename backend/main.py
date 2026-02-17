@@ -23,7 +23,7 @@ from .dashboard_mod import (
 )
 from .sessions_mod import (
     get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
-    get_long_ops, get_blocker_details, get_object_ddl
+    get_long_ops, get_blocker_details, get_object_ddl, get_instances
 )
 from .storage_mod import (
     get_tablespaces_detailed, get_data_files, get_segments, 
@@ -134,8 +134,12 @@ class ConnectionResponse(ConnectionBase):
     inst_name: Optional[str] = None
 
 class ServerBase(BaseModel):
-    name: str
-    ip: str
+    label: str
+    host: str
+    port: int = 22
+    username: str
+    password: Optional[str] = None
+    key_path: Optional[str] = None
     exporter_port: int = 9100
     ssh_key: Optional[str] = None
     type: str
@@ -430,6 +434,16 @@ def read_sessions(inst_id: Optional[int] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/sessions/instances")
+def read_instances():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_instances(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/sessions/kill/{sid}/{serial}")
 def kill_db_session(sid: str, serial: str, inst_id: int = 1):
     active = get_active_connection()
@@ -480,6 +494,28 @@ def read_blocker_details(sid: int, inst_id: Optional[int] = 1):
         if not details:
             raise HTTPException(status_code=404, detail="Session not found")
         return details
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/cursors/{sid}")
+def read_session_cursors(sid: int, inst_id: int = 1):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        from .sessions_mod import get_session_cursors
+        return get_session_cursors(active, sid, inst_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/cursor_plan/{sql_id}")
+def read_cursor_plan(sql_id: str, inst_id: int = 1):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        from .sessions_mod import get_cursor_plan
+        return get_cursor_plan(active, sql_id, inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -600,6 +636,17 @@ def read_backup_datafiles(bs_key: int):
         raise HTTPException(status_code=404, detail="No active connection")
     try:
         return get_backup_datafiles(active, bs_key)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/images")
+def read_backup_images():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        from .backups_mod import get_backup_images
+        return get_backup_images(active)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -911,11 +958,13 @@ def read_sql_registry():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sql/content")
-def read_sql_content(path: str):
+def read_sql_content(path: str, vars: Optional[str] = None):
     try:
+        import json
+        variables = json.loads(vars) if vars else None
         active = get_active_connection()
         version = active.get('version') if active else None
-        return {"content": get_sql_content(path, version)}
+        return {"content": get_sql_content(path, version, variables)}
     except FileNotFoundError as fe:
         raise HTTPException(status_code=404, detail=str(fe))
     except Exception as e:
@@ -988,12 +1037,13 @@ class SqlCreateRequest(BaseModel):
     name: str
     label: str
     codmenutype: int
+    content: Optional[str] = None
 
 @app.post("/api/sql/create")
 def read_sql_create(req: SqlCreateRequest):
     try:
         from .sql_central_mod import create_sql_script
-        new_path = create_sql_script(req.folder, req.name, req.label, req.codmenutype)
+        new_path = create_sql_script(req.folder, req.name, req.label, req.codmenutype, req.content)
         return {"status": "success", "rel_path": new_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -19,6 +19,7 @@ def get_backup_jobs(conn_info):
                 output_bytes_display,
                 time_taken_display
             FROM v$rman_backup_job_details
+            WHERE start_time > sysdate - 14
             ORDER BY start_time DESC
             FETCH FIRST 50 ROWS ONLY
         """)
@@ -72,7 +73,7 @@ def get_backup_sets(conn_info, session_key):
             FROM v$backup_set
             WHERE session_key = :sk
             ORDER BY bs_key
-        """, sk=session_key)
+        """, {"sk": session_key})
         columns = [col[0].lower() for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
     except Exception as e:
@@ -96,7 +97,7 @@ def get_backup_datafiles(conn_info, bs_key):
             FROM v$backup_datafile
             WHERE bs_key = :bk
             ORDER BY file#
-        """, bk=bs_key)
+        """, {"bk": bs_key})
         columns = [col[0].lower() for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
     except Exception as e:
@@ -133,6 +134,32 @@ def get_nls_parameters(conn_info):
         }
     except Exception as e:
         print(f"Error fetching NLS parameters: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+def get_backup_images(conn_info):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT 
+                file#,
+                name,
+                tag,
+                status,
+                to_char(checkpoint_change#) as checkpoint_scn,
+                round(bytes/1024/1024, 2) as size_mb,
+                to_char(creation_time, 'DD-MON HH24:MI') as creation_time
+            FROM v$datafile_copy
+            ORDER BY creation_time DESC
+            FETCH FIRST 50 ROWS ONLY
+        """)
+        columns = [col[0].lower() for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching backup images: {e}")
         raise e
     finally:
         if connection:

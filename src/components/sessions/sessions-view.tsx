@@ -1,53 +1,57 @@
-/**
- * ==============================================================================
- * ROCKDB - Oracle Database Administration & Monitoring Tool
- * ==============================================================================
- * File: sessions-view.tsx
- * Author: Andre Rocha (TechMax Consultoria)
- * 
- * LICENSE: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
- *
- * TERMS:
- * 1. You are free to USE and REDISTRIBUTE this software in any medium or format.
- * 2. YOU MAY NOT MODIFY, transform, or build upon this code.
- * 3. You must maintain this header and original naming/ownership information.
- *
- * This software is provided "AS IS", without warranty of any kind.
- * Copyright (c) 2026 Andre Rocha. All rights reserved.
- * ==============================================================================
- */
-import { useEffect, useState } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
+import { ControlBar, type FilterState } from '@/components/sessions/control-bar'
 import { SessionsTable } from '@/components/sessions/sessions-table'
-import { SQLDetailsPanel } from '@/components/sessions/sql-details'
-import { BlockingPanel } from '@/components/sessions/blocking-panel'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { RefreshCw, Search, Users, ShieldAlert } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { usePersistentState } from '@/hooks/use-persistent-state'
+import { BlockingTable } from '@/components/sessions/blocking-table'
+import { LongOpsTable } from '@/components/sessions/long-ops-table'
+import { DetailSidebar } from '@/components/sessions/detail-sidebar'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp, API_URL } from '@/context/app-context'
-import { Badge } from '@/components/ui/badge'
+import { usePersistentState } from '@/hooks/use-persistent-state'
 
 export function SessionsView() {
-    const { logAction } = useApp()
-    const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'all')
-    const [searchQuery, setSearchQuery] = useState('')
+    const { logAction, connection } = useApp()
     const [sessions, setSessions] = useState<any[]>([])
-    const [blocking, setBlocking] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(false)
-    const [selectedSqlId, setSelectedSqlId] = useState<string | null>(null)
     const [selectedSid, setSelectedSid] = useState<number | null>(null)
+    const [blockingSessions, setBlockingSessions] = useState<any[]>([])
+    const [instances, setInstances] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(false)
+    const [refreshKey, setRefreshKey] = useState(0)
+
+    // Persistent States
+    const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'sessions')
+    const [selectedInstance, setSelectedInstance] = usePersistentState('sessions', 'selectedInstance', 'both')
+    const [refreshInterval, setRefreshInterval] = usePersistentState('sessions', 'refreshInterval', 10)
+    const [filters, setFilters] = usePersistentState<FilterState>('sessions', 'filters', {
+        active: true,
+        inactive: true,
+        background: true,
+        killed: true,
+        parallel: true
+    })
+
+    // Refresh Control State
+    const [isPaused, setIsPaused] = useState(false)
 
     const fetchSessions = async () => {
         setIsLoading(true)
         try {
-            const [sessRes, blockRes] = await Promise.all([
-                fetch(`${API_URL}/sessions`),
-                fetch(`${API_URL}/sessions/blocking`)
-            ])
-            if (sessRes.ok) setSessions(await sessRes.json())
-            if (blockRes.ok) setBlocking(await blockRes.json())
+            const instParam = selectedInstance !== "both" ? `?inst_id=${selectedInstance}` : ""
+
+            // Fetch main sessions
+            const res = await fetch(`${API_URL}/sessions${instParam}`)
+            if (res.ok) {
+                const data = await res.json()
+                setSessions(Array.isArray(data) ? data : [])
+            }
+
+            // Fetch blocking sessions for count
+            const blockRes = await fetch(`${API_URL}/sessions/blocking${instParam}`)
+            if (blockRes.ok) {
+                const blockData = await blockRes.json()
+                setBlockingSessions(Array.isArray(blockData) ? blockData : [])
+            }
         } catch (error) {
             console.error('Error fetching sessions:', error)
         } finally {
@@ -55,118 +59,322 @@ export function SessionsView() {
         }
     }
 
-    useEffect(() => {
-        fetchSessions()
-        const interval = setInterval(fetchSessions, 15000)
-        return () => clearInterval(interval)
-    }, [])
-
-    const handleSqlSelect = (sqlId: string, sid: number) => {
-        setSelectedSqlId(sqlId)
-        setSelectedSid(sid)
-        logAction('Browse', 'SQL', `Viewed details for SQL ID: ${sqlId}`)
-    }
-
-    const handleKill = async (sid: number, serial: number, inst_id: number = 1) => {
-        if (confirm(`Are you sure you want to kill session ${sid},${serial}?`)) {
-            try {
-                const res = await fetch(`${API_URL}/sessions/kill/${sid}/${serial}?inst_id=${inst_id}`, { method: 'POST' })
-                if (res.ok) {
-                    alert(`Session ${sid} killed.`)
-                    logAction('Action', 'Session', `Killed SID: ${sid}, Serial: ${serial}`)
-                    fetchSessions()
-                }
-            } catch (error) {
-                console.error('Error killing session:', error)
+    const fetchInstances = async () => {
+        try {
+            const res = await fetch(`${API_URL}/sessions/instances`)
+            if (res.ok) {
+                const data = await res.json()
+                setInstances(Array.isArray(data) ? data : [])
             }
+        } catch (error) {
+            console.error('Error fetching instances:', error)
         }
     }
 
+    // Auto-Refresh Effect
+    useEffect(() => {
+        fetchInstances()
+    }, [connection.id])
+
+    useEffect(() => {
+        fetchSessions()
+        if (isPaused) return
+
+        const intervalId = setInterval(() => {
+            fetchSessions()
+            logAction('Auto-Update', 'System', `Refreshing sessions (Interval: ${refreshInterval}s)...`)
+        }, refreshInterval * 1000)
+
+        return () => clearInterval(intervalId)
+    }, [isPaused, refreshInterval, selectedInstance])
+
+    // Calculate counts on unfiltered data
+    const counts = useMemo(() => {
+        return {
+            active: sessions.filter(s => s.status === 'ACTIVE').length,
+            inactive: sessions.filter(s => s.status === 'INACTIVE').length,
+            background: sessions.filter(s => s.type === 'BACKGROUND').length,
+            killed: sessions.filter(s => s.status === 'KILLED').length,
+            parallel: 0 // TODO: backend should return parallel info
+        }
+    }, [sessions])
+
+    // Filter Logic (Client-Side)
+    const filteredData = useMemo(() => {
+        return sessions.filter(s => {
+            // Status Filters
+            if (!filters.active && s.status === 'ACTIVE') return false
+            if (!filters.inactive && s.status === 'INACTIVE') return false
+            if (!filters.killed && s.status === 'KILLED') return false
+
+            // Type Filters
+            const isBackground = s.type === 'BACKGROUND'
+            if (!filters.background && isBackground) return false
+
+            // Parallel
+            // if (!filters.parallel && isParallel) return false
+
+            return true
+        })
+    }, [filters, sessions])
+
+    // Generate SQL WHERE Clause for Filters Tab
+    const filtersSql = useMemo(() => {
+        const conditions: string[] = []
+        const table = selectedInstance !== 'both' || instances.length > 1 ? 'gv$session' : 'v$session'
+
+        // Instance Filter
+        if (selectedInstance !== 'both') {
+            conditions.push(`inst_id = ${selectedInstance}`)
+        }
+
+        // Status
+        const statusIn: string[] = []
+        if (filters.active) statusIn.push("'ACTIVE'")
+        if (filters.inactive) statusIn.push("'INACTIVE'")
+        if (filters.killed) statusIn.push("'KILLED'")
+
+        if (statusIn.length > 0) {
+            conditions.push(`status IN (${statusIn.join(', ')})`)
+        } else {
+            conditions.push("1=0") // No status selected
+        }
+
+        // Background
+        if (!filters.background) {
+            conditions.push("type != 'BACKGROUND'")
+        }
+
+        // Parallel (simplified logic for demo)
+        if (!filters.parallel) {
+            conditions.push("degree = 1")
+        }
+
+        return conditions.length > 0
+            ? `SELECT * FROM ${table}\nWHERE ${conditions.join('\n  AND ')}`
+            : `SELECT * FROM ${table}`
+    }, [filters, selectedInstance, instances])
+
+
+
+
+    const navigate = useNavigate()
+
+    // Handlers
+    const handleAction = async (action: string, session: any) => {
+        if (action === 'KILL_SESSION') {
+            const serial = session['serial#'] || session.serial
+            if (confirm(`Are you sure you want to kill session ${session.sid},${serial}?`)) {
+                try {
+                    const inst_id = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+                    const res = await fetch(`${API_URL}/sessions/kill/${session.sid}/${serial}?inst_id=${inst_id}`, {
+                        method: 'POST'
+                    })
+                    if (res.ok) {
+                        logAction('Action', 'SessionsTable', `Session ${session.sid} killed successfully`)
+                        fetchSessions()
+                    }
+                } catch (error) {
+                    console.error('Error killing session:', error)
+                }
+            }
+        } else if (action === 'SQL_CENTRAL') {
+            const sql_id = session.sql_id || session.SQL_ID
+            if (sql_id) {
+                const addr = session.sql_address || session.ADDRESS || ''
+                const hash = session.sql_hash_value || session.HASH_VALUE || ''
+                const child = session.sql_child_number || session.CHILD_NUMBER || 0
+                const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+                const plan_hash = session.plan_hash || session.SQL_PLAN_HASH || ''
+
+                navigate(`/sql-central/sqlarea_replace?SQL_ID=${sql_id}&SQL_ADDR=${addr}&SQL_HASH=${hash}&SQL_CHILD=${child}&inst_id=${inst}&SQL_PLAN_HASH=${plan_hash}`)
+            } else {
+                alert('No SQL_ID available for this session.')
+            }
+        }
+        logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
+    }
+
+    const [sessionSql, setSessionSql] = useState<string>('')
+
+    const handleSelect = async (sid: number) => {
+        setSelectedSid(sid)
+        const session = sessions.find(s => s.sid === sid)
+        if (session && session.sql_id) {
+            try {
+                const instParam = session.inst_id ? `?inst_id=${session.inst_id}` : ""
+                const res = await fetch(`${API_URL}/sessions/sql/${session.sql_id}${instParam}`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setSessionSql(data.sql_text)
+                }
+            } catch (error) {
+                console.error('Error fetching session SQL:', error)
+                setSessionSql('Error fetching SQL text')
+            }
+        } else {
+            setSessionSql('No SQL active for this session')
+        }
+        logAction('Row Select', 'SessionsView', `Loading data for SID: ${sid} ...`)
+    }
+
+    const handleFilterChange = (key: keyof FilterState, checked: boolean) => {
+        setFilters((prev: FilterState) => ({ ...prev, [key]: checked }))
+    }
+
+    const handleUpdate = () => {
+        setRefreshKey(prev => prev + 1)
+        fetchSessions()
+        logAction('Manual Update', 'ControlBar', 'Forcing data refresh across all tabs...')
+    }
+
+    const handleSearch = () => {
+        logAction('Navigation', 'ControlBar', 'Opening Search Dialog...')
+    }
+
+    const handleSettings = () => {
+        logAction('Navigation', 'ControlBar', 'Opening Settings Dialog...')
+    }
+
+    const selectedSession = sessions.find(s => s.sid === selectedSid) || null
+
     return (
         <MainLayout>
-            <div className="flex flex-col h-full bg-background overflow-hidden p-6 gap-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Session Explorer</h1>
-                        <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
-                            <Users className="size-3" /> {sessions.length} Connections Active
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="relative w-full md:w-64">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Filter sessions..."
-                                className="pl-9 h-9"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
+            <ControlBar
+                filters={filters}
+                counts={counts}
+                onFilterChange={handleFilterChange}
+                isPaused={isPaused}
+                refreshInterval={refreshInterval}
+                onPauseToggle={() => setIsPaused(p => !p)}
+                onUpdate={handleUpdate}
+                onIntervalChange={setRefreshInterval}
+                onSearch={handleSearch}
+                onSettings={handleSettings}
+                selectedInstance={selectedInstance}
+                onInstanceChange={setSelectedInstance}
+                instances={instances}
+                isLoading={isLoading}
+            />
+
+            <div className="flex flex-1 gap-2 overflow-hidden h-full">
+                <div className="flex flex-1 flex-col overflow-hidden gap-2">
+                    {/* Main Tabs Area */}
+                    <Tabs
+                        value={activeTab}
+                        onValueChange={setActiveTab}
+                        className="flex-1 flex flex-col overflow-hidden"
+                    >
+                        <div className="flex items-center gap-1 border-b border-border bg-muted/40 px-2 pt-1">
+                            <TabsList className="h-8 bg-transparent p-0 gap-1">
+                                <TabsTrigger
+                                    value="sessions"
+                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
+                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                                >
+                                    Sessions
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="blocking"
+                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
+                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                                >
+                                    Blocking and Waiting Sessions - {blockingSessions.length}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="longops"
+                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
+                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                                >
+                                    Long Operations
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="filters"
+                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
+                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                                >
+                                    Filters
+                                </TabsTrigger>
+                            </TabsList>
                         </div>
-                        <Button variant="outline" size="sm" onClick={fetchSessions} disabled={isLoading} className="gap-2">
-                            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-                            Refresh
-                        </Button>
-                    </div>
+
+                        <TabsContent value="sessions" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+                            <SessionsTable
+                                data={filteredData}
+                                selectedId={selectedSid}
+                                onSelect={handleSelect}
+                                onAction={handleAction}
+                            />
+                        </TabsContent>
+                        <TabsContent value="blocking" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+                            <BlockingTable
+                                onAction={handleAction}
+                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
+                                refreshKey={refreshKey}
+                            />
+                        </TabsContent>
+                        <TabsContent value="longops" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+                            <LongOpsTable
+                                onSelect={handleSelect}
+                                onAction={handleAction}
+                                selectedId={selectedSid}
+                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
+                                refreshKey={refreshKey}
+                            />
+                        </TabsContent>
+                        <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface font-mono text-sm overflow-auto">
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2 flex items-center gap-2">
+                                        Active Filters SQL Preview
+                                    </h3>
+                                    <div className="rounded-md bg-muted p-4 border border-border">
+                                        <pre className="whitespace-pre-wrap text-foreground">{filtersSql}</pre>
+                                    </div>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        This SQL clause represents the current active filters applied to the session list.
+                                    </p>
+                                </div>
+
+                                {instances.length > 0 && (
+                                    <div>
+                                        <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                                            Cluster Instances (gv$instance)
+                                        </h3>
+                                        <div className="border border-border rounded-md overflow-hidden bg-white">
+                                            <table className="w-full text-left text-xs">
+                                                <thead className="bg-muted text-muted-foreground font-medium border-b border-border">
+                                                    <tr>
+                                                        <th className="px-3 py-2">ID</th>
+                                                        <th className="px-3 py-2">Instance Name</th>
+                                                        <th className="px-3 py-2">Host Name</th>
+                                                        <th className="px-3 py-2 text-right">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {instances.map((inst: any) => (
+                                                        <tr key={inst.inst_id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
+                                                            <td className="px-3 py-2 font-mono">{inst.inst_id}</td>
+                                                            <td className="px-3 py-2">{inst.instance_name}</td>
+                                                            <td className="px-3 py-2">{inst.host_name}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] uppercase font-bold ${inst.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                    {inst.status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-                    <div className="border-b border-border flex items-center justify-between shrink-0 h-10">
-                        <TabsList className="bg-transparent p-0 h-full gap-6">
-                            <TabsTrigger
-                                value="all"
-                                className="h-full rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-semibold text-md uppercase"
-                            >
-                                All Sessions
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="active"
-                                className="h-full rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-semibold text-md uppercase"
-                            >
-                                Active
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="blocking"
-                                className="h-full rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-rose-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none font-semibold text-md uppercase text-rose-600"
-                            >
-                                <span className="flex items-center gap-1.5">
-                                    <ShieldAlert className="size-3" />
-                                    Blocking (Wait)
-                                    {blocking.length > 0 && (
-                                        <Badge className="ml-1 bg-rose-500 text-white h-4 px-1 min-w-[16px] text-[10px]">{blocking.length}</Badge>
-                                    )}
-                                </span>
-                            </TabsTrigger>
-                        </TabsList>
-                    </div>
-
-                    <div className="flex-1 overflow-hidden mt-4 grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-0">
-                        <div className="xl:col-span-8 overflow-auto min-h-0 border border-border rounded-lg bg-card shadow-sm">
-                            <TabsContent value="all" className="m-0 h-full">
-                                <SessionsTable
-                                    sessions={sessions}
-                                    onSelectSql={handleSqlSelect}
-                                    onKill={handleKill}
-                                    filter={searchQuery}
-                                />
-                            </TabsContent>
-                            <TabsContent value="active" className="m-0 h-full">
-                                <SessionsTable
-                                    sessions={sessions.filter(s => s.status === 'ACTIVE')}
-                                    onSelectSql={handleSqlSelect}
-                                    onKill={handleKill}
-                                    filter={searchQuery}
-                                />
-                            </TabsContent>
-                            <TabsContent value="blocking" className="m-0 h-full">
-                                <BlockingPanel />
-                            </TabsContent>
-                        </div>
-
-                        <div className="xl:col-span-4 flex flex-col gap-4 overflow-auto min-h-0">
-                            <SQLDetailsPanel sqlId={selectedSqlId} sid={selectedSid} />
-                        </div>
-                    </div>
-                </Tabs>
+                <DetailSidebar session={selectedSession} sqlText={sessionSql} />
             </div>
         </MainLayout>
     )

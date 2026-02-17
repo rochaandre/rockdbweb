@@ -1,5 +1,22 @@
 import oracledb
-from .utils import get_oracle_connection
+from .utils import get_oracle_connection, safe_value
+
+
+
+def get_instances(conn_info):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        cursor.execute("SELECT inst_id, instance_name, host_name, status FROM gv$instance ORDER BY inst_id")
+        columns = [col[0].lower() for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching instances: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
 
 def get_sessions(conn_info, inst_id=None):
     connection = None
@@ -23,7 +40,7 @@ def get_sessions(conn_info, inst_id=None):
         
         cursor.execute(sql_text, params)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching sessions: {e}")
         raise e
@@ -60,7 +77,7 @@ def get_session_sql(conn_info, sql_id, inst_id=None):
         cursor.execute(query, params)
         row = cursor.fetchone()
         if row:
-            return {"sql_id": sql_id, "sql_text": str(row[0])}
+            return {"sql_id": sql_id, "sql_text": safe_value(row[0])}
         return {"sql_id": sql_id, "sql_text": "SQL not found in cursor cache"}
     except Exception as e:
         print(f"Error fetching session SQL: {e}")
@@ -74,52 +91,44 @@ def get_blocking_sessions(conn_info, inst_id=None):
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        # For RAC, hierarchical queries are tricky. 
-        # We fetch all candidates and build the hierarchy in Python.
-        # Load version-aware SQL
+        
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
         sql_text = get_sql_content("oracle/blocking_sessions.sql", version)
         
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
-        sessions = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        # Use safe_value for blocking sessions too
+        sessions = [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
         
         # Build hierarchy
         session_map = {f"{s['inst_id']}-{s['sid']}": s for s in sessions}
         results = []
         
         def add_with_children(sess_key, level, processed_keys):
-            if sess_key in processed_keys: return # Avoid cycles
+            if sess_key in processed_keys: return 
             processed_keys.add(sess_key)
             
             s = session_map[sess_key]
-            # Copy and add type/level
             entry = s.copy()
             entry['type'] = 'blocker' if not s['blocking_session'] else 'blocked'
             entry['level'] = level
             results.append(entry)
             
-            # Find dependents
             for k, other in session_map.items():
                 if other['blocking_instance'] == s['inst_id'] and other['blocking_session'] == s['sid']:
                     add_with_children(k, level + 1, processed_keys)
 
         processed = set()
-        # Start with root blockers
         roots = [f"{s['inst_id']}-{s['sid']}" for s in sessions if not s['blocking_session']]
         for r in roots:
             add_with_children(r, 0, processed)
             
-        # Add any orphans (cycles or missing metadata)
         for k in session_map:
             if k not in processed:
                 add_with_children(k, 0, processed)
 
         if inst_id:
-            # Filter results if requested, but maintain hierarchy context if needed?
-            # Usually, if we filter by instance, we might lose the parent/child link if it's cross-instance.
-            # For now, let's return all related to that instance.
             return [r for r in results if r['inst_id'] == inst_id or r.get('blocking_instance') == inst_id]
             
         return results
@@ -142,17 +151,15 @@ def get_long_ops(conn_info, inst_id=None):
             where_clause += " AND inst_id = :inst_id"
             params.append(inst_id)
             
-        # Load version-aware SQL
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
         sql_template = get_sql_content("oracle/long_ops.sql", version)
         
-        # Inject where_clause
         sql_text = sql_template.format(where_clause=where_clause)
         
         cursor.execute(sql_text, params)
         columns = [col[0].lower() for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching long operations: {e}")
         raise e
@@ -166,7 +173,6 @@ def get_blocker_details(conn_info, sid, inst_id=1):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         
-        # 1. Basic Session Info
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
         sql_basic = get_sql_content("oracle/blocker_details_basic.sql", version)
@@ -177,19 +183,17 @@ def get_blocker_details(conn_info, sid, inst_id=1):
             return None
         
         columns = [col[0].lower() for col in cursor.description]
-        details = dict(zip(columns, row))
+        details = {k: safe_value(v) for k, v in zip(columns, row)}
         
-        # 2. SQL Text
-        sql_id = details['sql_id'] or details['prev_sql_id']
+        sql_id = details.get('sql_id') or details.get('prev_sql_id')
         if sql_id:
             cursor.execute("SELECT sql_fulltext FROM gv$sql WHERE sql_id = :sql_id AND inst_id = :inst_id AND ROWNUM = 1", 
                            {"sql_id": sql_id, "inst_id": inst_id})
             sql_row = cursor.fetchone()
-            details['sql_text'] = str(sql_row[0]) if sql_row else "SQL text not found"
+            details['sql_text'] = safe_value(sql_row[0]) if sql_row else "SQL text not found"
         else:
             details['sql_text'] = "No active SQL"
 
-        # 3. Lock Stats
         cursor.execute("SELECT count(*) FROM gv$session WHERE blocking_session = :sid AND blocking_instance = :inst_id", 
                        {"sid": sid, "inst_id": inst_id})
         details['users_in_lock'] = cursor.fetchone()[0]
@@ -198,16 +202,14 @@ def get_blocker_details(conn_info, sid, inst_id=1):
                        {"sid": sid, "inst_id": inst_id})
         details['opened_cursors'] = cursor.fetchone()[0]
         
-        # 4. Execution Plan
         if sql_id:
             sql_plan = get_sql_content("oracle/blocker_details_plan.sql", version)
             cursor.execute(sql_plan, {"sql_id": sql_id, "inst_id": inst_id})
             cols_plan = [col[0].lower() for col in cursor.description]
-            details['plan'] = [dict(zip(cols_plan, r)) for r in cursor.fetchall()]
+            details['plan'] = [{k: safe_value(v) for k, v in zip(cols_plan, r)} for r in cursor.fetchall()]
         else:
             details['plan'] = []
 
-        # 5. Related Objects
         cursor.execute("""
             SELECT DISTINCT o.object_type as type, o.owner, o.object_name as name
             FROM gv$locked_object l, dba_objects o
@@ -215,7 +217,7 @@ def get_blocker_details(conn_info, sid, inst_id=1):
             AND l.session_id = :sid AND l.inst_id = :inst_id
         """, {"sid": sid, "inst_id": inst_id})
         cols_obj = [col[0].lower() for col in cursor.description]
-        details['objects'] = [dict(zip(cols_obj, r)) for r in cursor.fetchall()]
+        details['objects'] = [{k: safe_value(v) for k, v in zip(cols_obj, r)} for r in cursor.fetchall()]
 
         return details
     except Exception as e:
@@ -231,14 +233,55 @@ def get_object_ddl(conn_info, owner, name, obj_type):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         
-        # Adjust object type for DBMS_METADATA (e.g., 'TABLE' is fine, but some need mapping)
         cursor.execute("SELECT dbms_metadata.get_ddl(:obj_type, :name, :owner) FROM dual", 
                        {"obj_type": obj_type, "name": name, "owner": owner})
         row = cursor.fetchone()
-        return str(row[0]) if row else "DDL not found"
+        return safe_value(row[0]) if row else "DDL not found"
     except Exception as e:
         print(f"Error fetching DDL: {e}")
         return f"-- Error fetching DDL: {str(e)}"
+    finally:
+        if connection:
+            connection.close()
+def get_session_cursors(conn_info, sid, inst_id=1):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        # Query for open cursors ordered by last use (approximate)
+        query = """
+            SELECT inst_id, sid, sql_id, cursor_type, address, hash_value, sql_text
+            FROM gv$open_cursor
+            WHERE sid = :sid AND inst_id = :inst_id
+            ORDER BY last_sql_active_time DESC NULLS LAST
+        """
+        cursor.execute(query, {"sid": sid, "inst_id": inst_id})
+        columns = [col[0].lower() for col in cursor.description]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching session cursors: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+def get_cursor_plan(conn_info, sql_id, inst_id=1):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_plan = get_sql_content("oracle/blocker_details_plan.sql", version)
+        
+        cursor.execute(sql_plan, {"sql_id": sql_id, "inst_id": inst_id})
+        cols_plan = [col[0].lower() for col in cursor.description]
+        return [{k: safe_value(v) for k, v in zip(cols_plan, r)} for r in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching cursor plan: {e}")
+        raise e
     finally:
         if connection:
             connection.close()

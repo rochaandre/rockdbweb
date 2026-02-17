@@ -7,6 +7,8 @@ import { ArrowLeft, Database, Lock, Activity, FileText, Table, AlertTriangle, Co
 import { useState, useEffect } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp, API_URL } from '@/context/app-context'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { cn } from '@/lib/utils'
 
 // Initial state for details
 const INITIAL_DETAILS = {
@@ -36,6 +38,13 @@ export function BlockExplorerView() {
     const [isKilling, setIsKilling] = useState(false)
     const [isDdlLoading, setIsDdlLoading] = useState(false)
 
+    // Cursor Tab States
+    const [cursors, setCursors] = useState<any[]>([])
+    const [selectedCursor, setSelectedCursor] = useState<any | null>(null)
+    const [cursorPlan, setCursorPlan] = useState<any[]>([])
+    const [isCursorLoading, setIsCursorLoading] = useState(false)
+    const [isCursorPlanLoading, setIsCursorPlanLoading] = useState(false)
+
     const fetchDetails = async () => {
         setIsLoading(true)
         try {
@@ -50,6 +59,38 @@ export function BlockExplorerView() {
             console.error("Error fetching blocker details:", error)
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const fetchCursors = async () => {
+        setIsCursorLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions/cursors/${sid}?inst_id=${inst_id}`)
+            if (res.ok) {
+                const json = await res.json()
+                setCursors(json)
+            }
+        } catch (err) {
+            console.error("Error fetching cursors:", err)
+        } finally {
+            setIsCursorLoading(false)
+        }
+    }
+
+    const fetchCursorPlan = async (cursor: any) => {
+        setSelectedCursor(cursor)
+        setIsCursorPlanLoading(true)
+        setCursorPlan([])
+        try {
+            const res = await fetch(`${API_URL}/sessions/cursor_plan/${cursor.sql_id}?inst_id=${inst_id}`)
+            if (res.ok) {
+                const json = await res.json()
+                setCursorPlan(json)
+            }
+        } catch (err) {
+            console.error("Error fetching cursor plan:", err)
+        } finally {
+            setIsCursorPlanLoading(false)
         }
     }
 
@@ -74,6 +115,7 @@ export function BlockExplorerView() {
     useEffect(() => {
         if (sid) {
             fetchDetails()
+            fetchCursors()
         }
     }, [sid, inst_id])
 
@@ -131,173 +173,351 @@ export function BlockExplorerView() {
                     </Button>
                 </div>
 
-                <div className="flex-1 overflow-auto p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="flex-1 overflow-hidden flex flex-col">
+                    <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
+                        <div className="bg-muted/10 border-b border-border px-4 shrink-0">
+                            <TabsList className="h-10 bg-transparent p-0 gap-4">
+                                <TabsTrigger
+                                    value="summary"
+                                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs font-bold uppercase transition-all"
+                                >
+                                    Summary
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="cursors"
+                                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs font-bold uppercase transition-all"
+                                >
+                                    Cursores
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
 
-                        {/* Session Info */}
-                        <Card>
-                            <CardHeader className="py-2 pb-0">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
-                                    <Activity className="h-4 w-4" /> Session Info
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-2">
-                                <div className="text-2xl font-bold">{details.username}</div>
-                                <div className="text-sm text-muted-foreground">SID: {details.sid}, Serial: {details.serial}</div>
-                                <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    {details.status}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Lock Stats */}
-                        <Card>
-                            <CardHeader className="py-2 pb-0">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4" /> Lock Statistics
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-2 space-y-1">
-                                <div className="flex justify-between text-sm">
-                                    <span>Users in Lock:</span>
-                                    <span className="font-bold">{details.users_in_lock}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>Open Cursors:</span>
-                                    <span className="font-bold">{details.opened_cursors}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>Schema:</span>
-                                    <span className="font-bold">{details.schemaname}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* SQL Text */}
-                        <Card className="col-span-1 md:col-span-2 lg:col-span-2">
-                            <CardHeader className="py-2 pb-0">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
-                                    <FileText className="h-4 w-4" /> Current SQL
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-2">
-                                <div className="bg-muted/10 border border-border rounded p-2 font-mono text-xs overflow-auto max-h-32 whitespace-pre-wrap">
-                                    {details.sql_text}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Execution Plan (Moved Up) */}
-                        <Card className="col-span-full">
-                            <CardHeader className="py-2 pb-0">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
-                                    <Table className="h-4 w-4" /> Execution Plan
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-2">
-                                <div className="border border-border rounded-md overflow-hidden min-h-[100px]">
-                                    <table className="w-full text-xs text-left">
-                                        <thead className="bg-muted/20 text-muted-foreground">
-                                            <tr>
-                                                <th className="px-2 py-1 w-12">ID</th>
-                                                <th className="px-2 py-1">Operation</th>
-                                                <th className="px-2 py-1">Options</th>
-                                                <th className="px-2 py-1">Object</th>
-                                                <th className="px-2 py-1 w-20">Cost</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="font-mono">
-                                            {details.plan.map((row: any) => (
-                                                <tr key={row.id} className="border-t border-border">
-                                                    <td className="px-2 py-1">{row.id}</td>
-                                                    <td className="px-2 py-1" style={{ paddingLeft: `${(row.id * 10) + 8}px` }}>
-                                                        {row.operation}
-                                                    </td>
-                                                    <td className="px-2 py-1 text-muted-foreground">{row.options}</td>
-                                                    <td className="px-2 py-1">{row.object}</td>
-                                                    <td className="px-2 py-1">{row.cost}</td>
-                                                </tr>
-                                            ))}
-                                            {!isLoading && details.plan.length === 0 && (
-                                                <tr>
-                                                    <td colSpan={5} className="py-8 text-center text-muted-foreground">No execution plan available</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Related Objects - Selection */}
-                        <Card className="col-span-1 md:col-span-2">
-                            <CardHeader className="py-2 pb-0">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
-                                    <Database className="h-4 w-4" /> Related Objects
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-2">
-                                <div className="border border-border rounded-md overflow-hidden h-40">
-                                    <table className="w-full text-xs text-left">
-                                        <thead className="bg-muted/20 text-muted-foreground sticky top-0">
-                                            <tr>
-                                                <th className="px-2 py-1">Type</th>
-                                                <th className="px-2 py-1">Owner</th>
-                                                <th className="px-2 py-1">Name</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {details.objects.map((obj: any, i: number) => (
-                                                <tr
-                                                    key={i}
-                                                    className={`border-t border-border cursor-pointer hover:bg-muted/50 ${selectedObject === obj ? 'bg-primary/10' : ''}`}
-                                                    onClick={() => fetchDDL(obj)}
-                                                >
-                                                    <td className="px-2 py-1">{obj.type}</td>
-                                                    <td className="px-2 py-1">{obj.owner}</td>
-                                                    <td className="px-2 py-1 font-medium">{obj.name}</td>
-                                                </tr>
-                                            ))}
-                                            {!isLoading && details.objects.length === 0 && (
-                                                <tr>
-                                                    <td colSpan={3} className="py-10 text-center text-muted-foreground italic">No locked objects found for this session</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mt-1">Select an object to view DDL below.</p>
-                            </CardContent>
-                        </Card>
-
-                        {/* Object DDL - Details */}
-                        <Card className="col-span-1 md:col-span-2 flex flex-col">
-                            <CardHeader className="py-2 pb-0">
-                                <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
-                                    <Code className="h-4 w-4" /> Object Statistics / DDL
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-2 flex-1 min-h-0">
-                                <ScrollArea className="h-40 w-full rounded-md border border-border bg-muted/10 p-2 relative">
-                                    {isDdlLoading && (
-                                        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
-                                            <Loader2 className="animate-spin h-5 w-5 text-muted-foreground" />
+                        <TabsContent value="summary" className="flex-1 overflow-auto p-4 m-0">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {/* Session Info */}
+                                <Card>
+                                    <CardHeader className="py-2 pb-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
+                                            <Activity className="h-4 w-4" /> Session Info
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-2">
+                                        <div className="text-2xl font-bold">{details.username || 'N/A'}</div>
+                                        <div className="text-sm text-muted-foreground">SID: {details.sid}, Serial: {details.serial}</div>
+                                        <div className={cn(
+                                            "mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                                            details.status === 'ACTIVE' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-800"
+                                        )}>
+                                            {details.status}
                                         </div>
-                                    )}
-                                    {selectedObject ? (
-                                        <pre className="font-mono text-xs whitespace-pre-wrap text-foreground">
-                                            {objectDdl || 'No DDL available'}
-                                        </pre>
-                                    ) : (
-                                        <div className="text-xs text-muted-foreground flex items-center justify-center h-full">
-                                            Select an object to view DDL
-                                        </div>
-                                    )}
-                                </ScrollArea>
-                            </CardContent>
-                        </Card>
+                                    </CardContent>
+                                </Card>
 
-                    </div>
+                                {/* Lock Stats */}
+                                <Card>
+                                    <CardHeader className="py-2 pb-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
+                                            <AlertTriangle className="h-4 w-4" /> Lock Statistics
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-2 space-y-1">
+                                        <div className="flex justify-between text-sm">
+                                            <span>Users in Lock:</span>
+                                            <span className="font-bold">{details.users_in_lock}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>Open Cursors:</span>
+                                            <span className="font-bold">{details.opened_cursors}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>Schema:</span>
+                                            <span className="font-bold">{details.schemaname}</span>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* SQL Text */}
+                                <Card className="col-span-1 md:col-span-2 lg:col-span-2">
+                                    <CardHeader className="py-2 pb-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
+                                            <FileText className="h-4 w-4" /> Current SQL
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-2">
+                                        <div className="bg-muted/10 border border-border rounded p-2 font-mono text-xs overflow-auto max-h-32 whitespace-pre-wrap selection:bg-primary/20">
+                                            {details.sql_text}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Execution Plan */}
+                                <Card className="col-span-full">
+                                    <CardHeader className="py-2 pb-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
+                                            <Table className="h-4 w-4" /> Execution Plan
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-2">
+                                        <div className="border border-border rounded-md overflow-hidden min-h-[100px]">
+                                            <table className="w-full text-xs text-left">
+                                                <thead className="bg-muted/20 text-muted-foreground sticky top-0">
+                                                    <tr>
+                                                        <th className="px-2 py-1 w-12">ID</th>
+                                                        <th className="px-2 py-1">Operation</th>
+                                                        <th className="px-2 py-1">Options</th>
+                                                        <th className="px-2 py-1">Object</th>
+                                                        <th className="px-2 py-1 w-20">Cost</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="font-mono">
+                                                    {details.plan.map((row: any) => (
+                                                        <tr key={row.id} className="border-t border-border group hover:bg-muted/30">
+                                                            <td className="px-2 py-1 text-muted-foreground">{row.id}</td>
+                                                            <td className="px-2 py-1" style={{ paddingLeft: `${(row.id * 10) + 8}px` }}>
+                                                                {row.operation}
+                                                            </td>
+                                                            <td className="px-2 py-1 text-muted-foreground">{row.options}</td>
+                                                            <td className="px-2 py-1">{row.object}</td>
+                                                            <td className="px-2 py-1">{row.cost}</td>
+                                                        </tr>
+                                                    ))}
+                                                    {!isLoading && details.plan.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={5} className="py-8 text-center text-muted-foreground italic">No execution plan available in cache</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Related Objects */}
+                                <Card className="col-span-1 md:col-span-2">
+                                    <CardHeader className="py-2 pb-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
+                                            <Database className="h-4 w-4" /> Related Objects
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-2">
+                                        <div className="border border-border rounded-md overflow-hidden h-40">
+                                            <table className="w-full text-xs text-left">
+                                                <thead className="bg-muted/20 text-muted-foreground sticky top-0">
+                                                    <tr>
+                                                        <th className="px-2 py-1">Type</th>
+                                                        <th className="px-2 py-1">Owner</th>
+                                                        <th className="px-2 py-1">Name</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {details.objects.map((obj: any, i: number) => (
+                                                        <tr
+                                                            key={i}
+                                                            className={cn(
+                                                                "border-t border-border cursor-pointer hover:bg-muted/50",
+                                                                selectedObject === obj && 'bg-primary/10'
+                                                            )}
+                                                            onClick={() => fetchDDL(obj)}
+                                                        >
+                                                            <td className="px-2 py-1 uppercase text-[10px] text-muted-foreground">{obj.type}</td>
+                                                            <td className="px-2 py-1 font-mono">{obj.owner}</td>
+                                                            <td className="px-2 py-1 font-medium">{obj.name}</td>
+                                                        </tr>
+                                                    ))}
+                                                    {!isLoading && details.objects.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={3} className="py-10 text-center text-muted-foreground italic">No locked objects found for this session</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground mt-1">Select an object to view DDL below.</p>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Object Statistics / DDL */}
+                                <Card className="col-span-1 md:col-span-2 flex flex-col">
+                                    <CardHeader className="py-2 pb-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase flex items-center gap-2">
+                                            <Code className="h-4 w-4" /> Object Statistics / DDL
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-2 flex-1 min-h-0">
+                                        <ScrollArea className="h-40 w-full rounded-md border border-border bg-muted/10 p-2 relative">
+                                            {isDdlLoading && (
+                                                <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                                                    <Loader2 className="animate-spin h-5 w-5 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                            {selectedObject ? (
+                                                <pre className="font-mono text-[10px] whitespace-pre-wrap text-foreground selection:bg-primary/20">
+                                                    {objectDdl || '-- No DDL available'}
+                                                </pre>
+                                            ) : (
+                                                <div className="text-[10px] text-muted-foreground flex items-center justify-center h-full italic uppercase tracking-wider opacity-50">
+                                                    Select an object above to view DDL
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="cursors" className="flex-1 overflow-hidden flex flex-col m-0 p-4 gap-4">
+                            <div className="flex-1 flex flex-col min-h-0 gap-4">
+                                <div className="flex-1 flex gap-4 min-h-0">
+                                    {/* Top Grid: Open Cursors */}
+                                    <Card className="flex-1 flex flex-col min-h-0">
+                                        <CardHeader className="py-2 pb-0 shrink-0">
+                                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                                <Activity className="h-3.5 w-3.5" /> Open Cursors Listing
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-2 flex-1 min-h-0">
+                                            <div className="border border-border rounded-md overflow-hidden h-full flex flex-col">
+                                                <div className="overflow-auto flex-1">
+                                                    <table className="w-full text-[11px] text-left border-collapse">
+                                                        <thead className="bg-muted/30 text-muted-foreground sticky top-0 z-10">
+                                                            <tr className="border-b border-border">
+                                                                <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">SQL_ID</th>
+                                                                <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">Type</th>
+                                                                <th className="px-2 py-1.5 font-bold uppercase tracking-wider">SQL Snippet</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {cursors.map((cursor, i) => (
+                                                                <tr
+                                                                    key={i}
+                                                                    onClick={() => fetchCursorPlan(cursor)}
+                                                                    className={cn(
+                                                                        "border-b border-border hover:bg-muted/50 cursor-pointer transition-colors group",
+                                                                        selectedCursor === cursor && "bg-primary/5 active-row"
+                                                                    )}
+                                                                >
+                                                                    <td className="px-2 py-1.5 font-mono text-blue-600 font-medium border-r border-border">{cursor.sql_id}</td>
+                                                                    <td className="px-2 py-1.5 text-muted-foreground italic border-r border-border whitespace-nowrap">{cursor.cursor_type}</td>
+                                                                    <td className="px-2 py-1.5 font-mono truncate max-w-[400px] text-zinc-600" title={cursor.sql_text}>
+                                                                        {cursor.sql_text}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                            {isCursorLoading && cursors.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={3} className="p-8 text-center text-muted-foreground animate-pulse font-medium uppercase tracking-widest text-[10px]">Loading cursors...</td>
+                                                                </tr>
+                                                            )}
+                                                            {!isCursorLoading && cursors.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={3} className="p-8 text-center text-muted-foreground italic">No open cursors found for this session</td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Selection Panel: Cursor Plan */}
+                                    <div className="w-[450px] flex flex-col gap-4">
+                                        <Card className="flex-1 flex flex-col min-h-0 bg-slate-50/50">
+                                            <CardHeader className="py-2 pb-0 shrink-0">
+                                                <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                                    <Table className="h-3.5 w-3.5" /> Selected Cursor Plan
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-2 flex-1 min-h-0 flex flex-col">
+                                                <div className="border border-border rounded-md overflow-hidden flex-1 bg-white relative">
+                                                    {isCursorPlanLoading && (
+                                                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
+                                                            <Loader2 className="animate-spin h-6 w-6 text-primary" />
+                                                        </div>
+                                                    )}
+                                                    <div className="overflow-auto h-full">
+                                                        <table className="w-full text-[10px] text-left">
+                                                            <thead className="bg-muted/30 text-muted-foreground sticky top-0">
+                                                                <tr>
+                                                                    <th className="px-2 py-1 w-8">ID</th>
+                                                                    <th className="px-2 py-1">Operation</th>
+                                                                    <th className="px-2 py-1">Cost</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="font-mono">
+                                                                {cursorPlan.map((row: any) => (
+                                                                    <tr key={row.id} className="border-t border-border hover:bg-slate-50">
+                                                                        <td className="px-2 py-0.5 text-muted-foreground">{row.id}</td>
+                                                                        <td className="px-2 py-0.5" style={{ paddingLeft: `${(row.id * 8) + 4}px` }}>
+                                                                            <span className="font-medium">{row.operation}</span>
+                                                                            <span className="text-[9px] text-muted-foreground ml-1">{row.options}</span>
+                                                                            {row.object && <span className="text-blue-500 ml-1">[{row.object}]</span>}
+                                                                        </td>
+                                                                        <td className="px-2 py-0.5 text-muted-foreground">{row.cost}</td>
+                                                                    </tr>
+                                                                ))}
+                                                                {!isCursorPlanLoading && cursorPlan.length === 0 && (
+                                                                    <tr>
+                                                                        <td colSpan={3} className="p-12 text-center text-muted-foreground italic flex flex-col items-center gap-2 opacity-50 justify-center h-full uppercase tracking-tighter text-[10px]">
+                                                                            {selectedCursor ? "Plan not in cache" : "Select a cursor to view its plan"}
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </div>
+
+                                {/* Bottom Layer Cards: Session Summary */}
+                                <div className="grid grid-cols-2 gap-4 shrink-0">
+                                    <div className="flex gap-4">
+                                        <Card className="flex-1 bg-gradient-to-br from-white to-slate-50 border-l-4 border-l-blue-500 shadow-sm">
+                                            <CardContent className="pt-3 pb-2">
+                                                <div className="text-[10px] font-bold text-muted-foreground uppercase opacity-70 mb-1">Session Owner</div>
+                                                <div className="text-xl font-bold text-blue-900 tracking-tight">{details.username || 'N/A'}</div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-xs font-mono bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">SID: {details.sid}</span>
+                                                    <span className="text-xs font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Inst: {details.inst_id}</span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="flex-1 bg-gradient-to-br from-white to-slate-50 border-l-4 border-l-amber-500 shadow-sm">
+                                            <CardContent className="pt-3 pb-2">
+                                                <div className="text-[10px] font-bold text-muted-foreground uppercase opacity-70 mb-1">Session Stats</div>
+                                                <div className="grid grid-cols-2 gap-y-1">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] text-muted-foreground leading-none">Status</span>
+                                                        <span className={cn(
+                                                            "text-xs font-bold leading-tight",
+                                                            details.status === 'ACTIVE' ? "text-green-600" : "text-amber-600"
+                                                        )}>{details.status}</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] text-muted-foreground leading-none">Cursors</span>
+                                                        <span className="text-xs font-bold text-slate-800 leading-tight">{details.opened_cursors}</span>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                    <Card className="flex-1 bg-gradient-to-br from-white to-slate-50">
+                                        <CardContent className="pt-3 pb-2">
+                                            <div className="text-[10px] font-bold text-muted-foreground uppercase opacity-70 mb-1">Schema & Service</div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-lg font-bold text-slate-900">{details.schemaname}</span>
+                                                <span className="text-[10px] text-muted-foreground truncate opacity-80">{details.osuser} @ {details.machine}</span>
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground mt-0.5 italic">{details.program}</div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </div>
         </MainLayout>

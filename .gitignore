@@ -39,3 +39,6 @@ influxdb/
 server/
 backend_restart.log
 oracle_registry_secret.txt
+rockdb.db
+rockdb.bkp.sqlite
+backend/MacBook

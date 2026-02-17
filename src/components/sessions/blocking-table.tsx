@@ -1,6 +1,6 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, FileCode, Lock, Loader2 } from 'lucide-react'
+import { Skull, Activity, FileCode, Lock, Loader2, Database } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { API_URL } from '@/context/app-context'
@@ -14,6 +14,7 @@ interface BlockingSession {
     event: string
     type: 'blocker' | 'blocked'
     level: number
+    sql_id?: string
 }
 
 interface BlockingTableProps {
@@ -142,6 +143,10 @@ export function BlockingTable({ onAction, instId, refreshKey }: BlockingTablePro
                                     <ContextMenuItem onClick={() => onAction('SHOW_SQL', session)}>
                                         <FileCode className="mr-2 size-3.5" />
                                         Show SQL
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onAction('SQL_CENTRAL', session)}>
+                                        <Database className="mr-2 size-3.5 text-primary" />
+                                        Show in SQL Central
                                     </ContextMenuItem>
                                 </ContextMenu>
                             </td>
