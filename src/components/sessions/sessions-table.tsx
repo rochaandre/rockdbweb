@@ -1,6 +1,6 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, FileCode, Database } from 'lucide-react'
+import { Skull, Activity, Database } from 'lucide-react'
 import { useState } from 'react'
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 
@@ -119,10 +119,6 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                                 Trace Session
                             </ContextMenuItem>
                             <ContextMenuSeparator />
-                            <ContextMenuItem onClick={() => menuSession && onAction('Show SQL', menuSession)}>
-                                <FileCode className="mr-2 size-3.5" />
-                                Show SQL
-                            </ContextMenuItem>
                             <ContextMenuItem onClick={() => menuSession && onAction('SQL_CENTRAL', menuSession)}>
                                 <Database className="mr-2 size-3.5 text-primary" />
                                 Show in SQL Central

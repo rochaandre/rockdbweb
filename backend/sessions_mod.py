@@ -303,6 +303,7 @@ def get_zombie_count(conn_info, inst_id=None):
             )
             AND p.pname IS NULL
             AND p.program IS NOT NULL
+            AND p.spid IS NOT NULL
         """
         params = {}
         if inst_id:
