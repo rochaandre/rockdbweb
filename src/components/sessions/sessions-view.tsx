@@ -179,18 +179,9 @@ export function SessionsView() {
                 }
             }
         } else if (action === 'SQL_CENTRAL') {
-            const sql_id = session.sql_id || session.SQL_ID
-            if (sql_id) {
-                const addr = session.sql_address || session.ADDRESS || ''
-                const hash = session.sql_hash_value || session.HASH_VALUE || ''
-                const child = session.sql_child_number || session.CHILD_NUMBER || 0
-                const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
-                const plan_hash = session.plan_hash || session.SQL_PLAN_HASH || ''
-
-                navigate(`/sql-central/sqlarea_replace?SQL_ID=${sql_id}&SQL_ADDR=${addr}&SQL_HASH=${hash}&SQL_CHILD=${child}&inst_id=${inst}&SQL_PLAN_HASH=${plan_hash}`)
-            } else {
-                alert('No SQL_ID available for this session.')
-            }
+            const sid = session.sid || session.SID
+            const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+            navigate(`/sql-central/sessions_replace?SID=${sid}&inst_id=${inst}`)
         }
         logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
     }
