@@ -180,8 +180,10 @@ export function SessionsView() {
             }
         } else if (action === 'SQL_CENTRAL') {
             const sid = session.sid || session.SID
+            const serial = session['serial#'] || session.serial || ''
+            const spid = session.spid || session.SPID || ''
             const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
-            navigate(`/sql-central/sessions_replace?SID=${sid}&inst_id=${inst}`)
+            navigate(`/sql-central/sessions_replace?SID=${sid}&SERIAL=${serial}&SPID=${spid}&inst_id=${inst}`)
         }
         logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
     }
