@@ -41,30 +41,33 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
 
     return (
         <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm relative">
-            <table className="w-full text-xs text-left border-collapse table-fixed">
+            <table className="min-w-full text-xs text-left border-collapse">
                 <thead className="bg-surface-raised sticky top-0 z-10 text-foreground font-medium shadow-sm">
                     <tr>
                         <th className="border-b border-r border-border px-1 py-1 w-12 text-right">SID</th>
                         <th className="border-b border-r border-border px-1 py-1 w-16 text-right">SERIAL#</th>
-                        <th className="border-b border-r border-border px-1 py-1 text-left">USERNAME</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-16 text-right">PID SO</th>
+                        <th className="border-b border-r border-border px-1 py-1 min-w-[100px] text-left">USERNAME</th>
                         <th className="border-b border-r border-border px-1 py-1 w-14 text-right">File IO</th>
                         <th className="border-b border-r border-border px-1 py-1 w-16 text-right">CPU Usage</th>
-                        <th className="border-b border-r border-border px-1 py-1 text-left">COMMAND</th>
+                        <th className="border-b border-r border-border px-1 py-1 min-w-[100px] text-left">COMMAND</th>
                         <th className="border-b border-r border-border px-1 py-1 w-14 text-center">LckObj</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-16 text-left">STATUS</th>
+                        <th className="border-b border-r border-border px-1 py-1 min-w-[80px] text-left">STATUS</th>
                         <th className="border-b border-r border-border px-1 py-1 w-8 text-right">PQs</th>
-                        <th className="border-b border-r border-border px-1 py-1 text-left">OWNER</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-24 text-right">Completed,%</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-20 text-right">Elapsed,s</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-20 text-right">Remain,s</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-20 text-right">Temp,M</th>
-                        <th className="border-b border-border px-1 py-1 text-left">Event</th>
+                        <th className="border-b border-r border-border px-1 py-1 min-w-[100px] text-left">OWNER</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-20 text-right">Comp,%</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-16 text-right">Elapsed</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-16 text-right">Remain</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-16 text-right">Temp,M</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-16 text-right">PGA,M</th>
+                        <th className="border-b border-r border-border px-1 py-1 w-16 text-right">PGA Max</th>
+                        <th className="border-b border-border px-1 py-1 min-w-[200px] text-left">Event</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {data.map((session) => (
+                    {data.map((session, idx) => (
                         <tr
-                            key={session.sid}
+                            key={`${session.sid}-${idx}`}
                             onClick={() => onSelect(session.sid)}
                             onContextMenu={(e) => handleContextMenu(e, session)}
                             className={twMerge(
@@ -74,6 +77,7 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                         >
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.sid}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session['serial#']}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px]">{session.spid}</td>
                             <td className="border-r border-border px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.username}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.file_io}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.cpu}</td>
@@ -86,6 +90,8 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.elapsed}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.remain || session.rem_s || 0}</td>
                             <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap">{session.temp || 0}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap text-blue-600 font-bold">{session.pga_used_mb || 0}</td>
+                            <td className="border-r border-border px-1 py-0.5 text-right overflow-hidden text-ellipsis whitespace-nowrap text-amber-600">{session.pga_max_mb || 0}</td>
                             <td className="px-1 py-0.5 text-left overflow-hidden text-ellipsis whitespace-nowrap">{session.event}</td>
                         </tr>
                     ))}

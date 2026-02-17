@@ -17,7 +17,9 @@ SELECT  distinct
     s.event, 
     s.wait_class, 
     s.seconds_in_wait,
-    pr.spid as ospid,
+    pr.spid as spid,
+    round(pr.pga_used_mem / 1024 / 1024, 2) as pga_used_mb,
+    round(pr.pga_max_mem / 1024 / 1024, 2) as pga_max_mb,
     s.paddr as bg_name, -- Actually paddr, but often used to find bg name in v$bgprocess
     s.service_name as service,
     s.osuser,
