@@ -2,14 +2,14 @@ databases:
   db_ORCLCDB:
     username: dbajobs
     password: dbajobs
-    url: oracle://(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.0.70)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ORCLCDB)))
+    url: oracle://(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.0.60)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ORCL)))
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
   db_ORCL_DEV_(21c):
     username: dbajobs
     password: dbajobs
-    url: oracle://(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.0.70)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ORCL)))
+    url: oracle://(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.0.60)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ORCL)))
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10

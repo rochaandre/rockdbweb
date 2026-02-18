@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Server, Key, ChevronRight, Info } from 'lucide-react'
@@ -99,8 +100,15 @@ export function ServerForm({ initialData, onSubmit, onCancel }: any) {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="key_path" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">SSH Private Key Path</Label>
-                        <Input id="key_path" placeholder="~/.ssh/id_rsa" value={formData.key_path} onChange={handleChange} className="h-10 bg-muted/20 border-border/40 font-mono text-[11px]" />
+                        <Label htmlFor="key_path" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">SSH Private Key Content / Path</Label>
+                        <Textarea
+                            id="key_path"
+                            placeholder="Paste your private key content here or provide the file path..."
+                            value={formData.key_path}
+                            onChange={handleChange}
+                            rows={8}
+                            className="bg-muted/20 border-border/40 font-mono text-[11px] min-h-[160px]"
+                        />
                     </div>
                 </div>
             </CardContent>

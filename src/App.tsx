@@ -22,10 +22,12 @@ import { LongOperationsView } from '@/pages/long-operations-view'
 import { ToolsView } from '@/pages/tools-view'
 import { AppProvider } from '@/context/app-context'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 
 function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-right" richColors />
       <AppProvider>
         <Routes>
           <Route path="/" element={<DashboardView />} />

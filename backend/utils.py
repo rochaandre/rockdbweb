@@ -41,7 +41,13 @@ def get_db_path():
     if os.path.exists("/opt/rockdbweb"):
         return container_path
 
-    # Priority 4: Default behavior (relative to current working dir)
+    # Priority 4: Look for rockdb.sqlite in the project root (where main.py's parent is)
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    root_db = os.path.join(root_dir, "rockdb.sqlite")
+    if os.path.exists(root_db):
+        return root_db
+
+    # Priority 5: Default behavior (relative to current working dir)
     base_dir = os.getcwd()
     return os.path.join(base_dir, "rockdb.sqlite")
 

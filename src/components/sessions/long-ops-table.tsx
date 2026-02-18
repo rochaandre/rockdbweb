@@ -110,6 +110,10 @@ export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKe
                                     <Skull className="mr-2 h-4 w-4 text-destructive" />
                                     <span className="text-destructive">Kill Session</span>
                                 </ContextMenuItem>
+                                <ContextMenuItem onClick={() => onAction?.('KILL_COMMANDS', op)}>
+                                    <Skull className="mr-2 h-4 w-4 text-destructive animate-pulse" />
+                                    <span className="text-destructive">Kill Commands</span>
+                                </ContextMenuItem>
                                 <ContextMenuSeparator />
                                 <ContextMenuItem onClick={() => onAction?.('SHOW_SQL', op)}>
                                     <FileText className="mr-2 h-4 w-4" />
@@ -118,6 +122,10 @@ export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKe
                                 <ContextMenuItem onClick={() => onAction?.('SQL_CENTRAL', op)}>
                                     <Database className="mr-2 h-4 w-4 text-primary" />
                                     Show in SQL Central
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => onAction?.('SHOW_KILL_SQL_CENTRAL', op)}>
+                                    <Database className="mr-2 h-4 w-4 text-amber-600 animate-pulse" />
+                                    Show Kill Session in SQL Central
                                 </ContextMenuItem>
                                 <ContextMenuItem onClick={() => onAction?.('TRACE_SESSION', op)}>
                                     <Activity className="mr-2 h-4 w-4" />

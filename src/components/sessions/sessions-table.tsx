@@ -114,6 +114,10 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                                 <Skull className="mr-2 size-3.5 text-destructive" />
                                 Kill Session
                             </ContextMenuItem>
+                            <ContextMenuItem onClick={() => menuSession && onAction('KILL_COMMANDS', menuSession)}>
+                                <Skull className="mr-2 size-3.5 text-destructive animate-pulse" />
+                                Kill Commands (Manual)
+                            </ContextMenuItem>
                             <ContextMenuItem onClick={() => menuSession && onAction('Trace Session', menuSession)}>
                                 <Activity className="mr-2 size-3.5" />
                                 Trace Session
@@ -122,6 +126,10 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                             <ContextMenuItem onClick={() => menuSession && onAction('SQL_CENTRAL', menuSession)}>
                                 <Database className="mr-2 size-3.5 text-primary" />
                                 Show in SQL Central
+                            </ContextMenuItem>
+                            <ContextMenuItem onClick={() => menuSession && onAction('SHOW_KILL_SQL_CENTRAL', menuSession)}>
+                                <Database className="mr-2 size-3.5 text-amber-600 animate-pulse" />
+                                Show Kill Session in SQL Central
                             </ContextMenuItem>
                         </MenuPrimitive.Popup>
                     </MenuPrimitive.Positioner>

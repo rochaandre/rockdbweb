@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 import os
@@ -23,7 +23,8 @@ from .dashboard_mod import (
 )
 from .sessions_mod import (
     get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
-    get_long_ops, get_blocker_details, get_object_ddl, get_instances
+    get_long_ops, get_blocker_details, get_object_ddl, get_instances,
+    simulate_long_op, get_long_ops_stats
 )
 from .storage_mod import (
     get_tablespaces_detailed, get_data_files, get_segments, 
@@ -494,6 +495,26 @@ def read_long_ops(inst_id: Optional[int] = None):
         return get_long_ops(active, inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/longops/stats")
+def read_long_ops_stats():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_long_ops_stats(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/sessions/longops/simulate")
+def trigger_long_op_simulation(background_tasks: BackgroundTasks):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    
+    # Run simulation in the background to avoid blocking the API
+    background_tasks.add_task(simulate_long_op, active)
+    return {"message": "Simulation started in background"}
 
 @app.get("/api/sessions/blocker/{sid}")
 def read_blocker_details(sid: int, inst_id: Optional[int] = 1):
@@ -968,17 +989,35 @@ def read_sql_registry():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/sql/content")
-def read_sql_content(path: str, vars: Optional[str] = None):
+def read_sql_content(request: Request, path: str, vars: Optional[str] = None):
     try:
         import json
-        variables = json.loads(vars) if vars else None
+        variables = {}
+        
+        # 1. Start with vars JSON if provided
+        if vars:
+            try:
+                variables.update(json.loads(vars))
+            except:
+                pass
+        
+        # 2. Add all other query parameters as variables
+        # This allows ?SID=123&SERIAL=456 style calls
+        for key, value in request.query_params.items():
+            if key not in ['path', 'vars']:
+                variables[key] = value
+                
         active = get_active_connection()
         version = active.get('version') if active else None
+        
+        # get_sql_content handles the actual substitution using variables dict
         return {"content": get_sql_content(path, version, variables)}
     except FileNotFoundError as fe:
         raise HTTPException(status_code=404, detail=str(fe))
     except Exception as e:
+        print(f"Error in read_sql_content: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sql/search")

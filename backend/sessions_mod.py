@@ -319,3 +319,92 @@ def get_zombie_count(conn_info, inst_id=None):
     finally:
         if connection:
             connection.close()
+
+def simulate_long_op(conn_info):
+    """Runs a PL/SQL block to simulate a long operation in the database."""
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        plsql = """
+        DECLARE
+          v_rindex    BINARY_INTEGER := dbms_application_info.set_session_longops_nohint;
+          v_slno      BINARY_INTEGER; 
+          v_totalwork NUMBER := 100;  
+          v_sofar     NUMBER := 0;
+          v_obj_name  VARCHAR2(30) := 'MVIEW_REFRESH_SALES';
+        BEGIN
+          FOR i IN 1..v_totalwork LOOP
+            v_sofar := i;
+            dbms_session.sleep(0.1); 
+            DBMS_APPLICATION_INFO.SET_SESSION_LONGOPS(
+              rindex      => v_rindex,
+              slno        => v_slno,
+              opname      => 'Refresh Materialized View',
+              target      => 0,
+              context     => 1,
+              sofar       => v_sofar,
+              totalwork   => v_totalwork,
+              target_desc => v_obj_name,
+              units       => 'batches'
+            );
+          END LOOP;
+        END;
+        """
+        # Note: We use a thread-safe connection if possible or just run it. 
+        # In a real app, this might be a background job.
+        cursor.execute(plsql)
+        connection.commit()
+        return {"success": True}
+    finally:
+        if connection:
+            connection.close()
+
+def get_long_ops_stats(conn_info):
+    """Gathers statistics for long-running operations based on requested queries."""
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        stats = {}
+        
+        # 1. Total Active (Simplified Basic Query)
+        cursor.execute("SELECT count(*) FROM gv$session_longops WHERE sofar != totalwork")
+        stats['active_total'] = cursor.fetchone()[0]
+        
+        # 2. Detailed Tracking (Detailed Query)
+        cursor.execute("""
+            SELECT count(*)
+            FROM gv$session_longops lo, gv$session s
+            WHERE lo.sid = s.sid AND lo.serial# = s.serial# 
+            AND lo.inst_id = s.inst_id
+            AND lo.sofar != lo.totalwork
+        """)
+        stats['active_detailed'] = cursor.fetchone()[0]
+        
+        # 3. Time Remaining (Remaining Query)
+        cursor.execute("SELECT count(*) FROM gv$session_longops WHERE time_remaining > 0")
+        stats['with_time_remaining'] = cursor.fetchone()[0]
+        
+        # 4. DataPump Jobs
+        try:
+            cursor.execute("""
+                SELECT count(*) FROM gv$session_longops sl, gv$datapump_job dp
+                WHERE sl.opname = dp.job_name AND sl.sofar != sl.totalwork
+                AND sl.inst_id = dp.inst_id
+            """)
+            stats['datapump_jobs'] = cursor.fetchone()[0]
+        except:
+            stats['datapump_jobs'] = 0
+            
+        # Ensure all expected keys exist even on partial failures
+        for key in ['active_total', 'active_detailed', 'datapump_jobs', 'with_time_remaining']:
+            if key not in stats:
+                stats[key] = 0
+                
+        return stats
+    finally:
+        if connection:
+            connection.close()

@@ -131,6 +131,10 @@ export function BlockingTable({ onAction, instId, refreshKey }: BlockingTablePro
                                         <Skull className="mr-2 size-3.5 text-destructive" />
                                         Kill Session
                                     </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onAction('KILL_COMMANDS', session)}>
+                                        <Skull className="mr-2 size-3.5 text-destructive animate-pulse" />
+                                        Kill Commands (Manual)
+                                    </ContextMenuItem>
                                     <ContextMenuItem onClick={() => onAction('TRACE_SESSION', session)}>
                                         <Activity className="mr-2 size-3.5" />
                                         Trace Session
@@ -145,8 +149,12 @@ export function BlockingTable({ onAction, instId, refreshKey }: BlockingTablePro
                                         Show SQL
                                     </ContextMenuItem>
                                     <ContextMenuItem onClick={() => onAction('SQL_CENTRAL', session)}>
-                                        <Database className="mr-2 size-3.5 text-primary" />
+                                        <Database className="mr-2 h-4 w-4 text-primary" />
                                         Show in SQL Central
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onAction('SHOW_KILL_SQL_CENTRAL', session)}>
+                                        <Database className="mr-2 h-4 w-4 text-amber-600 animate-pulse" />
+                                        Show Kill Session in SQL Central
                                     </ContextMenuItem>
                                 </ContextMenu>
                             </td>

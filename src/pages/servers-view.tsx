@@ -96,7 +96,7 @@ export function ServersView() {
                             <CardHeader className="pb-3 border-b border-muted/30">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                        <div className="p-2 rounded-lg bg-muted text-muted-foreground">
                                             <Terminal className="size-5" />
                                         </div>
                                         <div className="truncate">
@@ -104,8 +104,8 @@ export function ServersView() {
                                                 {server.label}
                                             </CardTitle>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                                <Badge variant="secondary" className="text-[9px] font-bold py-0 px-1 uppercase h-4">
-                                                    {server.type || 'LINUX'}
+                                                <Badge variant="outline" className="text-[10px] font-normal py-0 px-1 uppercase">
+                                                    {server.connection_type || 'SSH'}
                                                 </Badge>
                                                 <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]">
                                                     {server.host}

@@ -9,6 +9,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, API_URL } from '@/context/app-context'
 import { usePersistentState } from '@/hooks/use-persistent-state'
+import { KillCommandsDialog } from '@/components/sessions/kill-commands-dialog'
 
 export function SessionsView() {
     const { logAction, connection } = useApp()
@@ -19,6 +20,8 @@ export function SessionsView() {
     const [isLoading, setIsLoading] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
     const [zombies, setZombies] = useState(0)
+    const [showKillCommands, setShowKillCommands] = useState(false)
+    const [killCommandSession, setKillCommandSession] = useState<any>(null)
 
     // Persistent States
     const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'sessions')
@@ -193,6 +196,17 @@ export function SessionsView() {
             const spid = session.spid || session.SPID || ''
             const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
             navigate(`/sql-central/sessions_replace?SID=${sid}&SERIAL=${serial}&SPID=${spid}&inst_id=${inst}`)
+        } else if (action === 'SHOW_KILL_SQL_CENTRAL') {
+            const sid = session.sid || session.SID
+            const serial = session['serial#'] || session.serial || ''
+            const sqlId = session.sql_id || session.SQL_ID || ''
+            const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+            navigate(`/sql-central/kill_session_replace?SID=${sid}&SERIAL=${serial}&INST_ID=${inst}&SQL_ID=${sqlId}`)
+        } else if (action === 'SHOW_SQL') {
+            handleSelect(session.sid)
+        } else if (action === 'KILL_COMMANDS') {
+            setKillCommandSession(session)
+            setShowKillCommands(true)
         }
         logAction('Context Menu', 'SessionsTable', `Action: ${action} | SID: ${session?.sid ?? 'N/A'}`)
     }
@@ -377,6 +391,13 @@ export function SessionsView() {
                 </div>
 
                 <DetailSidebar session={selectedSession} sqlText={sessionSql} />
+
+                {showKillCommands && (
+                    <KillCommandsDialog
+                        session={killCommandSession}
+                        onClose={() => setShowKillCommands(false)}
+                    />
+                )}
             </div>
         </MainLayout>
     )

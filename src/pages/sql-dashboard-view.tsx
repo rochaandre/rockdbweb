@@ -42,7 +42,7 @@ function ChartCard({ script }: ChartCardProps) {
         const fetchData = async () => {
             try {
                 // Fetch content first
-                const contentRes = await fetch(`${API_URL}/sql/content?rel_path=${encodeURIComponent(script.link_url)}`)
+                const contentRes = await fetch(`${API_URL}/sql/content?path=${encodeURIComponent(script.link_url)}`)
                 const contentData = await contentRes.json()
 
                 if (!contentData.content) throw new Error("Could not load script content")
