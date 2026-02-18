@@ -36,50 +36,23 @@ export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKe
         fetchLongOps()
     }, [instId, refreshKey])
 
-    // Helper to calculate percentage and render progress bar
-    const renderProgressBar = (sofar: number, totalwork: number) => {
-        if (totalwork === 0) return <div className="h-2 w-full bg-gray-100 rounded-full" />
 
-        const pct = Math.min(100, Math.max(0, (sofar / totalwork) * 100))
-        const pctStr = pct.toFixed(1) + '%'
-
-        return (
-            <div className="flex flex-col gap-1 w-full max-w-[140px]">
-                <div className="flex justify-between text-[10px] text-muted-foreground leading-none">
-                    <span>{pctStr}</span>
-                    <span>{sofar} / {totalwork}</span>
-                </div>
-                <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden dark:bg-gray-800">
-                    <div
-                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                        style={{ width: pctStr }}
-                    />
-                </div>
-            </div>
-        )
-    }
-
-    // Helper to format remaining time
-    const formatTimeRemaining = (seconds: number) => {
-        if (seconds < 60) return `${seconds}s`
-        const mins = Math.floor(seconds / 60)
-        return `${mins}m`
-    }
 
     return (
-        <div className="flex-1 overflow-auto bg-surface">
-            <div className="min-w-[1000px] border-b border-border">
+        <div className="flex-1 overflow-auto bg-surface border border-border rounded-md shadow-sm">
+            <div className="min-w-[1400px]">
                 {/* Header */}
-                <div className="flex h-8 w-full items-center bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10 border-b border-border">
-                    <div className="w-12 px-2 text-center shrink-0 border-r border-border/50">INST</div>
-                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">SID</div>
-                    <div className="w-16 px-2 text-center shrink-0 border-r border-border/50">Serial#</div>
-                    <div className="w-32 px-2 shrink-0 border-r border-border/50">Username</div>
-                    <div className="w-40 px-2 shrink-0 border-r border-border/50">OpName</div>
-                    <div className="w-40 px-2 shrink-0 border-r border-border/50">Target</div>
-                    <div className="w-40 px-2 shrink-0 border-r border-border/50">Progress</div>
-                    <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center">Remaining</div>
-                    <div className="flex-1 px-2 shrink-0 min-w-[200px]">Message</div>
+                <div className="flex h-8 w-full items-center bg-muted/50 text-[11px] font-bold text-muted-foreground sticky top-0 z-10 border-b border-border shadow-sm">
+                    <div className="w-10 px-1 text-center shrink-0 border-r border-border/50">INST</div>
+                    <div className="w-14 px-1 text-center shrink-0 border-r border-border/50">SID</div>
+                    <div className="w-20 px-1 shrink-0 border-r border-border/50 text-center">ELAPSED</div>
+                    <div className="w-20 px-1 shrink-0 border-r border-border/50 text-center text-amber-600">REMAIN</div>
+                    <div className="w-24 px-1 shrink-0 border-r border-border/50 text-center">PCT %</div>
+                    <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center justify-center">PROGRESS</div>
+                    <div className="w-32 px-1 shrink-0 border-r border-border/50 text-center">STARTED</div>
+                    <div className="w-20 px-1 shrink-0 border-r border-border/50 text-center text-blue-600">COMPL.</div>
+                    <div className="w-28 px-1 shrink-0 border-r border-border/50 text-center font-mono">SQL_ID</div>
+                    <div className="flex-1 px-2 shrink-0 min-w-[300px]">MESSAGE</div>
                 </div>
 
                 {/* Rows */}
@@ -103,23 +76,31 @@ export function LongOpsTable({ onSelect, onAction, selectedId, instId, refreshKe
                                     <div
                                         className={twMerge(
                                             "group flex h-9 items-center border-b border-border/50 text-xs transition-colors hover:bg-muted/50 cursor-pointer select-none",
-                                            isSelected ? "bg-blue-50/80 dark:bg-blue-950/30" : "bg-surface"
+                                            isSelected ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-surface odd:bg-secondary/5"
                                         )}
                                         onClick={() => onSelect?.(op.sid)}
                                     >
-                                        <div className="w-12 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground opacity-60">{op.inst_id}</div>
-                                        <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.sid}</div>
-                                        <div className="w-16 px-2 text-center shrink-0 border-r border-border/50 font-mono text-muted-foreground">{op.serial}</div>
-                                        <div className="w-32 px-2 shrink-0 border-r border-border/50 font-medium truncate" title={op.username}>{op.username}</div>
-                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate" title={op.opname}>{op.opname}</div>
-                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 truncate font-mono text-[11px]" title={op.target}>{op.target}</div>
-                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center">
-                                            {renderProgressBar(op.sofar, op.totalwork)}
+                                        <div className="w-10 px-1 text-center shrink-0 border-r border-border/50 font-mono opacity-60 text-[10px]">{op.inst_id}</div>
+                                        <div className="w-14 px-1 text-center shrink-0 border-r border-border/50 font-mono">{op.sid}</div>
+                                        <div className="w-20 px-1 text-center shrink-0 border-r border-border/50 font-mono text-[10px]">{op.elapsed_seconds}s</div>
+                                        <div className={twMerge("w-20 px-1 text-center shrink-0 border-r border-border/50 font-bold", isSelected ? "text-white" : "text-amber-600")}>
+                                            {op.time_remaining}s
                                         </div>
-                                        <div className="w-20 px-2 shrink-0 border-r border-border/50 text-center font-mono">
-                                            {formatTimeRemaining(op.time_remaining)}
+                                        <div className="w-24 px-1 text-center shrink-0 border-r border-border/50 font-bold">{op.pct}%</div>
+                                        <div className="w-40 px-2 shrink-0 border-r border-border/50 flex items-center justify-center">
+                                            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-800 border border-gray-300">
+                                                <div
+                                                    className="h-full bg-blue-500 transition-all duration-300 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                                                    style={{ width: `${op.pct}%` }}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="flex-1 px-2 shrink-0 truncate text-muted-foreground" title={op.message}>
+                                        <div className="w-32 px-1 text-center shrink-0 border-r border-border/50 font-mono text-[10px] opacity-80">{op.start_tim}</div>
+                                        <div className={twMerge("w-20 px-1 text-center shrink-0 border-r border-border/50 font-bold", isSelected ? "text-white" : "text-blue-600")}>
+                                            {op.tim}
+                                        </div>
+                                        <div className="w-28 px-1 shrink-0 border-r border-border/50 text-center font-mono text-[10px] text-blue-500 hover:underline">{op.sql_id}</div>
+                                        <div className="flex-1 px-2 shrink-0 truncate opacity-80" title={op.message}>
                                             {op.message}
                                         </div>
                                     </div>
