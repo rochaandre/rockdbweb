@@ -81,9 +81,9 @@ def parse_sql_variables(content, variables):
             return str(norm_vars[var_name])
         return match.group(0) # No match, return original text ($VAR or :VAR)
 
-    # Regex: $ or : followed by word characters (A-Z, 0-9, _)
+    # Regex: $, : or & followed by word characters (A-Z, 0-9, _)
     # We use a negative lookbehind (?<!\w) to ensure we don't match $ in internal views like gv$sql
-    return re.sub(r'(?<!\w)([$:])(\w+)', replace_match, content)
+    return re.sub(r'(?<!\w)([$:&])(\w+)', replace_match, content)
 
 def get_sql_content(rel_path, version=None, variables=None):
     full_path = get_versioned_sql_path(rel_path, version)

@@ -1,0 +1,20 @@
++-----------------------------------------------------------------------------------------------------------------------------------------+
+
+                                                                                 Per-Plan Execution Statistics Over Time
+                                                                                                             Avg                Avg               Avg            Avg            Avg
+       Plan Snapshot                              Avg LIO             Avg PIO         Avg ROW         CPU (secs)     Elapsed (secs)  Wall Time (secs)   Buffer Cache   Elapsed (ms)
+ Hash Value Time                Execs            Per Exec            Per Exec        Per Exec           Per Exec           Per Exec          Per Exec      Hit Ratio        Per PIO
+----------- ------------ ------------ ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+***********              ------------ ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+avg
+sum
+
+
+                                                                                 Summary Execution Statistics Over Time
+                                                                                                             Avg                Avg               Avg            Avg            Avg
+Snapshot                         Plan             Avg LIO             Avg PIO         Avg ROW         CPU (secs)     Elapsed (secs)  Wall Time (secs)   Buffer Cache   Elapsed (ms)
+Time                Execs  Hash Value            Per Exec            Per Exec        Per Exec           Per Exec           Per Exec          Per Exec      Hit Ratio        Per PIO
+------------ ------------ ----------- ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+             ------------             ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+avg
+sum

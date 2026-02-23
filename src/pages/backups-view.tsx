@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BackupJobsTable, BackupSetsTable, DatafilesTable, ExpdpGenerator, BackupSummaryTable, RmanGenerator, BackupImagesTable } from '@/components/backups/backup-components'
+import {
+    BackupJobsTable, BackupSetsTable, DatafilesTable, BackupImagesTable,
+    BackupSummaryTable, RmanGenerator, ExpdpGenerator,
+    RecoverySummaryCard, IncarnationTable, DatafileDetailedTable,
+    RmanStatusTable, RmanConfigTable
+} from "@/components/backups/backup-components"
 import { useApp, API_URL } from '@/context/app-context'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
@@ -14,22 +19,51 @@ export function BackupsView() {
     const [jobs, setJobs] = useState<any[]>([])
     const [summary, setSummary] = useState<any[]>([])
     const [summaryDays, setSummaryDays] = useState(30)
-    const [backupImages, setBackupImages] = useState<any[]>([])
+    const [images, setImages] = useState<any[]>([])
     const [nlsParams, setNlsParams] = useState<any>(null)
-
+    const [recoverySummary, setRecoverySummary] = useState<any>(null)
+    const [incarnations, setIncarnations] = useState<any[]>([])
+    const [recoveryDatafiles, setRecoveryDatafiles] = useState<any[]>([])
+    const [rmanStatus, setRmanStatus] = useState<any[]>([])
+    const [rmanConfig, setRmanConfig] = useState<any[]>([])
     const fetchBackups = async () => {
         setIsRefreshing(true)
         try {
-            const [jobsRes, summaryRes, imagesRes, nlsRes] = await Promise.all([
+            const [
+                jobsRes,
+                summaryRes,
+                imagesRes,
+                nlsRes,
+                recSummaryRes,
+                incRes,
+                recDfRes,
+                rmanStatusRes,
+                rmanConfigRes
+            ] = await Promise.all([
                 fetch(`${API_URL}/backups/jobs`),
                 fetch(`${API_URL}/backups/summary?days=${summaryDays}`),
                 fetch(`${API_URL}/backups/images`),
-                fetch(`${API_URL}/backups/nls`)
+                fetch(`${API_URL}/backups/nls`),
+                fetch(`${API_URL}/backups/recovery/summary`),
+                fetch(`${API_URL}/backups/recovery/incarnations`),
+                fetch(`${API_URL}/backups/recovery/datafiles`),
+                fetch(`${API_URL}/backups/rman/status`),
+                fetch(`${API_URL}/backups/rman/configuration`)
             ])
+
             if (jobsRes.ok) setJobs(await jobsRes.json())
             if (summaryRes.ok) setSummary(await summaryRes.json())
-            if (imagesRes.ok) setBackupImages(await imagesRes.json())
+            if (imagesRes.ok) setImages(await imagesRes.json())
             if (nlsRes.ok) setNlsParams(await nlsRes.json())
+            if (recSummaryRes.ok) setRecoverySummary(await recSummaryRes.json())
+            if (incRes.ok) setIncarnations(await incRes.json())
+            if (recDfRes.ok) setRecoveryDatafiles(await recDfRes.json())
+
+            const rmanStatusData = await rmanStatusRes.json().catch(() => [])
+            const rmanConfigData = await rmanConfigRes.json().catch(() => [])
+            setRmanStatus(Array.isArray(rmanStatusData) ? rmanStatusData : [])
+            setRmanConfig(Array.isArray(rmanConfigData) ? rmanConfigData : [])
+
         } catch (error) {
             console.error('Error fetching backups:', error)
         } finally {
@@ -150,6 +184,12 @@ export function BackupsView() {
                                 Backup Images
                             </TabsTrigger>
                             <TabsTrigger
+                                value="recovery"
+                                className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                Recovery Ops
+                            </TabsTrigger>
+                            <TabsTrigger
                                 value="rman"
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
@@ -160,6 +200,12 @@ export function BackupsView() {
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
                                 Expdp Gen
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="rman_status"
+                                className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                RMAN History & Config
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -188,16 +234,33 @@ export function BackupsView() {
                         )}
                     </TabsContent>
 
-                    <TabsContent value="images" className="flex-1 mt-4 overflow-auto">
-                        <BackupImagesTable images={backupImages} />
+                    <TabsContent value="images" className="flex-1 mt-4 overflow-auto space-y-4">
+                        <BackupImagesTable images={images} />
                     </TabsContent>
 
-                    <TabsContent value="rman" className="flex-1 mt-4 overflow-auto">
+                    <TabsContent value="recovery" className="flex-1 mt-4 overflow-auto space-y-6">
+                        <RecoverySummaryCard summary={recoverySummary} />
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-1">
+                                <IncarnationTable incarnations={incarnations} />
+                            </div>
+                            <div className="lg:col-span-2">
+                                <DatafileDetailedTable datafiles={recoveryDatafiles} />
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="rman" className="flex-1 mt-4 overflow-auto h-[calc(100vh-280px)]">
                         <RmanGenerator nlsParams={nlsParams} />
                     </TabsContent>
 
                     <TabsContent value="expdp" className="flex-1 mt-4 overflow-auto">
                         <ExpdpGenerator nlsParams={nlsParams} />
+                    </TabsContent>
+
+                    <TabsContent value="rman_status" className="flex-1 mt-4 overflow-auto space-y-6">
+                        <RmanStatusTable data={rmanStatus} />
+                        <RmanConfigTable data={rmanConfig} />
                     </TabsContent>
                 </Tabs>
             </div>

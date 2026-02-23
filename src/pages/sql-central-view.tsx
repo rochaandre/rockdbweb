@@ -29,7 +29,8 @@ import {
     Save,
     RotateCcw,
     Trash2,
-    Monitor
+    Monitor,
+    RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PieChartView, BarChartView, LineChartView, GaugeChartView } from '@/components/sql/sql-charts'
@@ -330,6 +331,21 @@ export function SqlCentralView() {
     const hasAutoExecuted = useRef<string | boolean>(false)
     const editorRef = useRef<HTMLTextAreaElement>(null)
     const [freeSqlContent, setFreeSqlContent] = usePersistentState('sql-central', 'freeSqlContent', '-- Scratchpad\nSELECT * FROM dual;')
+    const [isSyncing, setIsSyncing] = useState(false)
+
+    const handleSync = async () => {
+        setIsSyncing(true)
+        try {
+            const res = await fetch(`${API_URL}/sql/sync`, { method: 'POST' })
+            if (res.ok) {
+                await fetchRegistry()
+            }
+        } catch (err) {
+            console.error('Sync failed:', err)
+        } finally {
+            setIsSyncing(false)
+        }
+    }
 
     const fetchRegistry = async () => {
         try {
@@ -656,6 +672,16 @@ export function SqlCentralView() {
                                 title="New Script in root"
                             >
                                 <FolderPlus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:bg-muted/10"
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                title="Sync SQL Folders"
+                            >
+                                <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
                             </Button>
                         </div>
                         <ScrollArea className="flex-1">

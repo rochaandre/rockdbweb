@@ -2,12 +2,13 @@ import { twMerge } from 'tailwind-merge'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { API_URL } from "@/context/app-context"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 // import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" --> Removed
 import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Copy, Terminal, FileDigit, HardDrive, RefreshCw, Archive, Globe, Database } from "lucide-react"
+import { Copy, Terminal, FileDigit, HardDrive, RefreshCw, Archive, Globe, Database, ShieldCheck, Activity, HardDriveDownload, Calendar, Key } from "lucide-react"
 // mock data removed
 
 // --- status helper ---
@@ -458,22 +459,84 @@ export function ExpdpGenerator({ nlsParams }: { nlsParams?: any }) {
     const [directory, setDirectory] = useState('DATA_PUMP_DIR')
     const [parallel, setParallel] = useState(4)
     const [compression, setCompression] = useState(true)
-    const [command, setCommand] = useState('')
+    const [excludeInternalSchemas, setExcludeInternalSchemas] = useState(true)
+    const [excludeStatistics, setExcludeStatistics] = useState(true)
+    const [clusterN, setClusterN] = useState(true)
+    const [fileSize, setFileSize] = useState('10')
+    const [useParfile, setUseParfile] = useState(false)
+    const [systemSchemas, setSystemSchemas] = useState<string[]>([])
 
     useEffect(() => {
-        let cmd = `expdp system/password@db directory=${directory}`
+        const fetchSystemSchemas = async () => {
+            try {
+                const res = await fetch(`${API_URL}/system/excluded-schemas`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setSystemSchemas(data)
+                }
+            } catch (err) {
+                console.error("Failed to fetch system schemas", err)
+            }
+        }
+        fetchSystemSchemas()
+    }, [])
 
-        if (mode === 'SCHEMA') cmd += ` schemas=${schemas}`
-        else if (mode === 'FULL') cmd += ` full=Y`
-        else if (mode === 'TABLE') cmd += ` tables=${schemas}`
+    // Derive command from state
+    let command = `expdp system/password@db directory=${directory}`
 
-        cmd += ` dumpfile=${mode.toLowerCase()}_%U.dmp logfile=${mode.toLowerCase()}.log`
+    if (mode === 'SCHEMA') command += ` schemas=${schemas}`
+    else if (mode === 'FULL') command += ` full=Y`
+    else if (mode === 'TABLE') command += ` tables=${schemas}`
 
-        if (parallel > 1) cmd += ` parallel=${parallel}`
-        if (compression) cmd += ` compression=ALL`
+    command += ` dumpfile=${mode.toLowerCase()}_%U.dmp logfile=${mode.toLowerCase()}.log`
 
-        setCommand(cmd)
-    }, [mode, schemas, directory, parallel, compression])
+    if (parallel > 1) command += ` parallel=${parallel}`
+    if (compression) command += ` compression=ALL`
+
+    const exclusions: string[] = []
+    if (excludeInternalSchemas && systemSchemas.length > 0) {
+        exclusions.push(`SCHEMA:"IN ('${systemSchemas.join("','")}')"`)
+    }
+    if (excludeStatistics) {
+        exclusions.push('STATISTICS')
+    }
+
+    if (exclusions.length > 0) {
+        command += ` EXCLUDE=${exclusions.join(',')}`
+    }
+
+    if (clusterN) {
+        command += ` CLUSTER=N`
+    }
+
+    if (fileSize) {
+        command += ` FILESIZE=${fileSize}G`
+    }
+
+    // Generate parfile content
+    const parfileLines: string[] = []
+    parfileLines.push(`DIRECTORY=${directory}`)
+    if (mode === 'SCHEMA') parfileLines.push(`SCHEMAS=${schemas}`)
+    else if (mode === 'FULL') parfileLines.push(`FULL=Y`)
+    else if (mode === 'TABLE') parfileLines.push(`TABLES=${schemas}`)
+
+    parfileLines.push(`DUMPFILE=${mode.toLowerCase()}_%U.dmp`)
+    parfileLines.push(`LOGFILE=${mode.toLowerCase()}.log`)
+
+    if (parallel > 1) parfileLines.push(`PARALLEL=${parallel}`)
+    if (compression) parfileLines.push(`COMPRESSION=ALL`)
+
+    if (exclusions.length > 0) {
+        parfileLines.push(`EXCLUDE=${exclusions.join(',')}`)
+    }
+
+    if (clusterN) parfileLines.push(`CLUSTER=N`)
+    if (fileSize) parfileLines.push(`FILESIZE=${fileSize}G`)
+
+    const parfileContent = parfileLines.join('\n')
+    const finalDisplay = useParfile
+        ? `expdp system/password@db parfile=export.par\n\n# --- export.par content ---\n${parfileContent}`
+        : command
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
@@ -502,7 +565,7 @@ export function ExpdpGenerator({ nlsParams }: { nlsParams?: any }) {
                     <Input value={schemas} onChange={(e) => setSchemas(e.target.value)} disabled={mode === 'FULL'} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <Label>Directory Object</Label>
                         <Input value={directory} onChange={(e) => setDirectory(e.target.value)} />
@@ -511,26 +574,70 @@ export function ExpdpGenerator({ nlsParams }: { nlsParams?: any }) {
                         <Label>Parallelism</Label>
                         <Input type="number" value={parallel} onChange={(e) => setParallel(Number(e.target.value))} min={1} max={32} />
                     </div>
+                    <div className="space-y-2">
+                        <Label>File Size (GB)</Label>
+                        <Input type="number" value={fileSize} onChange={(e) => setFileSize(e.target.value)} min={1} />
+                    </div>
                 </div>
 
-                <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox id="comp" checked={compression} onChange={(e) => setCompression(e.target.checked as boolean)} />
-                    <Label htmlFor="comp">Enable Compression</Label>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="comp" checked={compression} onChange={(e) => setCompression(e.target.checked)} />
+                        <Label htmlFor="comp">Enable Compression</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="cluster-n" checked={clusterN} onChange={(e) => setClusterN(e.target.checked)} />
+                        <Label htmlFor="cluster-n">Cluster=N</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="exclude-stats" checked={excludeStatistics} onChange={(e) => setExcludeStatistics(e.target.checked)} />
+                        <Label htmlFor="exclude-stats">Exclude Statistics</Label>
+                    </div>
+                    <div className="flex items-center space-x-2 text-amber-600">
+                        <Checkbox id="exclude-sys" checked={excludeInternalSchemas} onChange={(e) => setExcludeInternalSchemas(e.target.checked)} />
+                        <Label htmlFor="exclude-sys" className="font-semibold text-amber-600">Exclude Internal Schemas</Label>
+                    </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-primary font-bold">Output Format</Label>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setUseParfile(false)}
+                                className={twMerge(
+                                    "px-3 py-1 text-xs rounded-md border transition-colors",
+                                    !useParfile ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border hover:bg-muted"
+                                )}
+                            >
+                                Direct Command
+                            </button>
+                            <button
+                                onClick={() => setUseParfile(true)}
+                                className={twMerge(
+                                    "px-3 py-1 text-xs rounded-md border transition-colors",
+                                    useParfile ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border hover:bg-muted"
+                                )}
+                            >
+                                Parameter File (PARFILE)
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Preview */}
             <div className="flex flex-col gap-2">
-                <Label>Generated Command</Label>
+                <Label>{useParfile ? 'Command & PARFILE Content' : 'Generated Command'}</Label>
                 <div className="flex-1 rounded-md bg-zinc-950 p-4 text-zinc-50 font-mono text-sm shadow-inner relative group border border-zinc-800">
                     <Terminal className="absolute top-4 right-4 text-zinc-700 size-5" />
-                    <div className="whitespace-pre-wrap break-all">{command}</div>
+                    <div className="whitespace-pre-wrap break-all">{finalDisplay}</div>
 
                     <Button
                         size="icon"
                         variant="secondary"
                         className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => navigator.clipboard.writeText(command)}
+                        onClick={() => navigator.clipboard.writeText(finalDisplay)}
                         title="Copy to Clipboard"
                     >
                         <Copy className="size-4" />
@@ -564,6 +671,194 @@ export function ExpdpGenerator({ nlsParams }: { nlsParams?: any }) {
                         </CardContent>
                     </Card>
                 )}
+            </div>
+        </div>
+    )
+}
+
+// --- Recovery Summary Card ---
+export function RecoverySummaryCard({ summary }: { summary: any }) {
+    if (!summary) return null
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-surface border-border">
+                <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase">Database Name / ID</CardTitle>
+                    <Database className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent className="py-2">
+                    <div className="text-xl font-bold">{summary.name}</div>
+                    <p className="text-[10px] text-muted-foreground font-mono">DBID: {summary.dbid}</p>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-surface border-border">
+                <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase">Log Mode / Open Mode</CardTitle>
+                    <ShieldCheck className="h-4 w-4 text-green-500" />
+                </CardHeader>
+                <CardContent className="py-2">
+                    <div className="text-lg font-bold flex items-center gap-2">
+                        <span className={twMerge(
+                            "px-1.5 py-0.5 rounded text-[10px]",
+                            summary.log_mode === 'ARCHIVELOG' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        )}>{summary.log_mode}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{summary.open_mode} ({summary.controlfile_type})</p>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-surface border-border">
+                <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase">Current SCN</CardTitle>
+                    <Activity className="h-4 w-4 text-blue-500" />
+                </CardHeader>
+                <CardContent className="py-2">
+                    <div className="text-xl font-mono font-bold text-blue-600">{summary.current_scn}</div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Snapshot: {summary.current_time}</p>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-surface border-border">
+                <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase">Creation Time</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="py-2">
+                    <div className="text-lg font-medium">{summary.created}</div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+// --- Incarnation Table ---
+export function IncarnationTable({ incarnations = [] }: { incarnations: any[] }) {
+    return (
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Key className="size-3.5" /> Database Incarnations
+            </div>
+            <div className="grid grid-cols-6 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                <div>ID</div>
+                <div>Status</div>
+                <div className="col-span-2">ResetLogs Time</div>
+                <div className="text-right">ResetLogs SCN</div>
+                <div className="text-right">Prior SCN</div>
+            </div>
+            {incarnations.map((inc, i) => (
+                <div key={i} className="grid grid-cols-6 gap-4 border-b border-border p-3 text-sm last:border-0 hover:bg-muted/30 items-center">
+                    <div className="font-mono text-xs text-muted-foreground text-center bg-muted/50 rounded py-0.5">{inc['incarnation#']}</div>
+                    <div>
+                        <span className={twMerge(
+                            "inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium border border-border",
+                            inc.status === 'CURRENT' ? "bg-green-100 text-green-700 border-green-200" :
+                                inc.status === 'PARENT' ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-100 text-gray-600"
+                        )}>
+                            {inc.status}
+                        </span>
+                    </div>
+                    <div className="col-span-2 text-xs font-mono">{inc.resetlogs_time}</div>
+                    <div className="text-right font-mono text-xs text-blue-600">{inc['resetlogs_change#']}</div>
+                    <div className="text-right font-mono text-xs text-muted-foreground">{inc['prior_resetlogs_change#']}</div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+// --- Detailed Datafile Table ---
+export function DatafileDetailedTable({ datafiles = [] }: { datafiles: any[] }) {
+    return (
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <HardDriveDownload className="size-3.5" /> Datafile Checkpoint Details
+            </div>
+            <div className="grid grid-cols-12 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                <div className="col-span-1">#</div>
+                <div className="col-span-4">File Name</div>
+                <div className="col-span-1 text-center">Status</div>
+                <div className="col-span-2 text-right">Checkpoint SCN</div>
+                <div className="col-span-2">Checkpoint Time</div>
+                <div className="col-span-2 text-right">Stop SCN</div>
+            </div>
+            <div className="max-h-[400px] overflow-auto divide-y divide-border">
+                {datafiles.map((f, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-4 p-3 text-xs hover:bg-muted/30 items-center transition-colors">
+                        <div className="col-span-1 font-mono text-muted-foreground">{f['file#']}</div>
+                        <div className="col-span-4 font-mono text-[10px] truncate py-1 px-1.5 bg-muted/20 rounded" title={f.name}>
+                            {f.name.split('/').pop()}
+                        </div>
+                        <div className="col-span-1 text-center font-bold text-[10px] uppercase">{f.status}</div>
+                        <div className="col-span-2 text-right font-mono text-blue-600 font-bold">{f['checkpoint_change#']}</div>
+                        <div className="col-span-2 font-mono text-[10px] text-muted-foreground">{f.checkpoint_time}</div>
+                        <div className="col-span-2 text-right font-mono text-orange-600">
+                            {f['last_change#'] || 'NULL'}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+// --- RMAN Status Table ---
+export function RmanStatusTable({ data = [] }: { data: any[] }) {
+    return (
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Activity className="size-3.5" /> RMAN Session Status (V$RMAN_STATUS)
+            </div>
+            <div className="grid grid-cols-12 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                <div className="col-span-1">RecID</div>
+                <div className="col-span-3">Operation</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-2">Start Time</div>
+                <div className="col-span-2">End Time</div>
+                <div className="col-span-2 text-right">MBytes/Sec</div>
+            </div>
+            <div className="max-h-[400px] overflow-auto divide-y divide-border">
+                {data.map((item, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-4 p-3 text-xs hover:bg-muted/30 items-center transition-colors">
+                        <div className="col-span-1 font-mono text-muted-foreground">{item.recid}</div>
+                        <div className="col-span-3 font-bold">{item.operation}</div>
+                        <div className="col-span-2">
+                            <StatusBadge status={item.status} />
+                        </div>
+                        <div className="col-span-2 font-mono text-[10px]">{item.start_time}</div>
+                        <div className="col-span-2 font-mono text-[10px]">{item.end_time}</div>
+                        <div className="col-span-2 text-right font-mono font-bold text-blue-600">
+                            {item.mbytes_processed > 0 ? (item.mbytes_processed / (item.elapsed_seconds || 1)).toFixed(2) : '0.00'}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+// --- RMAN Configuration Table ---
+export function RmanConfigTable({ data = [] }: { data: any[] }) {
+    return (
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <ShieldCheck className="size-3.5" /> Persistent RMAN Configuration
+            </div>
+            <div className="grid grid-cols-12 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                <div className="col-span-2">Conf#</div>
+                <div className="col-span-4">Name</div>
+                <div className="col-span-6">Value</div>
+            </div>
+            <div className="divide-y divide-border">
+                {data.map((item, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-4 p-3 text-xs hover:bg-muted/30 items-center transition-colors">
+                        <div className="col-span-2 font-mono text-muted-foreground">{item['conf#']}</div>
+                        <div className="col-span-4 font-bold text-primary">{item.name}</div>
+                        <div className="col-span-6 font-mono text-blue-600 bg-blue-50/50 p-1 rounded border border-blue-100/50 truncate" title={item.value}>
+                            {item.value}
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     )

@@ -1,0 +1,1 @@
+@sp_avg_redo_write_time

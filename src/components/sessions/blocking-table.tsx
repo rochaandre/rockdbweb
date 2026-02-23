@@ -21,12 +21,13 @@ interface BlockingTableProps {
     onAction: (action: string, session: BlockingSession) => void
     instId?: number
     refreshKey?: number
+    data?: BlockingSession[]
 }
 
-export function BlockingTable({ onAction, instId, refreshKey }: BlockingTableProps) {
+export function BlockingTable({ onAction, instId, refreshKey, data: propData }: BlockingTableProps) {
     const navigate = useNavigate()
-    const [data, setData] = useState<BlockingSession[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+    const [data, setData] = useState<BlockingSession[]>(propData || [])
+    const [isLoading, setIsLoading] = useState(!propData)
 
     const fetchBlockingData = async () => {
         setIsLoading(true)
@@ -45,8 +46,13 @@ export function BlockingTable({ onAction, instId, refreshKey }: BlockingTablePro
     }
 
     useEffect(() => {
-        fetchBlockingData()
-    }, [instId, refreshKey])
+        if (propData) {
+            setData(propData)
+            setIsLoading(false)
+        } else {
+            fetchBlockingData()
+        }
+    }, [instId, refreshKey, propData])
 
     return (
         <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm">

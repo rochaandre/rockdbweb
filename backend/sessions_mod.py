@@ -139,25 +139,22 @@ def get_blocking_sessions(conn_info, inst_id=None):
         if connection:
             connection.close()
 
-def get_long_ops(conn_info, inst_id=None):
+def get_long_ops(conn_info, inst_id=None, sid='%'):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         
-        where_clause = "WHERE sofar < totalwork"
-        params = []
-        if inst_id:
-            where_clause += " AND inst_id = :inst_id"
-            params.append(inst_id)
-            
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_template = get_sql_content("oracle/long_ops.sql", version)
         
-        sql_text = sql_template.format(where_clause=where_clause)
+        # We use the new session_longops.sql which implements Query 1
+        sql_text = get_sql_content("oracle/common/session_longops.sql", version)
         
-        cursor.execute(sql_text, params)
+        # If inst_id is provided, we might need a GV version, but for now 
+        # following Query 1 exactly as requested.
+        cursor.execute(sql_text, {"sid": sid})
+        
         columns = [col[0].lower() for col in cursor.description]
         return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
@@ -405,6 +402,67 @@ def get_long_ops_stats(conn_info):
                 stats[key] = 0
                 
         return stats
+    finally:
+        if connection:
+            connection.close()
+def get_sql_statistics(conn_info, sql_id, inst_id=1, child_number=0):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        
+        # 1. Main Statistics
+        sql_stats_template = get_sql_content("oracle/sql_statistics.sql", version)
+        cursor.execute(sql_stats_template, {"sql_id": sql_id, "inst_id": inst_id, "child_number": child_number})
+        
+        stats_data = {}
+        row = cursor.fetchone()
+        
+        # Fallback: if specific child_number not found, try any child for that SQL_ID/Inst
+        if not row:
+            print(f"Warning: No stats for sql_id={sql_id}, child={child_number}. Trying fallback to any child.")
+            fallback_sql = sql_stats_template.replace("AND child_number = :child_number", "AND rownum = 1")
+            cursor.execute(fallback_sql, {"sql_id": sql_id, "inst_id": inst_id})
+            row = cursor.fetchone()
+
+        if row:
+            columns = [col[0].lower() for col in cursor.description]
+            stats_data = {k: safe_value(v) for k, v in zip(columns, row)}
+
+        # 2. Bind Capture
+        sql_bind_template = get_sql_content("oracle/sql_bind_capture.sql", version)
+        cursor.execute(sql_bind_template, {"sql_id": sql_id, "inst_id": inst_id, "child_number": child_number})
+        bind_capture = []
+        if cursor.description:
+            cols = [c[0].lower() for c in cursor.description]
+            bind_capture = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+        # 3. Bind Data
+        sql_bind_data_template = get_sql_content("oracle/sql_bind_data.sql", version)
+        cursor.execute(sql_bind_data_template, {"sql_id": sql_id, "inst_id": inst_id, "child_number": child_number})
+        bind_data = []
+        if cursor.description:
+            cols = [c[0].lower() for c in cursor.description]
+            bind_data = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+        # 4. SQL Text
+        cursor.execute("SELECT sql_fulltext FROM gv$sqlstats WHERE sql_id = :sql_id AND inst_id = :inst_id AND rownum = 1", 
+                       {"sql_id": sql_id, "inst_id": inst_id})
+        sql_text_row = cursor.fetchone()
+        sql_text = safe_value(sql_text_row[0]) if sql_text_row else "SQL text not found"
+
+        return {
+            "statistics": stats_data,
+            "bind_capture": bind_capture,
+            "bind_data": bind_data,
+            "sql_text": sql_text
+        }
+    except Exception as e:
+        print(f"Error fetching SQL statistics: {e}")
+        raise e
     finally:
         if connection:
             connection.close()

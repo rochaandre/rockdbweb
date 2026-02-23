@@ -1,0 +1,686 @@
++-----------------------------------------------------------------------------------------------------------------------------------------+
+|Plan HV     Min Snap  Max Snap  Execs       LIO            PIO            CPU         Elapsed        CPU/EXE     ELA/EXE     WALL/EXE    |
++-----------------------------------------------------------------------------------------------------------------------------------------+
+|2949835890  1629      1655      1,760       453,026,706    157,780,490    4,899.90    22,334.58      2.7840      12.6901     12.6901     |
+|1800862632  1656      1656      5           2,811,786      1,149,962      53.72       217.54         10.7439     43.5072     43.5072     |
+|2982110054  1656      1676      1,586       18,870,177,498 4,081,576,722  363,806.37  2,701,132.60   229.3861    1,703.1101  1,703.1101  |
++-----------------------------------------------------------------------------------------------------------------------------------------+
+.
+========== PHV = 2949835890==========
+First seen from "07/05/22 16:00:30" (snap #1629)
+Last seen from  "07/06/22 18:00:23" (snap #1655)
+.
+Execs          LIO            PIO            CPU            Elapsed
+=====          ===            ===            ===            =======
+1,760          453,026,706    157,780,490    4,899.90       22,334.58
+.
+Plan hash value: 2949835890
+
+------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                                          | Name                    | Rows  | Bytes | Cost (%CPU)| Time     |
+------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                                   |                         |       |       |    59 (100)|          |
+|   1 |  SORT GROUP BY                                     |                         |     1 |   110 |            |          |
+|   2 |   VIEW                                             |                         |     9 |   990 |    59  (23)| 00:00:01 |
+|   3 |    UNION-ALL                                       |                         |       |       |            |          |
+|   4 |     HASH GROUP BY                                  |                         |     7 |   651 |    48  (17)| 00:00:01 |
+|   5 |      NESTED LOOPS                                  |                         |     7 |   651 |    47  (15)| 00:00:01 |
+|   6 |       NESTED LOOPS OUTER                           |                         |     7 |   630 |    47  (15)| 00:00:01 |
+|   7 |        HASH JOIN                                   |                         |     7 |   539 |    47  (15)| 00:00:01 |
+|   8 |         HASH JOIN OUTER                            |                         |     7 |   378 |    42  (17)| 00:00:01 |
+|   9 |          VIEW                                      | DBA_DATA_FILES          |     7 |   266 |    10   (0)| 00:00:01 |
+|  10 |           UNION-ALL                                |                         |       |       |            |          |
+|  11 |            NESTED LOOPS                            |                         |     1 |    99 |     3   (0)| 00:00:01 |
+|  12 |             NESTED LOOPS                           |                         |     1 |    83 |     2   (0)| 00:00:01 |
+|  13 |              HASH JOIN                             |                         |     1 |    78 |     2   (0)| 00:00:01 |
+|  14 |               TABLE ACCESS FULL                    | FILE$                   |     1 |    22 |     2   (0)| 00:00:01 |
+|  15 |               FIXED TABLE FULL                     | X$KCCFN                 |     6 |   336 |     0   (0)|          |
+|  16 |              FIXED TABLE FIXED INDEX               | X$KCCFE (ind:1)         |     1 |     5 |     0   (0)|          |
+|  17 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    16 |     1   (0)| 00:00:01 |
+|  18 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+|  19 |            HASH JOIN                               |                         |     6 |   630 |     7   (0)| 00:00:01 |
+|  20 |             NESTED LOOPS                           |                         |     6 |   534 |     2   (0)| 00:00:01 |
+|  21 |              NESTED LOOPS                          |                         |     6 |   504 |     2   (0)| 00:00:01 |
+|  22 |               HASH JOIN                            |                         |     6 |   390 |     2   (0)| 00:00:01 |
+|  23 |                FIXED TABLE FULL                    | X$KCCFN                 |     6 |   336 |     0   (0)|          |
+|  24 |                TABLE ACCESS FULL                   | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  25 |               FIXED TABLE FIXED INDEX              | X$KTFBHC (ind:1)        |     1 |    19 |     0   (0)|          |
+|  26 |              FIXED TABLE FULL                      | X$KCCFE                 |     1 |     5 |     0   (0)|          |
+|  27 |             TABLE ACCESS FULL                      | TS$                     |     8 |   128 |     5   (0)| 00:00:01 |
+|  28 |          VIEW                                      |                         |     6 |    96 |    32  (22)| 00:00:01 |
+|  29 |           HASH GROUP BY                            |                         |     6 |    96 |    32  (22)| 00:00:01 |
+|  30 |            VIEW                                    | DBA_FREE_SPACE          | 73394 |  1146K|    28  (11)| 00:00:01 |
+|  31 |             UNION-ALL                              |                         |       |       |            |          |
+|  32 |              NESTED LOOPS                          |                         |     1 |    59 |     2   (0)| 00:00:01 |
+|  33 |               NESTED LOOPS                         |                         |     1 |    48 |     2   (0)| 00:00:01 |
+|  34 |                TABLE ACCESS FULL                   | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  35 |                TABLE ACCESS CLUSTER                | FET$                    |     1 |    39 |     0   (0)|          |
+|  36 |                 INDEX UNIQUE SCAN                  | I_TS#                   |     1 |       |     0   (0)|          |
+|  37 |               TABLE ACCESS CLUSTER                 | TS$                     |     1 |    11 |     0   (0)|          |
+|  38 |                INDEX UNIQUE SCAN                   | I_TS#                   |     1 |       |     0   (0)|          |
+|  39 |              HASH JOIN                             |                         |   149 |  6109 |     7   (0)| 00:00:01 |
+|  40 |               NESTED LOOPS                         |                         |   149 |  4768 |     5   (0)| 00:00:01 |
+|  41 |                TABLE ACCESS FULL                   | TS$                     |     6 |   132 |     5   (0)| 00:00:01 |
+|  42 |                FIXED TABLE FIXED INDEX             | X$KTFBFE (ind:1)        |    24 |   240 |     0   (0)|          |
+|  43 |               TABLE ACCESS FULL                    | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  44 |              NESTED LOOPS                          |                         | 73242 |  7367K|    11  (28)| 00:00:01 |
+|  45 |               NESTED LOOPS                         |                         |     4 |   152 |     8   (0)| 00:00:01 |
+|  46 |                NESTED LOOPS                        |                         |     5 |    80 |     3   (0)| 00:00:01 |
+|  47 |                 TABLE ACCESS FULL                  | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  48 |                 TABLE ACCESS BY INDEX ROWID BATCHED| RECYCLEBIN$             |     1 |     7 |     1   (0)| 00:00:01 |
+|  49 |                  INDEX RANGE SCAN                  | RECYCLEBIN$_TS          |     5 |       |     0   (0)|          |
+|  50 |                TABLE ACCESS CLUSTER                | TS$                     |     1 |    22 |     1   (0)| 00:00:01 |
+|  51 |                 INDEX UNIQUE SCAN                  | I_TS#                   |     1 |       |     0   (0)|          |
+|  52 |               FIXED TABLE FULL                     | X$KTFBUE                | 16667 |  1057K|     1 (100)| 00:00:01 |
+|  53 |              NESTED LOOPS                          |                         |     1 |    79 |     5   (0)| 00:00:01 |
+|  54 |               NESTED LOOPS                         |                         |     1 |    68 |     5   (0)| 00:00:01 |
+|  55 |                MERGE JOIN CARTESIAN                |                         |    30 |   480 |     5   (0)| 00:00:01 |
+|  56 |                 TABLE ACCESS FULL                  | RECYCLEBIN$             |     5 |    35 |     2   (0)| 00:00:01 |
+|  57 |                 BUFFER SORT                        |                         |     6 |    54 |     3   (0)| 00:00:01 |
+|  58 |                  TABLE ACCESS FULL                 | FILE$                   |     6 |    54 |     1   (0)| 00:00:01 |
+|  59 |                TABLE ACCESS CLUSTER                | UET$                    |     1 |    52 |     0   (0)|          |
+|  60 |                 INDEX UNIQUE SCAN                  | I_FILE#_BLOCK#          |     1 |       |     0   (0)|          |
+|  61 |               TABLE ACCESS CLUSTER                 | TS$                     |     1 |    11 |     0   (0)|          |
+|  62 |                INDEX UNIQUE SCAN                   | I_TS#                   |     1 |       |     0   (0)|          |
+|  63 |              NESTED LOOPS                          |                         |     1 |    54 |     3   (0)| 00:00:01 |
+|  64 |               NESTED LOOPS                         |                         |     1 |    54 |     3   (0)| 00:00:01 |
+|  65 |                NESTED LOOPS                        |                         |     1 |    48 |     2   (0)| 00:00:01 |
+|  66 |                 TABLE ACCESS FULL                  | NEW_LOST_WRITE_EXTENTS$ |     1 |    26 |     2   (0)| 00:00:01 |
+|  67 |                 TABLE ACCESS CLUSTER               | TS$                     |     1 |    22 |     0   (0)|          |
+|  68 |                  INDEX UNIQUE SCAN                 | I_TS#                   |     1 |       |     0   (0)|          |
+|  69 |                INDEX RANGE SCAN                    | I_FILE2                 |     1 |       |     1   (0)| 00:00:01 |
+|  70 |               TABLE ACCESS BY INDEX ROWID          | FILE$                   |     1 |     6 |     1   (0)| 00:00:01 |
+|  71 |         TABLE ACCESS FULL                          | TS$                     |     7 |   161 |     5   (0)| 00:00:01 |
+|  72 |        INDEX RANGE SCAN                            | I_IMSVCTS1              |     1 |    13 |     0   (0)|          |
+|  73 |       FIXED TABLE FIXED INDEX                      | X$KCFISTSA (ind:1)      |     1 |     3 |     0   (0)|          |
+|  74 |     NESTED LOOPS                                   |                         |     1 |   106 |     4  (50)| 00:00:01 |
+|  75 |      NESTED LOOPS                                  |                         |     1 |    76 |     0   (0)|          |
+|  76 |       NESTED LOOPS                                 |                         |     1 |    55 |     0   (0)|          |
+|  77 |        FIXED TABLE FIXED INDEX                     | X$KSPPI (ind:1)         |     1 |    37 |     0   (0)|          |
+|  78 |        FIXED TABLE FIXED INDEX                     | X$KSPPCV (ind:1)        |     1 |    18 |     0   (0)|          |
+|  79 |       VIEW                                         |                         |     1 |    21 |     0   (0)|          |
+|  80 |        SORT GROUP BY                               |                         |     1 |    22 |     0   (0)|          |
+|  81 |         FILTER                                     |                         |       |       |            |          |
+|  82 |          HASH JOIN                                 |                         |     1 |    22 |     0   (0)|          |
+|  83 |           FIXED TABLE FULL                         | X$KCCTS                 |     1 |    13 |     0   (0)|          |
+|  84 |           FIXED TABLE FULL                         | X$KTSTSSD               |     1 |     9 |     0   (0)|          |
+|  85 |      VIEW                                          |                         |     1 |    30 |     4  (50)| 00:00:01 |
+|  86 |       SORT GROUP BY                                |                         |     2 |    60 |     4  (50)| 00:00:01 |
+|  87 |        VIEW                                        | DBA_TEMP_FILES          |     2 |    60 |     4  (50)| 00:00:01 |
+|  88 |         SORT UNIQUE                                |                         |     2 |   706 |     4  (50)| 00:00:01 |
+|  89 |          UNION-ALL                                 |                         |       |       |            |          |
+|  90 |           FILTER                                   |                         |       |       |            |          |
+|  91 |            NESTED LOOPS                            |                         |     1 |   168 |     1   (0)| 00:00:01 |
+|  92 |             NESTED LOOPS                           |                         |     1 |   147 |     0   (0)|          |
+|  93 |              NESTED LOOPS                          |                         |     1 |   119 |     0   (0)|          |
+|  94 |               NESTED LOOPS                         |                         |     1 |    73 |     0   (0)|          |
+|  95 |                FIXED TABLE FULL                    | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+|  96 |                FIXED TABLE FIXED INDEX             | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+|  97 |               FIXED TABLE FIXED INDEX              | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+|  98 |              FIXED TABLE FIXED INDEX               | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+|  99 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 100 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 101 |           FILTER                                   |                         |       |       |            |          |
+| 102 |            NESTED LOOPS                            |                         |     1 |   185 |     1   (0)| 00:00:01 |
+| 103 |             MERGE JOIN CARTESIAN                   |                         |     1 |   164 |     0   (0)|          |
+| 104 |              MERGE JOIN CARTESIAN                  |                         |     1 |   164 |     0   (0)|          |
+| 105 |               MERGE JOIN CARTESIAN                 |                         |     1 |   164 |     0   (0)|          |
+| 106 |                HASH JOIN                           |                         |     1 |   153 |     0   (0)|          |
+| 107 |                 NESTED LOOPS                       |                         |     1 |   147 |     0   (0)|          |
+| 108 |                  NESTED LOOPS                      |                         |     1 |   119 |     0   (0)|          |
+| 109 |                   NESTED LOOPS                     |                         |     1 |    73 |     0   (0)|          |
+| 110 |                    FIXED TABLE FULL                | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 111 |                    FIXED TABLE FIXED INDEX         | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 112 |                   FIXED TABLE FIXED INDEX          | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 113 |                  FIXED TABLE FIXED INDEX           | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 114 |                 FIXED TABLE FULL                   | X$KSUXSINST             |     1 |     6 |     0   (0)|          |
+| 115 |                BUFFER SORT                         |                         |     1 |    11 |     0   (0)|          |
+| 116 |                 FIXED TABLE FULL                   | X$KVIT                  |     1 |    11 |     0   (0)|          |
+| 117 |               BUFFER SORT                          |                         |     1 |       |     0   (0)|          |
+| 118 |                FIXED TABLE FULL                    | X$QUIESCE               |     1 |       |     0   (0)|          |
+| 119 |              BUFFER SORT                           |                         |     1 |       |     0   (0)|          |
+| 120 |               FIXED TABLE FULL                     | X$KJIDT                 |     1 |       |     0   (0)|          |
+| 121 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 122 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 123 |     HASH GROUP BY                                  |                         |     2 |   164 |    11  (46)| 00:00:01 |
+| 124 |      NESTED LOOPS                                  |                         |     2 |   164 |     6  (34)| 00:00:01 |
+| 125 |       NESTED LOOPS OUTER                           |                         |     2 |   158 |     6  (34)| 00:00:01 |
+| 126 |        NESTED LOOPS                                |                         |     2 |   132 |     6  (34)| 00:00:01 |
+| 127 |         VIEW                                       | DBA_TEMP_FILES          |     2 |    86 |     4  (50)| 00:00:01 |
+| 128 |          SORT UNIQUE                               |                         |     2 |   706 |     4  (50)| 00:00:01 |
+| 129 |           UNION-ALL                                |                         |       |       |            |          |
+| 130 |            NESTED LOOPS                            |                         |     1 |   168 |     1   (0)| 00:00:01 |
+| 131 |             NESTED LOOPS                           |                         |     1 |   147 |     0   (0)|          |
+| 132 |              NESTED LOOPS                          |                         |     1 |   119 |     0   (0)|          |
+| 133 |               NESTED LOOPS                         |                         |     1 |    73 |     0   (0)|          |
+| 134 |                FIXED TABLE FULL                    | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 135 |                FIXED TABLE FIXED INDEX             | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 136 |               FIXED TABLE FIXED INDEX              | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 137 |              FIXED TABLE FIXED INDEX               | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 138 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 139 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 140 |            NESTED LOOPS                            |                         |     1 |   185 |     1   (0)| 00:00:01 |
+| 141 |             MERGE JOIN CARTESIAN                   |                         |     1 |   164 |     0   (0)|          |
+| 142 |              MERGE JOIN CARTESIAN                  |                         |     1 |   164 |     0   (0)|          |
+| 143 |               MERGE JOIN CARTESIAN                 |                         |     1 |   164 |     0   (0)|          |
+| 144 |                HASH JOIN                           |                         |     1 |   153 |     0   (0)|          |
+| 145 |                 NESTED LOOPS                       |                         |     1 |   147 |     0   (0)|          |
+| 146 |                  NESTED LOOPS                      |                         |     1 |   119 |     0   (0)|          |
+| 147 |                   NESTED LOOPS                     |                         |     1 |    73 |     0   (0)|          |
+| 148 |                    FIXED TABLE FULL                | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 149 |                    FIXED TABLE FIXED INDEX         | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 150 |                   FIXED TABLE FIXED INDEX          | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 151 |                  FIXED TABLE FIXED INDEX           | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 152 |                 FIXED TABLE FULL                   | X$KSUXSINST             |     1 |     6 |     0   (0)|          |
+| 153 |                BUFFER SORT                         |                         |     1 |    11 |     0   (0)|          |
+| 154 |                 FIXED TABLE FULL                   | X$KVIT                  |     1 |    11 |     0   (0)|          |
+| 155 |               BUFFER SORT                          |                         |     1 |       |     0   (0)|          |
+| 156 |                FIXED TABLE FULL                    | X$QUIESCE               |     1 |       |     0   (0)|          |
+| 157 |              BUFFER SORT                           |                         |     1 |       |     0   (0)|          |
+| 158 |               FIXED TABLE FULL                     | X$KJIDT                 |     1 |       |     0   (0)|          |
+| 159 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 160 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 161 |         TABLE ACCESS BY INDEX ROWID                | TS$                     |     1 |    23 |     1   (0)| 00:00:01 |
+| 162 |          INDEX UNIQUE SCAN                         | I_TS1                   |     1 |       |     0   (0)|          |
+| 163 |        INDEX RANGE SCAN                            | I_IMSVCTS1              |     1 |    13 |     0   (0)|          |
+| 164 |       FIXED TABLE FIXED INDEX                      | X$KCFISTSA (ind:1)      |     1 |     3 |     0   (0)|          |
+------------------------------------------------------------------------------------------------------------------------------
+
+Note
+-----
+   - this is an adaptive plan
+
+.
+========== PHV = 1800862632==========
+First seen from "07/07/22 12:35:03" (snap #1656)
+Last seen from  "07/07/22 12:35:03" (snap #1656)
+.
+Execs          LIO            PIO            CPU            Elapsed
+=====          ===            ===            ===            =======
+5              2,811,786      1,149,962      53.72          217.54
+.
+Plan hash value: 1800862632
+
+------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                                          | Name                    | Rows  | Bytes | Cost (%CPU)| Time     |
+------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                                   |                         |       |       |    59 (100)|          |
+|   1 |  SORT GROUP BY                                     |                         |     1 |   110 |            |          |
+|   2 |   VIEW                                             |                         |     9 |   990 |    59  (23)| 00:00:01 |
+|   3 |    UNION-ALL                                       |                         |       |       |            |          |
+|   4 |     HASH GROUP BY                                  |                         |     7 |   651 |    48  (17)| 00:00:01 |
+|   5 |      NESTED LOOPS                                  |                         |     7 |   651 |    47  (15)| 00:00:01 |
+|   6 |       NESTED LOOPS OUTER                           |                         |     7 |   630 |    47  (15)| 00:00:01 |
+|   7 |        HASH JOIN                                   |                         |     7 |   539 |    47  (15)| 00:00:01 |
+|   8 |         HASH JOIN OUTER                            |                         |     7 |   378 |    42  (17)| 00:00:01 |
+|   9 |          VIEW                                      | DBA_DATA_FILES          |     7 |   266 |    10   (0)| 00:00:01 |
+|  10 |           UNION-ALL                                |                         |       |       |            |          |
+|  11 |            NESTED LOOPS                            |                         |     1 |    99 |     3   (0)| 00:00:01 |
+|  12 |             NESTED LOOPS                           |                         |     1 |    83 |     2   (0)| 00:00:01 |
+|  13 |              HASH JOIN                             |                         |     1 |    78 |     2   (0)| 00:00:01 |
+|  14 |               TABLE ACCESS FULL                    | FILE$                   |     1 |    22 |     2   (0)| 00:00:01 |
+|  15 |               FIXED TABLE FULL                     | X$KCCFN                 |     6 |   336 |     0   (0)|          |
+|  16 |              FIXED TABLE FIXED INDEX               | X$KCCFE (ind:1)         |     1 |     5 |     0   (0)|          |
+|  17 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    16 |     1   (0)| 00:00:01 |
+|  18 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+|  19 |            HASH JOIN                               |                         |     6 |   630 |     7   (0)| 00:00:01 |
+|  20 |             NESTED LOOPS                           |                         |     6 |   534 |     2   (0)| 00:00:01 |
+|  21 |              NESTED LOOPS                          |                         |     6 |   504 |     2   (0)| 00:00:01 |
+|  22 |               HASH JOIN                            |                         |     6 |   390 |     2   (0)| 00:00:01 |
+|  23 |                FIXED TABLE FULL                    | X$KCCFN                 |     6 |   336 |     0   (0)|          |
+|  24 |                TABLE ACCESS FULL                   | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  25 |               FIXED TABLE FIXED INDEX              | X$KTFBHC (ind:1)        |     1 |    19 |     0   (0)|          |
+|  26 |              FIXED TABLE FULL                      | X$KCCFE                 |     1 |     5 |     0   (0)|          |
+|  27 |             TABLE ACCESS FULL                      | TS$                     |     8 |   128 |     5   (0)| 00:00:01 |
+|  28 |          VIEW                                      |                         |     6 |    96 |    32  (22)| 00:00:01 |
+|  29 |           HASH GROUP BY                            |                         |     6 |    96 |    32  (22)| 00:00:01 |
+|  30 |            VIEW                                    | DBA_FREE_SPACE          | 73394 |  1146K|    28  (11)| 00:00:01 |
+|  31 |             UNION-ALL                              |                         |       |       |            |          |
+|  32 |              NESTED LOOPS                          |                         |     1 |    59 |     2   (0)| 00:00:01 |
+|  33 |               NESTED LOOPS                         |                         |     1 |    48 |     2   (0)| 00:00:01 |
+|  34 |                TABLE ACCESS FULL                   | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  35 |                TABLE ACCESS CLUSTER                | FET$                    |     1 |    39 |     0   (0)|          |
+|  36 |                 INDEX UNIQUE SCAN                  | I_TS#                   |     1 |       |     0   (0)|          |
+|  37 |               TABLE ACCESS CLUSTER                 | TS$                     |     1 |    11 |     0   (0)|          |
+|  38 |                INDEX UNIQUE SCAN                   | I_TS#                   |     1 |       |     0   (0)|          |
+|  39 |              HASH JOIN                             |                         |   149 |  6109 |     7   (0)| 00:00:01 |
+|  40 |               NESTED LOOPS                         |                         |   149 |  4768 |     5   (0)| 00:00:01 |
+|  41 |                TABLE ACCESS FULL                   | TS$                     |     6 |   132 |     5   (0)| 00:00:01 |
+|  42 |                FIXED TABLE FIXED INDEX             | X$KTFBFE (ind:1)        |    24 |   240 |     0   (0)|          |
+|  43 |               TABLE ACCESS FULL                    | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  44 |              NESTED LOOPS                          |                         | 73242 |  7367K|    11  (28)| 00:00:01 |
+|  45 |               HASH JOIN                            |                         |     4 |   152 |     8   (0)| 00:00:01 |
+|  46 |                NESTED LOOPS                        |                         |     5 |    80 |     3   (0)| 00:00:01 |
+|  47 |                 TABLE ACCESS FULL                  | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  48 |                 TABLE ACCESS BY INDEX ROWID BATCHED| RECYCLEBIN$             |     1 |     7 |     1   (0)| 00:00:01 |
+|  49 |                  INDEX RANGE SCAN                  | RECYCLEBIN$_TS          |     5 |       |     0   (0)|          |
+|  50 |                TABLE ACCESS FULL                   | TS$                     |     1 |    22 |     1   (0)| 00:00:01 |
+|  51 |               FIXED TABLE FULL                     | X$KTFBUE                | 16667 |  1057K|     1 (100)| 00:00:01 |
+|  52 |              NESTED LOOPS                          |                         |     1 |    79 |     5   (0)| 00:00:01 |
+|  53 |               NESTED LOOPS                         |                         |     1 |    68 |     5   (0)| 00:00:01 |
+|  54 |                MERGE JOIN CARTESIAN                |                         |   210 |  3360 |     5   (0)| 00:00:01 |
+|  55 |                 TABLE ACCESS FULL                  | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  56 |                 BUFFER SORT                        |                         |    35 |   245 |     3   (0)| 00:00:01 |
+|  57 |                  TABLE ACCESS FULL                 | RECYCLEBIN$             |    35 |   245 |     1   (0)| 00:00:01 |
+|  58 |                TABLE ACCESS CLUSTER                | UET$                    |     1 |    52 |     0   (0)|          |
+|  59 |                 INDEX UNIQUE SCAN                  | I_FILE#_BLOCK#          |     1 |       |     0   (0)|          |
+|  60 |               TABLE ACCESS CLUSTER                 | TS$                     |     1 |    11 |     0   (0)|          |
+|  61 |                INDEX UNIQUE SCAN                   | I_TS#                   |     1 |       |     0   (0)|          |
+|  62 |              NESTED LOOPS                          |                         |     1 |    54 |     3   (0)| 00:00:01 |
+|  63 |               NESTED LOOPS                         |                         |     1 |    54 |     3   (0)| 00:00:01 |
+|  64 |                NESTED LOOPS                        |                         |     1 |    48 |     2   (0)| 00:00:01 |
+|  65 |                 TABLE ACCESS FULL                  | NEW_LOST_WRITE_EXTENTS$ |     1 |    26 |     2   (0)| 00:00:01 |
+|  66 |                 TABLE ACCESS CLUSTER               | TS$                     |     1 |    22 |     0   (0)|          |
+|  67 |                  INDEX UNIQUE SCAN                 | I_TS#                   |     1 |       |     0   (0)|          |
+|  68 |                INDEX RANGE SCAN                    | I_FILE2                 |     1 |       |     1   (0)| 00:00:01 |
+|  69 |               TABLE ACCESS BY INDEX ROWID          | FILE$                   |     1 |     6 |     1   (0)| 00:00:01 |
+|  70 |         TABLE ACCESS FULL                          | TS$                     |     7 |   161 |     5   (0)| 00:00:01 |
+|  71 |        INDEX RANGE SCAN                            | I_IMSVCTS1              |     1 |    13 |     0   (0)|          |
+|  72 |       FIXED TABLE FIXED INDEX                      | X$KCFISTSA (ind:1)      |     1 |     3 |     0   (0)|          |
+|  73 |     NESTED LOOPS                                   |                         |     1 |   106 |     4  (50)| 00:00:01 |
+|  74 |      NESTED LOOPS                                  |                         |     1 |    76 |     0   (0)|          |
+|  75 |       NESTED LOOPS                                 |                         |     1 |    55 |     0   (0)|          |
+|  76 |        FIXED TABLE FIXED INDEX                     | X$KSPPI (ind:1)         |     1 |    37 |     0   (0)|          |
+|  77 |        FIXED TABLE FIXED INDEX                     | X$KSPPCV (ind:1)        |     1 |    18 |     0   (0)|          |
+|  78 |       VIEW                                         |                         |     1 |    21 |     0   (0)|          |
+|  79 |        SORT GROUP BY                               |                         |     1 |    22 |     0   (0)|          |
+|  80 |         FILTER                                     |                         |       |       |            |          |
+|  81 |          HASH JOIN                                 |                         |     1 |    22 |     0   (0)|          |
+|  82 |           FIXED TABLE FULL                         | X$KCCTS                 |     1 |    13 |     0   (0)|          |
+|  83 |           FIXED TABLE FULL                         | X$KTSTSSD               |     1 |     9 |     0   (0)|          |
+|  84 |      VIEW                                          |                         |     1 |    30 |     4  (50)| 00:00:01 |
+|  85 |       SORT GROUP BY                                |                         |     2 |    60 |     4  (50)| 00:00:01 |
+|  86 |        VIEW                                        | DBA_TEMP_FILES          |     2 |    60 |     4  (50)| 00:00:01 |
+|  87 |         SORT UNIQUE                                |                         |     2 |   706 |     4  (50)| 00:00:01 |
+|  88 |          UNION-ALL                                 |                         |       |       |            |          |
+|  89 |           FILTER                                   |                         |       |       |            |          |
+|  90 |            NESTED LOOPS                            |                         |     1 |   168 |     1   (0)| 00:00:01 |
+|  91 |             NESTED LOOPS                           |                         |     1 |   147 |     0   (0)|          |
+|  92 |              NESTED LOOPS                          |                         |     1 |   119 |     0   (0)|          |
+|  93 |               NESTED LOOPS                         |                         |     1 |    73 |     0   (0)|          |
+|  94 |                FIXED TABLE FULL                    | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+|  95 |                FIXED TABLE FIXED INDEX             | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+|  96 |               FIXED TABLE FIXED INDEX              | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+|  97 |              FIXED TABLE FIXED INDEX               | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+|  98 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+|  99 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 100 |           FILTER                                   |                         |       |       |            |          |
+| 101 |            NESTED LOOPS                            |                         |     1 |   185 |     1   (0)| 00:00:01 |
+| 102 |             MERGE JOIN CARTESIAN                   |                         |     1 |   164 |     0   (0)|          |
+| 103 |              MERGE JOIN CARTESIAN                  |                         |     1 |   164 |     0   (0)|          |
+| 104 |               MERGE JOIN CARTESIAN                 |                         |     1 |   164 |     0   (0)|          |
+| 105 |                HASH JOIN                           |                         |     1 |   153 |     0   (0)|          |
+| 106 |                 NESTED LOOPS                       |                         |     1 |   147 |     0   (0)|          |
+| 107 |                  NESTED LOOPS                      |                         |     1 |   119 |     0   (0)|          |
+| 108 |                   NESTED LOOPS                     |                         |     1 |    73 |     0   (0)|          |
+| 109 |                    FIXED TABLE FULL                | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 110 |                    FIXED TABLE FIXED INDEX         | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 111 |                   FIXED TABLE FIXED INDEX          | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 112 |                  FIXED TABLE FIXED INDEX           | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 113 |                 FIXED TABLE FULL                   | X$KSUXSINST             |     1 |     6 |     0   (0)|          |
+| 114 |                BUFFER SORT                         |                         |     1 |    11 |     0   (0)|          |
+| 115 |                 FIXED TABLE FULL                   | X$KVIT                  |     1 |    11 |     0   (0)|          |
+| 116 |               BUFFER SORT                          |                         |     1 |       |     0   (0)|          |
+| 117 |                FIXED TABLE FULL                    | X$QUIESCE               |     1 |       |     0   (0)|          |
+| 118 |              BUFFER SORT                           |                         |     1 |       |     0   (0)|          |
+| 119 |               FIXED TABLE FULL                     | X$KJIDT                 |     1 |       |     0   (0)|          |
+| 120 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 121 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 122 |     HASH GROUP BY                                  |                         |     2 |   164 |    11  (46)| 00:00:01 |
+| 123 |      NESTED LOOPS                                  |                         |     2 |   164 |     6  (34)| 00:00:01 |
+| 124 |       NESTED LOOPS OUTER                           |                         |     2 |   158 |     6  (34)| 00:00:01 |
+| 125 |        NESTED LOOPS                                |                         |     2 |   132 |     6  (34)| 00:00:01 |
+| 126 |         VIEW                                       | DBA_TEMP_FILES          |     2 |    86 |     4  (50)| 00:00:01 |
+| 127 |          SORT UNIQUE                               |                         |     2 |   706 |     4  (50)| 00:00:01 |
+| 128 |           UNION-ALL                                |                         |       |       |            |          |
+| 129 |            NESTED LOOPS                            |                         |     1 |   168 |     1   (0)| 00:00:01 |
+| 130 |             NESTED LOOPS                           |                         |     1 |   147 |     0   (0)|          |
+| 131 |              NESTED LOOPS                          |                         |     1 |   119 |     0   (0)|          |
+| 132 |               NESTED LOOPS                         |                         |     1 |    73 |     0   (0)|          |
+| 133 |                FIXED TABLE FULL                    | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 134 |                FIXED TABLE FIXED INDEX             | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 135 |               FIXED TABLE FIXED INDEX              | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 136 |              FIXED TABLE FIXED INDEX               | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 137 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 138 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 139 |            NESTED LOOPS                            |                         |     1 |   185 |     1   (0)| 00:00:01 |
+| 140 |             MERGE JOIN CARTESIAN                   |                         |     1 |   164 |     0   (0)|          |
+| 141 |              MERGE JOIN CARTESIAN                  |                         |     1 |   164 |     0   (0)|          |
+| 142 |               MERGE JOIN CARTESIAN                 |                         |     1 |   164 |     0   (0)|          |
+| 143 |                HASH JOIN                           |                         |     1 |   153 |     0   (0)|          |
+| 144 |                 NESTED LOOPS                       |                         |     1 |   147 |     0   (0)|          |
+| 145 |                  NESTED LOOPS                      |                         |     1 |   119 |     0   (0)|          |
+| 146 |                   NESTED LOOPS                     |                         |     1 |    73 |     0   (0)|          |
+| 147 |                    FIXED TABLE FULL                | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 148 |                    FIXED TABLE FIXED INDEX         | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 149 |                   FIXED TABLE FIXED INDEX          | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 150 |                  FIXED TABLE FIXED INDEX           | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 151 |                 FIXED TABLE FULL                   | X$KSUXSINST             |     1 |     6 |     0   (0)|          |
+| 152 |                BUFFER SORT                         |                         |     1 |    11 |     0   (0)|          |
+| 153 |                 FIXED TABLE FULL                   | X$KVIT                  |     1 |    11 |     0   (0)|          |
+| 154 |               BUFFER SORT                          |                         |     1 |       |     0   (0)|          |
+| 155 |                FIXED TABLE FULL                    | X$QUIESCE               |     1 |       |     0   (0)|          |
+| 156 |              BUFFER SORT                           |                         |     1 |       |     0   (0)|          |
+| 157 |               FIXED TABLE FULL                     | X$KJIDT                 |     1 |       |     0   (0)|          |
+| 158 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 159 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 160 |         TABLE ACCESS BY INDEX ROWID                | TS$                     |     1 |    23 |     1   (0)| 00:00:01 |
+| 161 |          INDEX UNIQUE SCAN                         | I_TS1                   |     1 |       |     0   (0)|          |
+| 162 |        INDEX RANGE SCAN                            | I_IMSVCTS1              |     1 |    13 |     0   (0)|          |
+| 163 |       FIXED TABLE FIXED INDEX                      | X$KCFISTSA (ind:1)      |     1 |     3 |     0   (0)|          |
+------------------------------------------------------------------------------------------------------------------------------
+
+Note
+-----
+   - statistics feedback used for this statement
+   - this is an adaptive plan
+
+.
+========== PHV = 2982110054==========
+First seen from "07/07/22 12:35:03" (snap #1656)
+Last seen from  "07/08/22 08:00:43" (snap #1676)
+.
+Execs          LIO            PIO            CPU            Elapsed
+=====          ===            ===            ===            =======
+1,586          18,870,177,498 4,081,576,722  363,806.37     2,701,132.60
+.
+Plan hash value: 2982110054
+
+------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                                          | Name                    | Rows  | Bytes | Cost (%CPU)| Time     |
+------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                                   |                         |       |       |    59 (100)|          |
+|   1 |  SORT GROUP BY                                     |                         |     1 |   110 |            |          |
+|   2 |   VIEW                                             |                         |     9 |   990 |    59  (23)| 00:00:01 |
+|   3 |    UNION-ALL                                       |                         |       |       |            |          |
+|   4 |     HASH GROUP BY                                  |                         |     7 |   651 |    48  (17)| 00:00:01 |
+|   5 |      NESTED LOOPS                                  |                         |     7 |   651 |    47  (15)| 00:00:01 |
+|   6 |       NESTED LOOPS OUTER                           |                         |     7 |   630 |    47  (15)| 00:00:01 |
+|   7 |        HASH JOIN                                   |                         |     7 |   539 |    47  (15)| 00:00:01 |
+|   8 |         HASH JOIN OUTER                            |                         |     7 |   378 |    42  (17)| 00:00:01 |
+|   9 |          VIEW                                      | DBA_DATA_FILES          |     7 |   266 |    10   (0)| 00:00:01 |
+|  10 |           UNION-ALL                                |                         |       |       |            |          |
+|  11 |            NESTED LOOPS                            |                         |     1 |    99 |     3   (0)| 00:00:01 |
+|  12 |             NESTED LOOPS                           |                         |     1 |    83 |     2   (0)| 00:00:01 |
+|  13 |              HASH JOIN                             |                         |     1 |    78 |     2   (0)| 00:00:01 |
+|  14 |               TABLE ACCESS FULL                    | FILE$                   |     1 |    22 |     2   (0)| 00:00:01 |
+|  15 |               FIXED TABLE FULL                     | X$KCCFN                 |     6 |   336 |     0   (0)|          |
+|  16 |              FIXED TABLE FIXED INDEX               | X$KCCFE (ind:1)         |     1 |     5 |     0   (0)|          |
+|  17 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    16 |     1   (0)| 00:00:01 |
+|  18 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+|  19 |            HASH JOIN                               |                         |     6 |   630 |     7   (0)| 00:00:01 |
+|  20 |             NESTED LOOPS                           |                         |     6 |   534 |     2   (0)| 00:00:01 |
+|  21 |              NESTED LOOPS                          |                         |     6 |   504 |     2   (0)| 00:00:01 |
+|  22 |               HASH JOIN                            |                         |     6 |   390 |     2   (0)| 00:00:01 |
+|  23 |                FIXED TABLE FULL                    | X$KCCFN                 |     6 |   336 |     0   (0)|          |
+|  24 |                TABLE ACCESS FULL                   | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  25 |               FIXED TABLE FIXED INDEX              | X$KTFBHC (ind:1)        |     1 |    19 |     0   (0)|          |
+|  26 |              FIXED TABLE FULL                      | X$KCCFE                 |     1 |     5 |     0   (0)|          |
+|  27 |             TABLE ACCESS FULL                      | TS$                     |     8 |   128 |     5   (0)| 00:00:01 |
+|  28 |          VIEW                                      |                         |     6 |    96 |    32  (22)| 00:00:01 |
+|  29 |           HASH GROUP BY                            |                         |     6 |    96 |    32  (22)| 00:00:01 |
+|  30 |            VIEW                                    | DBA_FREE_SPACE          | 73394 |  1146K|    28  (11)| 00:00:01 |
+|  31 |             UNION-ALL                              |                         |       |       |            |          |
+|  32 |              NESTED LOOPS                          |                         |     1 |    59 |     2   (0)| 00:00:01 |
+|  33 |               NESTED LOOPS                         |                         |     1 |    48 |     2   (0)| 00:00:01 |
+|  34 |                TABLE ACCESS FULL                   | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  35 |                TABLE ACCESS CLUSTER                | FET$                    |     1 |    39 |     0   (0)|          |
+|  36 |                 INDEX UNIQUE SCAN                  | I_TS#                   |     1 |       |     0   (0)|          |
+|  37 |               TABLE ACCESS CLUSTER                 | TS$                     |     1 |    11 |     0   (0)|          |
+|  38 |                INDEX UNIQUE SCAN                   | I_TS#                   |     1 |       |     0   (0)|          |
+|  39 |              HASH JOIN                             |                         |   149 |  6109 |     7   (0)| 00:00:01 |
+|  40 |               NESTED LOOPS                         |                         |   149 |  4768 |     5   (0)| 00:00:01 |
+|  41 |                TABLE ACCESS FULL                   | TS$                     |     6 |   132 |     5   (0)| 00:00:01 |
+|  42 |                FIXED TABLE FIXED INDEX             | X$KTFBFE (ind:1)        |    24 |   240 |     0   (0)|          |
+|  43 |               TABLE ACCESS FULL                    | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  44 |              NESTED LOOPS                          |                         | 73242 |  7367K|    11  (28)| 00:00:01 |
+|  45 |               HASH JOIN                            |                         |     4 |   152 |     8   (0)| 00:00:01 |
+|  46 |                NESTED LOOPS                        |                         |     5 |    80 |     3   (0)| 00:00:01 |
+|  47 |                 TABLE ACCESS FULL                  | FILE$                   |     6 |    54 |     2   (0)| 00:00:01 |
+|  48 |                 TABLE ACCESS BY INDEX ROWID BATCHED| RECYCLEBIN$             |     1 |     7 |     1   (0)| 00:00:01 |
+|  49 |                  INDEX RANGE SCAN                  | RECYCLEBIN$_TS          |     5 |       |     0   (0)|          |
+|  50 |                TABLE ACCESS FULL                   | TS$                     |     1 |    22 |     1   (0)| 00:00:01 |
+|  51 |               FIXED TABLE FULL                     | X$KTFBUE                | 16667 |  1057K|     1 (100)| 00:00:01 |
+|  52 |              NESTED LOOPS                          |                         |     1 |    79 |     5   (0)| 00:00:01 |
+|  53 |               NESTED LOOPS                         |                         |     1 |    68 |     5   (0)| 00:00:01 |
+|  54 |                MERGE JOIN CARTESIAN                |                         |    30 |   480 |     5   (0)| 00:00:01 |
+|  55 |                 TABLE ACCESS FULL                  | RECYCLEBIN$             |     5 |    35 |     2   (0)| 00:00:01 |
+|  56 |                 BUFFER SORT                        |                         |     6 |    54 |     3   (0)| 00:00:01 |
+|  57 |                  TABLE ACCESS FULL                 | FILE$                   |     6 |    54 |     1   (0)| 00:00:01 |
+|  58 |                TABLE ACCESS CLUSTER                | UET$                    |     1 |    52 |     0   (0)|          |
+|  59 |                 INDEX UNIQUE SCAN                  | I_FILE#_BLOCK#          |     1 |       |     0   (0)|          |
+|  60 |               TABLE ACCESS CLUSTER                 | TS$                     |     1 |    11 |     0   (0)|          |
+|  61 |                INDEX UNIQUE SCAN                   | I_TS#                   |     1 |       |     0   (0)|          |
+|  62 |              NESTED LOOPS                          |                         |     1 |    54 |     3   (0)| 00:00:01 |
+|  63 |               NESTED LOOPS                         |                         |     1 |    54 |     3   (0)| 00:00:01 |
+|  64 |                NESTED LOOPS                        |                         |     1 |    48 |     2   (0)| 00:00:01 |
+|  65 |                 TABLE ACCESS FULL                  | NEW_LOST_WRITE_EXTENTS$ |     1 |    26 |     2   (0)| 00:00:01 |
+|  66 |                 TABLE ACCESS CLUSTER               | TS$                     |     1 |    22 |     0   (0)|          |
+|  67 |                  INDEX UNIQUE SCAN                 | I_TS#                   |     1 |       |     0   (0)|          |
+|  68 |                INDEX RANGE SCAN                    | I_FILE2                 |     1 |       |     1   (0)| 00:00:01 |
+|  69 |               TABLE ACCESS BY INDEX ROWID          | FILE$                   |     1 |     6 |     1   (0)| 00:00:01 |
+|  70 |         TABLE ACCESS FULL                          | TS$                     |     7 |   161 |     5   (0)| 00:00:01 |
+|  71 |        INDEX RANGE SCAN                            | I_IMSVCTS1              |     1 |    13 |     0   (0)|          |
+|  72 |       FIXED TABLE FIXED INDEX                      | X$KCFISTSA (ind:1)      |     1 |     3 |     0   (0)|          |
+|  73 |     NESTED LOOPS                                   |                         |     1 |   106 |     4  (50)| 00:00:01 |
+|  74 |      NESTED LOOPS                                  |                         |     1 |    76 |     0   (0)|          |
+|  75 |       NESTED LOOPS                                 |                         |     1 |    55 |     0   (0)|          |
+|  76 |        FIXED TABLE FIXED INDEX                     | X$KSPPI (ind:1)         |     1 |    37 |     0   (0)|          |
+|  77 |        FIXED TABLE FIXED INDEX                     | X$KSPPCV (ind:1)        |     1 |    18 |     0   (0)|          |
+|  78 |       VIEW                                         |                         |     1 |    21 |     0   (0)|          |
+|  79 |        SORT GROUP BY                               |                         |     1 |    22 |     0   (0)|          |
+|  80 |         FILTER                                     |                         |       |       |            |          |
+|  81 |          HASH JOIN                                 |                         |     1 |    22 |     0   (0)|          |
+|  82 |           FIXED TABLE FULL                         | X$KCCTS                 |     1 |    13 |     0   (0)|          |
+|  83 |           FIXED TABLE FULL                         | X$KTSTSSD               |     1 |     9 |     0   (0)|          |
+|  84 |      VIEW                                          |                         |     1 |    30 |     4  (50)| 00:00:01 |
+|  85 |       SORT GROUP BY                                |                         |     2 |    60 |     4  (50)| 00:00:01 |
+|  86 |        VIEW                                        | DBA_TEMP_FILES          |     2 |    60 |     4  (50)| 00:00:01 |
+|  87 |         SORT UNIQUE                                |                         |     2 |   706 |     4  (50)| 00:00:01 |
+|  88 |          UNION-ALL                                 |                         |       |       |            |          |
+|  89 |           FILTER                                   |                         |       |       |            |          |
+|  90 |            NESTED LOOPS                            |                         |     1 |   168 |     1   (0)| 00:00:01 |
+|  91 |             NESTED LOOPS                           |                         |     1 |   147 |     0   (0)|          |
+|  92 |              NESTED LOOPS                          |                         |     1 |   119 |     0   (0)|          |
+|  93 |               NESTED LOOPS                         |                         |     1 |    73 |     0   (0)|          |
+|  94 |                FIXED TABLE FULL                    | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+|  95 |                FIXED TABLE FIXED INDEX             | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+|  96 |               FIXED TABLE FIXED INDEX              | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+|  97 |              FIXED TABLE FIXED INDEX               | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+|  98 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+|  99 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 100 |           FILTER                                   |                         |       |       |            |          |
+| 101 |            NESTED LOOPS                            |                         |     1 |   185 |     1   (0)| 00:00:01 |
+| 102 |             MERGE JOIN CARTESIAN                   |                         |     1 |   164 |     0   (0)|          |
+| 103 |              MERGE JOIN CARTESIAN                  |                         |     1 |   164 |     0   (0)|          |
+| 104 |               MERGE JOIN CARTESIAN                 |                         |     1 |   164 |     0   (0)|          |
+| 105 |                HASH JOIN                           |                         |     1 |   153 |     0   (0)|          |
+| 106 |                 NESTED LOOPS                       |                         |     1 |   147 |     0   (0)|          |
+| 107 |                  NESTED LOOPS                      |                         |     1 |   119 |     0   (0)|          |
+| 108 |                   NESTED LOOPS                     |                         |     1 |    73 |     0   (0)|          |
+| 109 |                    FIXED TABLE FULL                | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 110 |                    FIXED TABLE FIXED INDEX         | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 111 |                   FIXED TABLE FIXED INDEX          | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 112 |                  FIXED TABLE FIXED INDEX           | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 113 |                 FIXED TABLE FULL                   | X$KSUXSINST             |     1 |     6 |     0   (0)|          |
+| 114 |                BUFFER SORT                         |                         |     1 |    11 |     0   (0)|          |
+| 115 |                 FIXED TABLE FULL                   | X$KVIT                  |     1 |    11 |     0   (0)|          |
+| 116 |               BUFFER SORT                          |                         |     1 |       |     0   (0)|          |
+| 117 |                FIXED TABLE FULL                    | X$QUIESCE               |     1 |       |     0   (0)|          |
+| 118 |              BUFFER SORT                           |                         |     1 |       |     0   (0)|          |
+| 119 |               FIXED TABLE FULL                     | X$KJIDT                 |     1 |       |     0   (0)|          |
+| 120 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 121 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 122 |     HASH GROUP BY                                  |                         |     2 |   164 |    11  (46)| 00:00:01 |
+| 123 |      NESTED LOOPS                                  |                         |     2 |   164 |     6  (34)| 00:00:01 |
+| 124 |       NESTED LOOPS OUTER                           |                         |     2 |   158 |     6  (34)| 00:00:01 |
+| 125 |        NESTED LOOPS                                |                         |     2 |   132 |     6  (34)| 00:00:01 |
+| 126 |         VIEW                                       | DBA_TEMP_FILES          |     2 |    86 |     4  (50)| 00:00:01 |
+| 127 |          SORT UNIQUE                               |                         |     2 |   706 |     4  (50)| 00:00:01 |
+| 128 |           UNION-ALL                                |                         |       |       |            |          |
+| 129 |            NESTED LOOPS                            |                         |     1 |   168 |     1   (0)| 00:00:01 |
+| 130 |             NESTED LOOPS                           |                         |     1 |   147 |     0   (0)|          |
+| 131 |              NESTED LOOPS                          |                         |     1 |   119 |     0   (0)|          |
+| 132 |               NESTED LOOPS                         |                         |     1 |    73 |     0   (0)|          |
+| 133 |                FIXED TABLE FULL                    | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 134 |                FIXED TABLE FIXED INDEX             | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 135 |               FIXED TABLE FIXED INDEX              | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 136 |              FIXED TABLE FIXED INDEX               | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 137 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 138 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 139 |            NESTED LOOPS                            |                         |     1 |   185 |     1   (0)| 00:00:01 |
+| 140 |             MERGE JOIN CARTESIAN                   |                         |     1 |   164 |     0   (0)|          |
+| 141 |              MERGE JOIN CARTESIAN                  |                         |     1 |   164 |     0   (0)|          |
+| 142 |               MERGE JOIN CARTESIAN                 |                         |     1 |   164 |     0   (0)|          |
+| 143 |                HASH JOIN                           |                         |     1 |   153 |     0   (0)|          |
+| 144 |                 NESTED LOOPS                       |                         |     1 |   147 |     0   (0)|          |
+| 145 |                  NESTED LOOPS                      |                         |     1 |   119 |     0   (0)|          |
+| 146 |                   NESTED LOOPS                     |                         |     1 |    73 |     0   (0)|          |
+| 147 |                    FIXED TABLE FULL                | X$KCCTF                 |     1 |    20 |     0   (0)|          |
+| 148 |                    FIXED TABLE FIXED INDEX         | X$KCCFN (ind:1)         |     1 |    53 |     0   (0)|          |
+| 149 |                   FIXED TABLE FIXED INDEX          | X$KCVFHTMP (ind:1)      |     1 |    46 |     0   (0)|          |
+| 150 |                  FIXED TABLE FIXED INDEX           | X$KTFTHC (ind:2)        |     1 |    28 |     0   (0)|          |
+| 151 |                 FIXED TABLE FULL                   | X$KSUXSINST             |     1 |     6 |     0   (0)|          |
+| 152 |                BUFFER SORT                         |                         |     1 |    11 |     0   (0)|          |
+| 153 |                 FIXED TABLE FULL                   | X$KVIT                  |     1 |    11 |     0   (0)|          |
+| 154 |               BUFFER SORT                          |                         |     1 |       |     0   (0)|          |
+| 155 |                FIXED TABLE FULL                    | X$QUIESCE               |     1 |       |     0   (0)|          |
+| 156 |              BUFFER SORT                           |                         |     1 |       |     0   (0)|          |
+| 157 |               FIXED TABLE FULL                     | X$KJIDT                 |     1 |       |     0   (0)|          |
+| 158 |             TABLE ACCESS CLUSTER                   | TS$                     |     1 |    21 |     1   (0)| 00:00:01 |
+| 159 |              INDEX UNIQUE SCAN                     | I_TS#                   |     1 |       |     0   (0)|          |
+| 160 |         TABLE ACCESS BY INDEX ROWID                | TS$                     |     1 |    23 |     1   (0)| 00:00:01 |
+| 161 |          INDEX UNIQUE SCAN                         | I_TS1                   |     1 |       |     0   (0)|          |
+| 162 |        INDEX RANGE SCAN                            | I_IMSVCTS1              |     1 |    13 |     0   (0)|          |
+| 163 |       FIXED TABLE FIXED INDEX                      | X$KCFISTSA (ind:1)      |     1 |     3 |     0   (0)|          |
+------------------------------------------------------------------------------------------------------------------------------
+
+Note
+-----
+   - this is an adaptive plan
+
+
+                                                                                 Per-Plan Execution Statistics Over Time
+                                                                                                            Avg                Avg               Avg            Avg            Avg
+      Plan Snapshot                              Avg LIO             Avg PIO         Avg ROW         CPU (secs)     Elapsed (secs)  Wall Time (secs)   Buffer Cache   Elapsed (ms)
+Hash Value Time                Execs            Per Exec            Per Exec        Per Exec           Per Exec           Per Exec          Per Exec      Hit Ratio        Per PIO
+---------- ------------ ------------ ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+1800862632 07-JUL 12:35            5          562,357.20          229,992.40            1.00           10.74390           43.50723           43.5072          59.10          0.165
+**********              ------------ ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+avg                                           562,357.20          229,992.40            1.00           10.74390           43.50723           43.5072          59.10          0.165
+sum                                5
+
+2949835890 05-JUL 16:00           56           65,000.93           23,634.09            1.00            0.72610            3.06898            3.0690          63.64          0.114
+           05-JUL 17:00           59           80,850.29           29,400.00            1.00            0.86619            3.74218            3.7422          63.64          0.112
+           05-JUL 18:00           61           80,859.05           29,400.00            1.00            0.84073            3.59725            3.5973          63.64          0.107
+           05-JUL 19:00           60           80,859.00           29,400.00            1.00            0.80106            3.57493            3.5749          63.64          0.107
+           05-JUL 20:00           60           80,863.75           29,400.00            1.00            0.96818            4.02286            4.0229          63.64          0.119
+           05-JUL 21:00           60           79,352.43           28,910.00            0.98            0.84353            3.65346            3.6535          63.57          0.111
+           05-JUL 22:00           60           81,976.73           29,890.00            1.02            0.79830            3.55129            3.5513          63.54          0.105
+           05-JUL 23:00           60           80,661.00           29,400.00            1.00            0.76058            3.47554            3.4755          63.55          0.105
+           06-JUL 00:00           60           80,694.00           29,400.00            1.00            0.79295            3.55645            3.5565          63.57          0.107
+           06-JUL 01:00           60           79,446.27           28,910.00            0.98            0.79009            3.50066            3.5007          63.61          0.107
+           06-JUL 02:00           60           82,160.75           29,890.00            1.02            0.70739            3.43991            3.4399          63.62          0.103
+           06-JUL 03:00           60           80,819.00           29,400.00            1.00            0.69038            3.38536            3.3854          63.62          0.103
+           06-JUL 04:00           60           80,822.47           29,400.00            1.00            0.70389            3.42590            3.4259          63.62          0.104
+           06-JUL 05:00           60           79,628.63           28,968.65            0.98            0.71220            3.57455            3.5745          63.62          0.111
+           06-JUL 06:00           60           82,041.68           29,831.35            1.02            0.74499            3.62636            3.6264          63.64          0.108
+           06-JUL 07:00           60           80,844.00           29,400.00            1.00            0.80717            3.64807            3.6481          63.63          0.110
+           06-JUL 08:00           60           80,859.42           29,400.00            1.00            0.93803            3.97354            3.9735          63.64          0.119
+           06-JUL 09:00           60           81,671.75           29,694.30            1.00            0.91034            3.80006            3.8001          63.64          0.112
+           06-JUL 10:00           61          328,062.25          118,726.41            1.00            3.74589           15.61623           15.6162          63.81          0.115
+           06-JUL 11:00           80          494,990.68          164,755.30            0.99            5.68952           24.18328           24.1833          66.72          0.129
+           06-JUL 12:00           78          568,129.87          198,933.45            1.00            6.53531           27.22453           27.2245          64.98          0.120
+           06-JUL 13:00           80          565,832.00          204,050.00            1.00            5.59260           25.27224           25.2722          63.94          0.110
+           06-JUL 14:00           77          568,945.91          197,430.30            1.00            6.37371           28.23252           28.2325          65.30          0.126
+           06-JUL 15:00           75          562,336.36          172,458.33            1.00            6.67259           41.61277           41.6128          69.33          0.220
+           06-JUL 16:00           76          561,723.30          183,452.25            1.00            6.51597           27.80790           27.8079          67.34          0.133
+           06-JUL 17:00           81          568,109.56          204,842.65            1.00            6.10173           26.22007           26.2201          63.94          0.113
+           06-JUL 18:00           76          566,294.53          204,166.38            1.00            5.48960           25.07013           25.0701          63.95          0.109
+**********              ------------ ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+avg                                           230,512.43           80,464.57            1.00            2.48589           11.32804           11.3280          64.24          0.116
+sum                            1,760
+
+2982110054 07-JUL 12:35           11          536,796.55          222,911.09            0.91           10.39530           43.43889           43.4389          58.47          0.171
+           07-JUL 12:45           96       15,226,345.08        2,709,240.41            0.03          207.35438        1,366.27112        1,366.2711          82.21          0.451
+           07-JUL 14:00           81       15,985,608.99        2,992,119.75            0.00          224.33973        1,702.55231        1,702.5523          81.28          0.518
+           07-JUL 15:00           79       16,238,045.06        3,105,071.66            0.00          229.61031        1,774.74679        1,774.7468          80.88          0.522
+           07-JUL 16:00           76                0.00        3,891,181.12            0.00          253.00885        1,737.58869        1,737.5887                         0.404
+           07-JUL 17:00           72       20,776,765.61        3,323,817.11            0.00          279.38957        1,774.23780        1,774.2378          84.00          0.474
+           07-JUL 18:00           75       16,942,269.28        2,836,452.85            0.00          229.86772        1,700.68100        1,700.6810          83.26          0.542
+           07-JUL 19:00           76                0.00        2,491,210.88            0.00          274.26120        1,694.16957        1,694.1696                         0.594
+           07-JUL 20:00           76       19,519,351.08        3,512,176.28            0.00          258.76840        1,773.89461        1,773.8946          82.01          0.453
+           07-JUL 21:00           79       18,591,862.82        3,486,603.35            0.00          245.81447        1,728.02991        1,728.0299          81.25          0.443
+           07-JUL 22:00           77                0.00        2,420,387.19            0.00          110.61582        1,763.48323        1,763.4832                         0.298
+           07-JUL 23:00           78        8,380,883.58        2,592,757.08            0.00          110.71304        1,722.59143        1,722.5914          69.06          0.273
+           08-JUL 00:00           77        8,706,259.62        2,684,684.42            0.00          114.55506        1,760.44103        1,760.4410          69.16          0.272
+           08-JUL 01:00           79        8,918,334.46        2,681,923.72            0.00          114.29148        1,704.19376        1,704.1938          69.93          0.273
+           08-JUL 02:00           80                0.00        1,964,353.43            0.00          284.49639        1,711.42527        1,711.4253                         0.748
+           08-JUL 03:00           81       23,800,603.62        1,886,129.72            0.00          290.02860        1,754.97227        1,754.9723          92.08          0.798
+           08-JUL 04:00           75       23,977,600.31        2,052,789.71            0.00          292.73291        1,741.38709        1,741.3871          91.44          0.728
+           08-JUL 05:00           81                0.00        2,110,408.73            0.00          286.69177        1,722.56947        1,722.5695                         0.703
+           08-JUL 06:00           80       21,913,644.93        2,298,030.75            0.00          267.11016        1,702.16110        1,702.1611          89.51          0.649
+           08-JUL 07:00           79                0.00        2,861,145.49            0.00          280.82746        1,791.58182        1,791.5818                         0.553
+           08-JUL 08:00           78       20,489,470.68                0.00            0.00          268.90845        1,752.54418        1,752.5442         100.00
+**********              ------------ ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+avg                                        11,428,754.36        2,482,066.42            0.04          220.65624        1,639.18863        1,639.1886          80.97          0.493
+sum                            1,586
+
+
+                                                                                 Summary Execution Statistics Over Time
+                                                                                                            Avg                Avg               Avg            Avg            Avg
+Snapshot                        Plan             Avg LIO             Avg PIO         Avg ROW         CPU (secs)     Elapsed (secs)  Wall Time (secs)   Buffer Cache   Elapsed (ms)
+Time                Execs Hash Value            Per Exec            Per Exec        Per Exec           Per Exec           Per Exec          Per Exec      Hit Ratio        Per PIO
+------------ ------------ ---------- ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+05-JUL 16:00           56 2949835890           65,000.93           23,634.09            1.00            0.72610            3.06898            3.0690          63.64          0.114
+05-JUL 17:00           59 2949835890           80,850.29           29,400.00            1.00            0.86619            3.74218            3.7422          63.64          0.112
+05-JUL 18:00           61 2949835890           80,859.05           29,400.00            1.00            0.84073            3.59725            3.5973          63.64          0.107
+05-JUL 19:00           60 2949835890           80,859.00           29,400.00            1.00            0.80106            3.57493            3.5749          63.64          0.107
+05-JUL 20:00           60 2949835890           80,863.75           29,400.00            1.00            0.96818            4.02286            4.0229          63.64          0.119
+05-JUL 21:00           60 2949835890           79,352.43           28,910.00            0.98            0.84353            3.65346            3.6535          63.57          0.111
+05-JUL 22:00           60 2949835890           81,976.73           29,890.00            1.02            0.79830            3.55129            3.5513          63.54          0.105
+05-JUL 23:00           60 2949835890           80,661.00           29,400.00            1.00            0.76058            3.47554            3.4755          63.55          0.105
+06-JUL 00:00           60 2949835890           80,694.00           29,400.00            1.00            0.79295            3.55645            3.5565          63.57          0.107
+06-JUL 01:00           60 2949835890           79,446.27           28,910.00            0.98            0.79009            3.50066            3.5007          63.61          0.107
+06-JUL 02:00           60 2949835890           82,160.75           29,890.00            1.02            0.70739            3.43991            3.4399          63.62          0.103
+06-JUL 03:00           60 2949835890           80,819.00           29,400.00            1.00            0.69038            3.38536            3.3854          63.62          0.103
+06-JUL 04:00           60 2949835890           80,822.47           29,400.00            1.00            0.70389            3.42590            3.4259          63.62          0.104
+06-JUL 05:00           60 2949835890           79,628.63           28,968.65            0.98            0.71220            3.57455            3.5745          63.62          0.111
+06-JUL 06:00           60 2949835890           82,041.68           29,831.35            1.02            0.74499            3.62636            3.6264          63.64          0.108
+06-JUL 07:00           60 2949835890           80,844.00           29,400.00            1.00            0.80717            3.64807            3.6481          63.63          0.110
+06-JUL 08:00           60 2949835890           80,859.42           29,400.00            1.00            0.93803            3.97354            3.9735          63.64          0.119
+06-JUL 09:00           60 2949835890           81,671.75           29,694.30            1.00            0.91034            3.80006            3.8001          63.64          0.112
+06-JUL 10:00           61 2949835890          328,062.25          118,726.41            1.00            3.74589           15.61623           15.6162          63.81          0.115
+06-JUL 11:00           80 2949835890          494,990.68          164,755.30            0.99            5.68952           24.18328           24.1833          66.72          0.129
+06-JUL 12:00           78 2949835890          568,129.87          198,933.45            1.00            6.53531           27.22453           27.2245          64.98          0.120
+06-JUL 13:00           80 2949835890          565,832.00          204,050.00            1.00            5.59260           25.27224           25.2722          63.94          0.110
+06-JUL 14:00           77 2949835890          568,945.91          197,430.30            1.00            6.37371           28.23252           28.2325          65.30          0.126
+06-JUL 15:00           75 2949835890          562,336.36          172,458.33            1.00            6.67259           41.61277           41.6128          69.33          0.220
+06-JUL 16:00           76 2949835890          561,723.30          183,452.25            1.00            6.51597           27.80790           27.8079          67.34          0.133
+06-JUL 17:00           81 2949835890          568,109.56          204,842.65            1.00            6.10173           26.22007           26.2201          63.94          0.113
+06-JUL 18:00           76 2949835890          566,294.53          204,166.38            1.00            5.48960           25.07013           25.0701          63.95          0.109
+07-JUL 12:35           11 2982110054          536,796.55          222,911.09            0.91           10.39530           43.43889           43.4389          58.47          0.171
+07-JUL 12:35            5 1800862632          562,357.20          229,992.40            1.00           10.74390           43.50723           43.5072          59.10          0.165
+07-JUL 12:45           96 2982110054       15,226,345.08        2,709,240.41            0.03          207.35438        1,366.27112        1,366.2711          82.21          0.451
+07-JUL 14:00           81 2982110054       15,985,608.99        2,992,119.75            0.00          224.33973        1,702.55231        1,702.5523          81.28          0.518
+07-JUL 15:00           79 2982110054       16,238,045.06        3,105,071.66            0.00          229.61031        1,774.74679        1,774.7468          80.88          0.522
+07-JUL 16:00           76 2982110054                0.00        3,891,181.12            0.00          253.00885        1,737.58869        1,737.5887                         0.404
+07-JUL 17:00           72 2982110054       20,776,765.61        3,323,817.11            0.00          279.38957        1,774.23780        1,774.2378          84.00          0.474
+07-JUL 18:00           75 2982110054       16,942,269.28        2,836,452.85            0.00          229.86772        1,700.68100        1,700.6810          83.26          0.542
+07-JUL 19:00           76 2982110054                0.00        2,491,210.88            0.00          274.26120        1,694.16957        1,694.1696                         0.594
+07-JUL 20:00           76 2982110054       19,519,351.08        3,512,176.28            0.00          258.76840        1,773.89461        1,773.8946          82.01          0.453
+07-JUL 21:00           79 2982110054       18,591,862.82        3,486,603.35            0.00          245.81447        1,728.02991        1,728.0299          81.25          0.443
+07-JUL 22:00           77 2982110054                0.00        2,420,387.19            0.00          110.61582        1,763.48323        1,763.4832                         0.298
+07-JUL 23:00           78 2982110054        8,380,883.58        2,592,757.08            0.00          110.71304        1,722.59143        1,722.5914          69.06          0.273
+08-JUL 00:00           77 2982110054        8,706,259.62        2,684,684.42            0.00          114.55506        1,760.44103        1,760.4410          69.16          0.272
+08-JUL 01:00           79 2982110054        8,918,334.46        2,681,923.72            0.00          114.29148        1,704.19376        1,704.1938          69.93          0.273
+08-JUL 02:00           80 2982110054                0.00        1,964,353.43            0.00          284.49639        1,711.42527        1,711.4253                         0.748
+08-JUL 03:00           81 2982110054       23,800,603.62        1,886,129.72            0.00          290.02860        1,754.97227        1,754.9723          92.08          0.798
+08-JUL 04:00           75 2982110054       23,977,600.31        2,052,789.71            0.00          292.73291        1,741.38709        1,741.3871          91.44          0.728
+08-JUL 05:00           81 2982110054                0.00        2,110,408.73            0.00          286.69177        1,722.56947        1,722.5695                         0.703
+08-JUL 06:00           80 2982110054       21,913,644.93        2,298,030.75            0.00          267.11016        1,702.16110        1,702.1611          89.51          0.649
+08-JUL 07:00           79 2982110054                0.00        2,861,145.49            0.00          280.82746        1,791.58182        1,791.5818                         0.553
+08-JUL 08:00           78 2982110054       20,489,470.68                0.00            0.00          268.90845        1,752.54418        1,752.5442         100.00
+             ------------            ------------------- ------------------- --------------- ------------------ ------------------ ----------------- -------------- --------------
+avg                                         5,036,531.32        1,112,774.09            0.59           96.15600          709.63930          709.6393          69.95          0.274
+sum                 3,351

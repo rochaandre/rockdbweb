@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from .utils import init_db, get_db_connection
 from .db_connections import (
@@ -24,7 +24,7 @@ from .dashboard_mod import (
 from .sessions_mod import (
     get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
     get_long_ops, get_blocker_details, get_object_ddl, get_instances,
-    simulate_long_op, get_long_ops_stats
+    simulate_long_op, get_long_ops_stats, get_sql_statistics
 )
 from .storage_mod import (
     get_tablespaces_detailed, get_data_files, get_segments, 
@@ -40,18 +40,27 @@ from .redo_logs_mod import (
     get_redo_management_info, get_redo_members
 )
 from .logs_mod import get_alert_logs, get_db_parameters, get_outstanding_alerts
-from .healthcheck_mod import run_healthcheck
+from .healthcheck_mod import run_healthcheck, get_advisor_data
 from .timemachine_mod import store_snapshot, get_history_range, get_snapshot_at_time
 import asyncio
-from .backups_mod import get_backup_jobs, get_backup_summary, get_backup_sets, get_backup_datafiles, get_nls_parameters
+from .backups_mod import (
+    get_backup_jobs, get_backup_summary, get_backup_sets, 
+    get_backup_datafiles, get_nls_parameters,
+    get_recovery_summary, get_incarnations, get_datafiles_detailed,
+    execute_rman_sql_report, get_rman_progress
+)
 from .sql_central_mod import (
     get_sql_registry, get_sql_content, execute_generic_sql, 
     seed_sql_scripts, delete_sql_script, execute_external_tool,
-    search_sql_content
+    search_sql_content, save_sql_content
 )
 from .jobs_mod import (
     get_legacy_jobs, get_running_jobs, run_legacy_job, 
     set_legacy_job_broken, remove_legacy_job, submit_legacy_job
+)
+from .statistics_mod import (
+    get_stale_stats, get_dml_changes, gather_stats, lock_stats, get_user_schemas, get_schema_tables,
+    flush_monitoring
 )
 from .tools_mod import start_tool_execution, get_tool_execution_status, list_executions
 
@@ -179,6 +188,22 @@ class RedoMemberDrop(BaseModel):
 
 class StatsRetentionUpdate(BaseModel):
     days: int
+
+class GatherStatsRequest(BaseModel):
+    level: str = 'TABLE'
+    owner: Optional[str] = None
+    table_name: Optional[str] = None
+    estimate_percent: Optional[Union[float, str]] = None
+    method_opt: Optional[str] = None
+    degree: Optional[Union[int, str]] = None
+    granularity: Optional[str] = None
+    cascade: Optional[Union[bool, str]] = None
+    no_invalidate: Optional[Union[bool, str]] = None
+
+class LockStatsRequest(BaseModel):
+    owner: str
+    table_name: str
+    action: str = 'LOCK'
 
 # Routes
 @app.get("/api/health")
@@ -476,6 +501,16 @@ def read_session_sql(sql_id: str, inst_id: Optional[int] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/sessions/sql-statistics/{sql_id}")
+def read_sql_statistics(sql_id: str, inst_id: int = 1, child_number: int = 0):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_sql_statistics(active, sql_id, inst_id, child_number)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/sessions/blocking")
 def read_blocking_sessions(inst_id: Optional[int] = None):
     active = get_active_connection()
@@ -487,12 +522,12 @@ def read_blocking_sessions(inst_id: Optional[int] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sessions/longops")
-def read_long_ops(inst_id: Optional[int] = None):
+def read_long_ops(inst_id: Optional[int] = None, sid: Optional[str] = '%'):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_long_ops(active, inst_id)
+        return get_long_ops(active, inst_id, sid)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -679,6 +714,137 @@ def read_backup_images():
     try:
         from .backups_mod import get_backup_images
         return get_backup_images(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/recovery/summary")
+def read_recovery_summary():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_recovery_summary(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/recovery/incarnations")
+def read_incarnations():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_incarnations(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/recovery/datafiles")
+def read_recovery_datafiles():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_datafiles_detailed(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- NEW RMAN REPORTS ---
+@app.get("/api/backups/rman/summary")
+def read_rman_summary(days: int = 7):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_days.sql', variables={"NUMBER_OF_DAYS": days})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/config")
+def read_rman_config():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_configuration.sql')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/files")
+def read_rman_files():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, 'oracle/rman/rman_list_backup_files.sql')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/datafiles")
+def read_rman_datafiles():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_datafiles.sql')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/pieces")
+def read_rman_pieces():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_pieces.sql')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/status")
+def read_rman_status():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, "oracle/rman/rman_backup_status.sql")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/configuration")
+def read_rman_configuration():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return execute_rman_sql_report(active, "oracle/rman/rman_backup_configuration.sql")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/longops/rman")
+def read_rman_progress():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_rman_progress(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- ADVISOR ---
+@app.get("/api/healthcheck/advisor")
+def read_health_advisor():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_advisor_data(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- SQL SYNC ---
+@app.post("/api/sql/sync")
+def trigger_sql_sync():
+    try:
+        seed_sql_scripts()
+        return {"status": "success", "message": "SQL scripts synchronized"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1218,7 +1384,105 @@ def read_healthcheck():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- Statistics Endpoints ---
+
+@app.get("/api/statistics/stale")
+def read_stale_stats(owner: Optional[str] = None, table_name: Optional[str] = None, exclude_system: bool = False):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_stale_stats(active, owner, table_name, exclude_system)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/statistics/dml")
+def read_dml_changes(owner: Optional[str] = None, table_name: Optional[str] = None, exclude_system: bool = False):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_dml_changes(active, owner, table_name, exclude_system)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/statistics/gather")
+def run_gather_stats(req: GatherStatsRequest):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return gather_stats(
+            active, 
+            level=req.level,
+            owner=req.owner,
+            table_name=req.table_name,
+            estimate_percent=req.estimate_percent,
+            method_opt=req.method_opt,
+            degree=req.degree,
+            granularity=req.granularity,
+            cascade=req.cascade,
+            no_invalidate=req.no_invalidate
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/statistics/lock")
+def run_lock_stats(req: LockStatsRequest):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return lock_stats(active, req.owner, req.table_name, req.action)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/statistics/flush")
+def run_flush_monitoring():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return flush_monitoring(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/statistics/schemas")
+def read_user_schemas(exclude_system: bool = True):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_user_schemas(active, exclude_system=exclude_system)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/system/excluded-schemas")
+def read_excluded_schemas():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        from .utils import get_oracle_connection, get_excluded_schemas
+        connection = get_oracle_connection(active)
+        try:
+            return get_excluded_schemas(connection)
+        finally:
+            connection.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- Time Machine Routes ---
+
+@app.get("/api/statistics/tables")
+def read_schema_tables(owner: str):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_schema_tables(active, owner)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/timemachine/history")
 def read_timemachine_history(start: str, end: str):

@@ -7,6 +7,7 @@ import { StorageView } from '@/pages/storage-view'
 import { LogsView } from '@/pages/logs-view'
 import { ConfigurationView } from '@/pages/configuration-view'
 import { ExplainPlanView } from '@/pages/explain-plan-view'
+import { StatisticsView } from '@/pages/statistics-view'
 import { SqlDetailsView } from '@/pages/sql-details-view'
 import { SqlCentralView } from '@/pages/sql-central-view'
 import { SqlDashboardView } from '@/pages/sql-dashboard-view'
@@ -39,6 +40,7 @@ function App() {
           <Route path="/long-operations" element={<LongOperationsView />} />
           <Route path="/tools" element={<ToolsView />} />
           <Route path="/configuration" element={<ConfigurationView />} />
+          <Route path="/statistics" element={<StatisticsView />} />
           <Route path="/settings" element={<SettingsView />} />
           <Route path="/explain-plan" element={<ExplainPlanView />} />
           <Route path="/explain-plan/:sqlId" element={<ExplainPlanView />} />

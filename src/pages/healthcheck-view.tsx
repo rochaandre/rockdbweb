@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ShieldCheck, Activity, AlertTriangle, CheckCircle, Terminal, Copy, RefreshCw } from 'lucide-react'
+import { ShieldCheck, Activity, AlertTriangle, CheckCircle, Terminal, Copy, RefreshCw, Shield, HardDrive, FileStack, Info } from 'lucide-react'
 import { API_URL } from '@/context/app-context'
 import { twMerge } from 'tailwind-merge'
 
@@ -22,16 +22,19 @@ interface Finding {
 
 export function HealthcheckView() {
     const [findings, setFindings] = useState<Finding[]>([])
+    const [advisorData, setAdvisorData] = useState<any>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [activeTab, setActiveTab] = usePersistentState('healthcheck', 'activeTab', 'all')
 
     const fetchData = async () => {
         setIsLoading(true)
         try {
-            const res = await fetch(`${API_URL}/healthcheck`)
-            if (res.ok) {
-                setFindings(await res.json())
-            }
+            const [healthRes, advisorRes] = await Promise.all([
+                fetch(`${API_URL}/healthcheck`),
+                fetch(`${API_URL}/healthcheck/advisor`)
+            ])
+            if (healthRes.ok) setFindings(await healthRes.json())
+            if (advisorRes.ok) setAdvisorData(await advisorRes.json())
         } catch (err) {
             console.error(err)
         } finally {
@@ -125,6 +128,12 @@ export function HealthcheckView() {
                                     </TabsTrigger>
                                 ))}
                                 <TabsTrigger
+                                    value="advisor"
+                                    className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-xs font-semibold uppercase tracking-wider transition-none"
+                                >
+                                    Flashback & Recovery Area
+                                </TabsTrigger>
+                                <TabsTrigger
                                     value="scripts"
                                     className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-full px-4 text-xs font-semibold uppercase tracking-wider transition-none"
                                 >
@@ -154,6 +163,160 @@ export function HealthcheckView() {
                                         <pre>{allFixSql || '-- No scripts generated or all checks passed.'}</pre>
                                     </div>
                                 </Card>
+                            </TabsContent>
+
+                            <TabsContent value="advisor" className="mt-0 h-full overflow-auto">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+                                    {/* Flashback Info */}
+                                    <Card className="overflow-hidden border-border/50">
+                                        <div className="bg-blue-600/10 p-4 border-b border-blue-600/20 flex justify-between items-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-blue-600/20 rounded-lg text-blue-600">
+                                                    <Shield className="size-5" />
+                                                </div>
+                                                <h3 className="font-bold text-sm">Flashback Configuration</h3>
+                                            </div>
+                                            <Badge variant={advisorData?.flashback_info?.FLASHBACK_ON === 'YES' ? 'success' : 'destructive'} className="uppercase text-[10px]">
+                                                {advisorData?.flashback_info?.FLASHBACK_ON === 'YES' ? 'Enabled' : 'Disabled'}
+                                            </Badge>
+                                        </div>
+                                        <CardContent className="p-6 space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">DB Name</p>
+                                                    <p className="text-sm font-bold">{advisorData?.flashback_info?.NAME || 'N/A'}</p>
+                                                </div>
+                                                <div className="space-y-1 text-right">
+                                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Log Mode</p>
+                                                    <p className="text-sm font-bold text-blue-600 uppercase">{advisorData?.flashback_info?.LOG_MODE || 'N/A'}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">DB_UNIQUE_NAME</p>
+                                                    <p className="text-xs font-mono">{advisorData?.flashback_info?.DB_UNIQUE_NAME || 'N/A'}</p>
+                                                </div>
+                                                <div className="space-y-1 text-right">
+                                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Database Role</p>
+                                                    <p className="text-xs font-bold">{advisorData?.flashback_info?.DATABASE_ROLE || 'N/A'}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Flashback Statistics */}
+                                    <Card className="overflow-hidden border-border/50">
+                                        <div className="bg-amber-600/10 p-4 border-b border-amber-600/20">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-amber-600/20 rounded-lg text-amber-600">
+                                                    <Activity className="size-5" />
+                                                </div>
+                                                <h3 className="font-bold text-sm">Flashback Generation & Logging</h3>
+                                            </div>
+                                        </div>
+                                        <CardContent className="p-6 space-y-4">
+                                            {advisorData?.flashback_log ? (
+                                                <div className="space-y-4">
+                                                    <div className="flex justify-between items-center bg-muted/30 p-3 rounded-lg border border-border/30">
+                                                        <div className="space-y-0.5">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Oldest Flashback Time</p>
+                                                            <p className="text-sm font-bold">{advisorData.flashback_log.OLDEST_FLASHBACK_TIME}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Retention Target</p>
+                                                            <p className="text-sm font-bold text-amber-600 font-mono">{advisorData.flashback_log.RETENTION_TARGET_MINS}m</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Oldest SCN</p>
+                                                            <p className="text-xs font-mono">{advisorData.flashback_log.OLDEST_FLASHBACK_SCN}</p>
+                                                        </div>
+                                                        <div className="space-y-1 text-right">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Current Flashback Size</p>
+                                                            <p className="text-sm font-black">{advisorData.flashback_log.FLASHBACK_SIZE_MB} <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">MB</span></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
+                                                    <Info className="size-6 mb-2 opacity-20" />
+                                                    <p className="text-xs">No active flashback logs detected</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Recovery File Destination */}
+                                    <Card className="md:col-span-2 overflow-hidden border-border/50">
+                                        <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-700 rounded-lg text-slate-300">
+                                                    <HardDrive className="size-5" />
+                                                </div>
+                                                <h3 className="font-bold text-sm text-white">Recovery File Destination (FRA)</h3>
+                                            </div>
+                                            {advisorData?.recovery_dest && (
+                                                <Badge
+                                                    className={twMerge(
+                                                        "font-mono font-black",
+                                                        advisorData.recovery_dest.PCT_USED > 90 ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" :
+                                                            advisorData.recovery_dest.PCT_USED > 70 ? "bg-amber-500" : "bg-emerald-500"
+                                                    )}
+                                                >
+                                                    {advisorData.recovery_dest.PCT_USED}% USED
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <CardContent className="p-0">
+                                            {advisorData?.recovery_dest ? (
+                                                <div className="divide-y divide-border/30">
+                                                    <div className="p-4 bg-muted/10 grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                        <div className="md:col-span-2 space-y-1">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">FRA Path</p>
+                                                            <p className="text-xs font-mono font-bold text-slate-700 bg-white p-2 rounded border border-border/50 break-all">
+                                                                {advisorData.recovery_dest.NAME}
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Space Limit</p>
+                                                            <p className="text-sm font-bold font-mono">{advisorData.recovery_dest.SPACE_LIMIT_GB} GB</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Used / Reclaimable</p>
+                                                            <p className="text-sm font-bold font-mono text-amber-600">
+                                                                {advisorData.recovery_dest.SPACE_USED_GB}G / <span className="text-emerald-600">{advisorData.recovery_dest.SPACE_RECLAIMABLE_GB}G</span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Files Detail */}
+                                                    <div className="p-4">
+                                                        <div className="flex items-center gap-2 mb-4">
+                                                            <FileStack className="size-4 text-primary" />
+                                                            <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">FRA File Distribution</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                            {advisorData.recovery_files?.map((file: any, idx: number) => (
+                                                                <div key={idx} className="flex justify-between items-center p-2.5 rounded-lg border border-border/30 bg-muted/5 hover:bg-muted/10 transition-colors">
+                                                                    <div className="space-y-0.5">
+                                                                        <p className="text-[10px] font-bold text-foreground capitalize leading-none">{file.FILE_TYPE.toLowerCase()}</p>
+                                                                        <p className="text-[9px] text-muted-foreground font-medium">{file.NUMBER_OF_FILES} Files</p>
+                                                                    </div>
+                                                                    <Badge variant="outline" className="text-[10px] font-black border-slate-200 bg-white">
+                                                                        {file.PERCENT_USED}%
+                                                                    </Badge>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="p-12 text-center text-muted-foreground italic text-xs">
+                                                    Recovery file destination not configured or not accessible.
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
                             </TabsContent>
 
                             {categories.filter(c => c !== 'scripts').map(cat => (

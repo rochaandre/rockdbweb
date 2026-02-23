@@ -1,6 +1,6 @@
 import { twMerge } from 'tailwind-merge'
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, Database } from 'lucide-react'
+import { Skull, Activity, Database, ChevronRight, BarChart, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 
@@ -131,6 +131,37 @@ export function SessionsTable({ data, selectedId, onSelect, onAction }: Sessions
                                 <Database className="mr-2 size-3.5 text-amber-600 animate-pulse" />
                                 Show Kill Session in SQL Central
                             </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                                disabled={!menuSession || !(menuSession.blocking_session || menuSession.blocked_cnt > 0)}
+                                onClick={() => menuSession && onAction('BLOCK_EXPLORER', menuSession)}
+                            >
+                                <Lock className="mr-2 size-3.5 text-amber-600" />
+                                Block Explorer
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <MenuPrimitive.Root>
+                                <MenuPrimitive.Trigger className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none focus:bg-primary focus:text-primary-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground">
+                                    <Activity className="mr-2 size-3.5" />
+                                    Reports
+                                    <ChevronRight className="ml-auto size-3.5 opacity-50" />
+                                </MenuPrimitive.Trigger>
+                                <MenuPrimitive.Portal>
+                                    <MenuPrimitive.Positioner side="right" align="start" sideOffset={4}>
+                                        <MenuPrimitive.Popup className="z-[60] min-w-[10rem] overflow-hidden rounded-md border border-border bg-surface p-1 text-foreground shadow-md outline-none">
+                                            <ContextMenuItem onClick={() => {
+                                                if (menuSession) {
+                                                    onAction('SQL_STATS', menuSession);
+                                                    setMenuOpen(false);
+                                                }
+                                            }}>
+                                                <BarChart className="mr-2 size-3.5" />
+                                                SQL Statistics
+                                            </ContextMenuItem>
+                                        </MenuPrimitive.Popup>
+                                    </MenuPrimitive.Positioner>
+                                </MenuPrimitive.Portal>
+                            </MenuPrimitive.Root>
                         </MenuPrimitive.Popup>
                     </MenuPrimitive.Positioner>
                 </MenuPrimitive.Portal>

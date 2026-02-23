@@ -96,3 +96,72 @@ def run_healthcheck(conn_info):
     finally:
         if connection:
             connection.close()
+
+def get_advisor_data(conn_info):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        # 1. Flashback Info
+        cursor.execute("SELECT dbid, name, log_mode, flashback_on FROM v$database")
+        db_cols = [c[0].lower() for c in cursor.description]
+        db_info = dict(zip(db_cols, cursor.fetchone()))
+        
+        # 2. Flashback Log
+        cursor.execute("""
+            SELECT 
+                oldest_flashback_scn, 
+                TO_CHAR(oldest_flashback_time, 'YYYY-MM-DD HH24:MI:SS') as oldest_flashback_time, 
+                retention_target, 
+                flashback_size, 
+                estimated_flashback_size 
+            FROM v$flashback_database_log
+        """)
+        fb_cols = [c[0].lower() for c in cursor.description]
+        fb_row = cursor.fetchone()
+        fb_log = dict(zip(fb_cols, fb_row)) if fb_row else {}
+        
+        # 3. Recovery Summary
+        cursor.execute("""
+            SELECT 
+                name, 
+                space_limit/1024/1024 as space_limit, 
+                space_used/1024/1024 as space_used, 
+                ROUND((space_used / space_limit)*100, 2) as space_used_pct, 
+                space_reclaimable/1024/1024 as space_reclaimable, 
+                ROUND((space_reclaimable / space_limit)*100, 2) as pct_reclaimable, 
+                number_of_files 
+            FROM v$recovery_file_dest 
+            ORDER BY name
+        """)
+        rec_cols = [c[0].lower() for c in cursor.description]
+        rec_summary = [dict(zip(rec_cols, r)) for r in cursor.fetchall()]
+        
+        # 4. Recovery Files Union
+        cursor.execute("""
+            SELECT name, (blocks*block_size) as bytes, 'DATAFILE COPY' as type FROM v$datafile_copy WHERE is_recovery_dest_file = 'YES'
+            UNION ALL
+            SELECT name, null, 'CONTROLFILE' as type FROM v$controlfile WHERE is_recovery_dest_file = 'YES'
+            UNION ALL
+            SELECT member, null, 'LOGFILE' as type FROM v$logfile WHERE is_recovery_dest_file = 'YES'
+            UNION ALL
+            SELECT handle, bytes, 'BACKUP PIECE' as type FROM v$backup_piece WHERE is_recovery_dest_file = 'YES'
+            UNION ALL
+            SELECT name, (blocks*block_size), 'ARCHIVED LOG' as type FROM v$archived_log WHERE is_recovery_dest_file = 'YES'
+        """)
+        file_cols = [c[0].lower() for c in cursor.description]
+        rec_files = [dict(zip(file_cols, r)) for r in cursor.fetchall()]
+        
+        return {
+            "db_info": db_info,
+            "flashback_log": fb_log,
+            "recovery_summary": rec_summary,
+            "recovery_files": rec_files
+        }
+    except Exception as e:
+        print(f"Error in advisor data: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()

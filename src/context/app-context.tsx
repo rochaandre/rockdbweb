@@ -56,7 +56,14 @@ const getBackendPort = () => {
     return '8000'
 }
 
-export const API_URL = `http://localhost:${getBackendPort()}/api`
+const getBackendHost = () => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'localhost'
+    }
+    return window.location.hostname
+}
+
+export const API_URL = `http://${getBackendHost()}:${getBackendPort()}/api`
 
 export function AppProvider({ children }: { children: ReactNode }) {
     const [connection, setConnectionState] = useState<Connection>(DEFAULT_CONNECTION)

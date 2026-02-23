@@ -1,0 +1,10 @@
+COLUMN HANDLE FORMAT A50
+SELECT 
+    BP.RECID, 
+    BP.HANDLE, -- Caminho do arquivo no disco
+    BP.START_TIME, 
+    BP.STATUS, -- 'A' (Available), 'D' (Deleted), 'X' (Expired)
+    BP.BYTES/1024/1024 AS SIZE_MB
+FROM V$BACKUP_PIECE BP
+WHERE BP.STATUS = 'A'
+ORDER BY BP.START_TIME DESC;

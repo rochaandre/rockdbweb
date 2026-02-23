@@ -82,17 +82,23 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-56" align="start">
                                 <DropdownMenuItem onClick={() => {
-                                    const sql_id = session.sqlId || session.sql_id
-                                    const addr = session.sql_address || session.ADDRESS || ''
-                                    const hash = session.sql_hash_value || session.HASH_VALUE || ''
-                                    const child = session.child || session.sql_child_number || 0
-                                    const inst = session.inst_id || 1
-                                    const plan_hash = session.plan_hash || session.SQL_PLAN_HASH || ''
+                                    const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                    const addr = session.sql_address || session.ADDRESS || session.address || '';
+                                    const hash = session.sql_hash_value || session.HASH_VALUE || session.hash_value || '';
+                                    const child = session.child || session.sql_child_number || session.SQL_CHILD_NUMBER || 0;
+                                    const inst = session.inst_id || session.INST_ID || 1;
+                                    const plan_hash = session.plan_hash || session.SQL_PLAN_HASH || session.sql_plan_hash || '';
                                     navigate(`/sql-central/sqlarea_replace?SQL_ID=${sql_id}&SQL_ADDR=${addr}&SQL_HASH=${hash}&SQL_CHILD=${child}&inst_id=${inst}&SQL_PLAN_HASH=${plan_hash}`)
                                 }}>
                                     Show in SQL Central
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`/block-explorer/${session.sid}`)}>
+                                <DropdownMenuItem
+                                    disabled={!(session.blocking_session || session.blocked_cnt > 0)}
+                                    onClick={() => {
+                                        const inst = session.inst_id || session.INST_ID || 1;
+                                        navigate(`/block-explorer/${session.sid}?inst_id=${inst}`);
+                                    }}
+                                >
                                     Block Explorer
                                 </DropdownMenuItem>
 
@@ -100,31 +106,77 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                                     <DropdownMenuSubTrigger>Reports</DropdownMenuSubTrigger>
                                     <DropdownMenuPortal>
                                         <DropdownMenuSubContent>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/statistics/${session.sqlId}`)}>
-                                                SQL Statistics
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/bind-capture/${session.sqlId}`)}>
-                                                Bind Variables Capture
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/optimizer-env/${session.sqlId}`)}>
-                                                Optimizer Environment
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/plan-history/${session.sqlId}`)}>
-                                                Plan Switch History
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem disabled>
-                                                SQL Monitor (External)
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-all/${session.sqlId}`)}>
-                                                XPlan All
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sqlId}`)}>
-                                                XPlan AllStats Last
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => navigate(`/sql-report/xplan-stats/${session.sqlId}`)}>
-                                                XPlan AllStats
-                                            </DropdownMenuItem>
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger>Reports</DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                    <DropdownMenuSubContent>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            const child = session.child || session.sql_child_number || session.SQL_CHILD_NUMBER || 0;
+
+                                                            console.log('Sidebar SQL Statistics Click:', { sql_id, inst, child });
+
+                                                            if (sql_id && sql_id !== 'undefined') {
+                                                                navigate(`/sql-report/statistics/${sql_id}?inst_id=${inst}&child_number=${child}`);
+                                                            } else {
+                                                                alert('Cannot open report: SQL ID is missing or invalid.');
+                                                            }
+                                                        }}>
+                                                            SQL Statistics
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            if (sql_id) navigate(`/sql-report/bind-capture/${sql_id}?inst_id=${inst}`);
+                                                        }}>
+                                                            Bind Variables Capture
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            if (sql_id) navigate(`/sql-report/optimizer-env/${sql_id}?inst_id=${inst}`);
+                                                        }}>
+                                                            Optimizer Environment
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            if (sql_id) navigate(`/sql-report/plan-history/${sql_id}?inst_id=${inst}`);
+                                                        }}>
+                                                            Plan Switch History
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem disabled>
+                                                            SQL Monitor (External)
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            if (sql_id) navigate(`/sql-report/xplan-all/${sql_id}?inst_id=${inst}`);
+                                                        }}>
+                                                            XPlan All
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            if (sql_id) navigate(`/sql-report/xplan-stats/${sql_id}?inst_id=${inst}`);
+                                                        }}>
+                                                            XPlan AllStats Last
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                                            const inst = session.inst_id || session.INST_ID || 1;
+                                                            if (sql_id) navigate(`/sql-report/xplan-stats/${sql_id}?inst_id=${inst}`);
+                                                        }}>
+                                                            XPlan AllStats
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem disabled>AWR SQL Report (text)</DropdownMenuItem>
+                                                        <DropdownMenuItem disabled>AWR SQL Report (HTML)</DropdownMenuItem>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem disabled>AWR SQL Report (text)</DropdownMenuItem>
                                             <DropdownMenuItem disabled>AWR SQL Report (HTML)</DropdownMenuItem>
@@ -132,7 +184,10 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>
 
-                                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(session.sqlId)}>
+                                <DropdownMenuItem onClick={() => {
+                                    const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                                    if (sql_id) navigator.clipboard.writeText(sql_id);
+                                }}>
                                     Copy Text
                                 </DropdownMenuItem>
 
@@ -180,7 +235,10 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                         size="sm"
                         variant="secondary"
                         className="h-6 text-xs flex-1"
-                        onClick={() => navigate(`/explain-plan/${session.sqlId}`)}
+                        onClick={() => {
+                            const sql_id = session.sql_id || session.sqlId || session.SQL_ID;
+                            if (sql_id) navigate(`/explain-plan/${sql_id}`);
+                        }}
                     >
                         Explain Plan
                     </Button>

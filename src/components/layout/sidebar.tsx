@@ -14,7 +14,8 @@ import {
     History,
     Plus,
     Clock,
-    ShieldCheck
+    ShieldCheck,
+    BarChart3
 } from "lucide-react"
 import { useNavigate, useLocation } from 'react-router-dom'
 import { MOCK_ASM_DATA } from '@/components/storage/asm-data'
@@ -42,6 +43,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { icon: LayoutDashboard, label: 'SQL Dashboard', path: '/sql-dashboard' },
         { icon: Terminal, label: 'SQL Central', path: '/sql-central' },
         { icon: ShieldCheck, label: 'Tools', path: '/tools' },
+        { icon: BarChart3, label: 'Optimizer Stats', path: '/statistics' },
         { icon: Clock, label: 'Jobs (Legacy)', path: '/jobs' },
         { icon: History, label: 'Time Machine', path: '/timemachine' },
         { icon: HardDrive, label: 'Servers', path: '/servers' },

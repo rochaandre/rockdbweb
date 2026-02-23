@@ -8,6 +8,45 @@ import sys
 
 load_dotenv()
 
+ORACLE_SYSTEM_SCHEMAS = (
+    'SYS', 'SYSMAN', 'XS$NULL', 'ORACLE_OCM', 'APEX_PUBLIC_USER', 'DIP', 
+    'DBAJOBS', 'SYSDBA', 'DBSNMP', 'SI_INFORMTN_SCHEMA', 'APEX_030200', 
+    'APEX_040000', 'ORDPLUGINS', 'APPQOSSYS', 'XDB', 'WMSYS', 'EXFSYS', 
+    'ANONYMOUS', 'CTXSYS', 'ORDSYS', 'ORDDATA', 'MDSYS', 'FLOWS_FILES', 
+    'MGMT_VIEW', 'OUTLN', 'SH', 'OE', 'PM', 'BI', 'OLAPSYS', 'IX', 
+    'SCOTT', 'HR', 'OWBSYS', 'ORAINT', 'LBACSYS', 'GSMCATUSER', 'MDDATA', 
+    'DBSFWUSER', 'SYSBACKUP', 'REMOTE_SCHEDULER_AGENT', 'GGSYS', 'GSMUSER', 
+    'SYSRAC', 'ORDS_PUBLIC_USER', 'OJVMSYS', 'DVF', 'DVSYS', 'AUDSYS', 
+    'C##DBAAS_BACKUP', 'GSMADMIN_INTERNAL', 'SYSKM', 'SYS$UMF', 'SYSDG', 
+    'PYQSYS', 'C##CLOUD$SERVICE', 'C##ADP$SERVICE', 'ORDS_METADATA', 
+    'C##OMLIDM', 'OML$MODELS', 'ORDS_PLSQL_GATEWAY', 'APEX_200200', 
+    'GRAPH$METADATA', 'C##CLOUD_OPS', 'SSB', 'C##API', 'OMLMOD$PROXY', 
+    'C##DV_ACCT_ADMIN', 'APEX_INSTANCE_ADMIN_USER', 'RMAN$CATALOG', 
+    'C##DV_OWNER', 'GRAPH$PROXY_USER', 'OML$PROXY', 'SYSTEM', 
+    'SPATIAL_CSW_ADMIN_USR', 'DBAEXP', 'PDBADM', 'SPATIAL_WFS_ADMIN_USR', 
+    'OWBSYS_AUDIT'
+)
+
+def get_excluded_schemas(connection):
+    """
+    Returns a list of system/internal schemas for exclusion.
+    Uses ORACLE_MAINTAINED for 12c+ and fallbacks to hardcoded list for 11g.
+    """
+    cursor = connection.cursor()
+    try:
+        major_version = int(connection.version.split('.')[0])
+        if major_version > 11:
+            sql = "SELECT USERNAME FROM DBA_USERS WHERE ORACLE_MAINTAINED = 'Y' ORDER BY USERNAME"
+            cursor.execute(sql)
+            return [row[0] for row in cursor.fetchall()]
+        else:
+            return list(ORACLE_SYSTEM_SCHEMAS)
+    except Exception as e:
+        print(f"Error fetching excluded schemas: {e}")
+        return list(ORACLE_SYSTEM_SCHEMAS)
+    finally:
+        cursor.close()
+
 # Encryption setup
 # We use a simple Fernet key for now. In a real app, this should be a persistent environment variable.
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", Fernet.generate_key().decode())

@@ -1,4 +1,5 @@
 import { MainLayout } from '@/components/layout/main-layout'
+import { twMerge } from 'tailwind-merge'
 import { ControlBar, type FilterState } from '@/components/sessions/control-bar'
 import { SessionsTable } from '@/components/sessions/sessions-table'
 import { BlockingTable } from '@/components/sessions/blocking-table'
@@ -204,7 +205,24 @@ export function SessionsView() {
             navigate(`/sql-central/kill_session_replace?SID=${sid}&SERIAL=${serial}&INST_ID=${inst}&SQL_ID=${sqlId}`)
         } else if (action === 'SHOW_SQL') {
             handleSelect(session.sid)
-        } else if (action === 'KILL_COMMANDS') {
+        } else if (action === 'SQL_STATS') {
+            const sqlId = session.sql_id || session.SQL_ID || session.sqlId
+            const inst = session.inst_id || session.INST_ID || (selectedInstance !== "both" ? selectedInstance : 1)
+            const child = session.child || session.sql_child_number || session.SQL_CHILD_NUMBER || 0
+
+            console.log('SQL_STATS Action:', { action, sqlId, inst, child, sessionKeys: Object.keys(session) });
+
+            if (sqlId && sqlId !== 'undefined') {
+                navigate(`/sql-report/statistics/${sqlId}?inst_id=${inst}&child_number=${child}`)
+            } else {
+                console.warn('SQL_STATS: Missing or invalid SQL ID', { sqlId, session });
+                logAction('Error', 'SessionsView', `Cannot open SQL Statistics: SQL ID is ${sqlId || 'missing'}`)
+            }
+        } else if (action === 'BLOCK_EXPLORER') {
+            const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+            navigate(`/block-explorer/${session.sid}?inst_id=${inst}`)
+        }
+        else if (action === 'KILL_COMMANDS') {
             setKillCommandSession(session)
             setShowKillCommands(true)
         }
@@ -286,28 +304,31 @@ export function SessionsView() {
                                 <TabsTrigger
                                     value="sessions"
                                     className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                    data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold relative -bottom-px"
                                 >
                                     Sessions
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="blocking"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                                    className={twMerge(
+                                        "h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all relative -bottom-px",
+                                        "data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold",
+                                        blockingSessions.length > 0 && "bg-rose-100 text-rose-700 data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:border-rose-500"
+                                    )}
                                 >
                                     Blocking and Waiting Sessions - {blockingSessions.length}
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="longops"
                                     className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                    data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold relative -bottom-px"
                                 >
                                     Long Operations
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="filters"
                                     className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[selected]:border-border data-[selected]:bg-surface data-[selected]:text-foreground data-[selected]:shadow-none data-[selected]:font-semibold relative -bottom-px"
+                    data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold relative -bottom-px"
                                 >
                                     Filters
                                 </TabsTrigger>
@@ -327,6 +348,7 @@ export function SessionsView() {
                                 onAction={handleAction}
                                 instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
                                 refreshKey={refreshKey}
+                                data={blockingSessions}
                             />
                         </TabsContent>
                         <TabsContent value="longops" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
