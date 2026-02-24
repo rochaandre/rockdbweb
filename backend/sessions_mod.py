@@ -33,7 +33,7 @@ def get_sessions(conn_info, inst_id=None):
         # Load version-aware SQL
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_template = get_sql_content("oracle/sessions.sql", version)
+        sql_template = get_sql_content("sessions.sql", version, is_internal=True)
         
         # Inject where_clause
         sql_text = sql_template.format(where_clause=where_clause)
@@ -94,7 +94,7 @@ def get_blocking_sessions(conn_info, inst_id=None):
         
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/blocking_sessions.sql", version)
+        sql_text = get_sql_content("blocking_sessions.sql", version, is_internal=True)
         
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
@@ -149,11 +149,17 @@ def get_long_ops(conn_info, inst_id=None, sid='%'):
         version = conn_info.get('version')
         
         # We use the new session_longops.sql which implements Query 1
-        sql_text = get_sql_content("oracle/common/session_longops.sql", version)
+        sql_text = get_sql_content("session_longops.sql", version, is_internal=True)
         
-        # If inst_id is provided, we might need a GV version, but for now 
-        # following Query 1 exactly as requested.
-        cursor.execute(sql_text, {"sid": sid})
+        # If inst_id is provided, pass it. 0 means all instances in the SQL logic.
+        inst_val = 0
+        try:
+            if inst_id is not None:
+                inst_val = int(inst_id)
+        except (ValueError, TypeError):
+            inst_val = 0
+
+        cursor.execute(sql_text, {"sid": str(sid), "inst_id": inst_val})
         
         columns = [col[0].lower() for col in cursor.description]
         return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
@@ -172,7 +178,7 @@ def get_blocker_details(conn_info, sid, inst_id=1):
         
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_basic = get_sql_content("oracle/blocker_details_basic.sql", version)
+        sql_basic = get_sql_content("blocker_details_basic.sql", version, is_internal=True)
         
         cursor.execute(sql_basic, {"sid": sid, "inst_id": inst_id})
         row = cursor.fetchone()
@@ -200,7 +206,7 @@ def get_blocker_details(conn_info, sid, inst_id=1):
         details['opened_cursors'] = cursor.fetchone()[0]
         
         if sql_id:
-            sql_plan = get_sql_content("oracle/blocker_details_plan.sql", version)
+            sql_plan = get_sql_content("blocker_details_plan.sql", version, is_internal=True)
             cursor.execute(sql_plan, {"sql_id": sql_id, "inst_id": inst_id})
             cols_plan = [col[0].lower() for col in cursor.description]
             details['plan'] = [{k: safe_value(v) for k, v in zip(cols_plan, r)} for r in cursor.fetchall()]
@@ -271,7 +277,7 @@ def get_cursor_plan(conn_info, sql_id, inst_id=1):
         
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_plan = get_sql_content("oracle/blocker_details_plan.sql", version)
+        sql_plan = get_sql_content("blocker_details_plan.sql", version, is_internal=True)
         
         cursor.execute(sql_plan, {"sql_id": sql_id, "inst_id": inst_id})
         cols_plan = [col[0].lower() for col in cursor.description]
@@ -405,7 +411,7 @@ def get_long_ops_stats(conn_info):
     finally:
         if connection:
             connection.close()
-def get_sql_statistics(conn_info, sql_id, inst_id=1, child_number=0):
+def get_sql_statistics(conn_info, sql_id, inst_id=1):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
@@ -415,53 +421,191 @@ def get_sql_statistics(conn_info, sql_id, inst_id=1, child_number=0):
         version = conn_info.get('version')
         
         # 1. Main Statistics
-        sql_stats_template = get_sql_content("oracle/sql_statistics.sql", version)
-        cursor.execute(sql_stats_template, {"sql_id": sql_id, "inst_id": inst_id, "child_number": child_number})
-        
-        stats_data = {}
-        row = cursor.fetchone()
-        
-        # Fallback: if specific child_number not found, try any child for that SQL_ID/Inst
-        if not row:
-            print(f"Warning: No stats for sql_id={sql_id}, child={child_number}. Trying fallback to any child.")
-            fallback_sql = sql_stats_template.replace("AND child_number = :child_number", "AND rownum = 1")
-            cursor.execute(fallback_sql, {"sql_id": sql_id, "inst_id": inst_id})
-            row = cursor.fetchone()
+        version_suffix = "v12c"
+        try:
+            if version:
+                v_num = float('.'.join(version.split('.')[:2]))
+                if v_num < 12.1:
+                    version_suffix = "v11g"
+        except:
+            pass
 
-        if row:
-            columns = [col[0].lower() for col in cursor.description]
-            stats_data = {k: safe_value(v) for k, v in zip(columns, row)}
+        stats_data = {}
+        try:
+            rel_stats_path = f"oracle_internal/sqlstatistics/sql_statistics_{version_suffix}.sql"
+            sql_stats_template = get_sql_content(rel_stats_path, version, is_internal=True)
+            print(f"DEBUG: Processing stats from {rel_stats_path}")
+            cursor.execute(sql_stats_template, {"sql_id": sql_id, "inst_id": inst_id})
+            row = cursor.fetchone()
+            if not row:
+                print(f"Warning: No stats for sql_id={sql_id}. Trying fallback.")
+                fallback_sql = sql_stats_template.replace("rownum = 1", "rownum = 1") 
+                cursor.execute(fallback_sql, {"sql_id": sql_id, "inst_id": inst_id})
+                row = cursor.fetchone()
+            if row:
+                columns = [col[0].lower() for col in cursor.description]
+                stats_data = {k: safe_value(v) for k, v in zip(columns, row)}
+        except Exception as e:
+            print(f"Error fetching main stats: {e}")
+            stats_data = {"error": str(e)}
 
         # 2. Bind Capture
-        sql_bind_template = get_sql_content("oracle/sql_bind_capture.sql", version)
-        cursor.execute(sql_bind_template, {"sql_id": sql_id, "inst_id": inst_id, "child_number": child_number})
         bind_capture = []
-        if cursor.description:
-            cols = [c[0].lower() for c in cursor.description]
-            bind_capture = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        try:
+            rel_bind_path = "oracle_internal/sqlstatistics/sql_bind_capture.sql"
+            sql_bind_template = get_sql_content(rel_bind_path, version, is_internal=True)
+            print(f"DEBUG: Executing Bind Capture SQL:\n{sql_bind_template}")
+            cursor.execute(sql_bind_template, {"sql_id": sql_id, "inst_id": inst_id})
+            if cursor.description:
+                cols = [c[0].lower() for c in cursor.description]
+                bind_capture = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error fetching bind capture: {e}")
 
         # 3. Bind Data
-        sql_bind_data_template = get_sql_content("oracle/sql_bind_data.sql", version)
-        cursor.execute(sql_bind_data_template, {"sql_id": sql_id, "inst_id": inst_id, "child_number": child_number})
         bind_data = []
-        if cursor.description:
-            cols = [c[0].lower() for c in cursor.description]
-            bind_data = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        try:
+            rel_bind_data_path = "oracle_internal/sqlstatistics/sql_bind_data.sql"
+            sql_bind_data_template = get_sql_content(rel_bind_data_path, version, is_internal=True)
+            print(f"DEBUG: Executing Bind Data SQL:\n{sql_bind_data_template}")
+            cursor.execute(sql_bind_data_template, {"sql_id": sql_id, "inst_id": inst_id})
+            if cursor.description:
+                cols = [c[0].lower() for c in cursor.description]
+                bind_data = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error fetching bind data: {e}")
 
-        # 4. SQL Text
-        cursor.execute("SELECT sql_fulltext FROM gv$sqlstats WHERE sql_id = :sql_id AND inst_id = :inst_id AND rownum = 1", 
-                       {"sql_id": sql_id, "inst_id": inst_id})
-        sql_text_row = cursor.fetchone()
-        sql_text = safe_value(sql_text_row[0]) if sql_text_row else "SQL text not found"
+        # 4. Filtered Plan for this SQL
+        plan_rows = []
+        try:
+            sql_plan_template = get_sql_content("oracle_internal/sqlstatistics/sql_plan.sql", version, is_internal=True)
+            cursor.execute(sql_plan_template, {"sql_id": sql_id, "inst_id": inst_id})
+            if cursor.description:
+                cols = [c[0].lower() for c in cursor.description]
+                plan_rows = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error fetching plan: {e}")
+
+        # 5. SQL Text
+        sql_text = "SQL text not found"
+        try:
+            cursor.execute("SELECT sql_fulltext FROM gv$sqlstats WHERE sql_id = :sql_id AND inst_id = :inst_id AND rownum = 1", 
+                           {"sql_id": sql_id, "inst_id": inst_id})
+            sql_text_row = cursor.fetchone()
+            if sql_text_row:
+                sql_text = safe_value(sql_text_row[0])
+        except Exception as e:
+            print(f"Error fetching SQL text: {e}")
+
+        # 6. Plan History
+        plan_history = []
+        try:
+            sql_plan_hist_template = get_sql_content("oracle_internal/sqlstatistics/sql_plan_history.sql", version, is_internal=True)
+            cursor.execute(sql_plan_hist_template, {"sql_id": sql_id})
+            if cursor.description:
+                cols = [c[0].lower() for c in cursor.description]
+                plan_history = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error fetching plan history: {e}")
+
+        # 7. XPlan
+        xplan = []
+        try:
+            sql_xplan_template = get_sql_content("oracle_internal/sqlstatistics/sql_xplan.sql", version, is_internal=True)
+            cursor.execute(sql_xplan_template, {"sql_id": sql_id})
+            if cursor.description:
+                xplan = [r[0] for r in cursor.fetchall() if r[0]]
+        except Exception as e:
+            print(f"Error fetching xplan: {e}")
+
+        # 8. Optimizer Env
+        optimizer_env = []
+        try:
+            sql_optim_env_template = get_sql_content("oracle_internal/sqlstatistics/sql_optimizer_env.sql", version, is_internal=True)
+            cursor.execute(sql_optim_env_template, {"sql_id": sql_id, "inst_id": inst_id})
+            if cursor.description:
+                cols = [c[0].lower() for c in cursor.description]
+                optimizer_env = [dict(zip(cols, r)) for r in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error fetching optimizer env: {e}")
 
         return {
             "statistics": stats_data,
             "bind_capture": bind_capture,
             "bind_data": bind_data,
-            "sql_text": sql_text
+            "sql_text": sql_text,
+            "plan": plan_rows,
+            "plan_history": plan_history,
+            "xplan": xplan,
+            "optimizer_env": optimizer_env
         }
     except Exception as e:
         print(f"Error fetching SQL statistics: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+def get_detailed_locks(conn_info, sid=None, inst_id=None):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        variables = {"sid": sid} if sid else None
+        
+        results = {}
+        
+        def clean_sql(sql):
+            lines = []
+            for line in sql.splitlines():
+                l = line.strip().upper()
+                if l.startswith("SET ") or l.startswith("COLUMN ") or l.startswith("SET\t") or l.startswith("COLUMN\t"):
+                    continue
+                lines.append(line)
+            content = "\n".join(lines).strip()
+            # Remove trailing / or . or ; that SQL*Plus uses
+            while content and content[-1] in (';', '/', '.'):
+                content = content[:-1].strip()
+            return content
+
+        # 1. Blocking Locks (Blocking User vs Holding User)
+        try:
+            sql_blocking = get_sql_content("locks_blocking_j.sql", version, variables, is_internal=True)
+            sql_blocking = clean_sql(sql_blocking)
+            cursor.execute(sql_blocking)
+            cols = [col[0].lower() for col in cursor.description]
+            results['blocking_j'] = [{k: safe_value(v) for k, v in zip(cols, row)} for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error in locks_blocking_j: {e}")
+            results['blocking_j'] = []
+            
+        # 2. DML/DDL Locks
+        try:
+            sql_dml_ddl = get_sql_content("locks_dml_ddl_10g.sql", version, variables, is_internal=True)
+            sql_dml_ddl = clean_sql(sql_dml_ddl)
+            cursor.execute(sql_dml_ddl)
+            cols = [col[0].lower() for col in cursor.description]
+            results['dml_ddl'] = [{k: safe_value(v) for k, v in zip(cols, row)} for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error in locks_dml_ddl: {e}")
+            results['dml_ddl'] = []
+            
+        # 3. Lock Time (DML Lock Time)
+        try:
+            sql_lock_time = get_sql_content("locks_dml_lock_time.sql", version, variables, is_internal=True)
+            sql_lock_time = clean_sql(sql_lock_time)
+            cursor.execute(sql_lock_time)
+            cols = [col[0].lower() for col in cursor.description]
+            results['lock_time'] = [{k: safe_value(v) for k, v in zip(cols, row)} for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error in locks_dml_lock_time: {e}")
+            results['lock_time'] = []
+            
+        return results
+    except Exception as e:
+        print(f"Error fetching detailed locks: {e}")
         raise e
     finally:
         if connection:

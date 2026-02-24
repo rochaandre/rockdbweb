@@ -1,15 +1,15 @@
 databases:
-  db_192_168_68_185_ORCL:
-    username: dbajobs
-    password: dbajobs
-    url: oracle://192.168.68.185:1521/ORCL
+  db_192_168_0_56_ORCLCDB:
+    username: system
+    password: oracle_4U
+    url: oracle://192.168.0.56:1521/ORCLCDB
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
-  db_db-dev-01_ORCLPDB1:
-    username: dev_user
-    password: U2FsdGVkX1+mWskRPfdUVbrxb/0za59nq9LrKmN4C9U=
-    url: oracle://db-dev-01:1521/ORCLPDB1
+  db_192_168_0_56_ORCL:
+    username: dbajobs
+    password: dbajobs
+    url: oracle://192.168.0.56:1521/ORCL
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10

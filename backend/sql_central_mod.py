@@ -20,46 +20,60 @@ def get_sql_registry():
 
 def get_versioned_sql_path(rel_path, version=None):
     """
-    Resolves the script path based on the Oracle version.
+    Resolves the script path based on the Oracle version and organization.
     Hierarchy:
-    1. sql/oracle/v11g/ or sql/oracle/v12c/ (based on version)
-    2. sql/oracle/common/
-    3. sql/oracle/ (legacy/default)
+    1. sql/oracle_internal/ (internal/default provided by app)
+    2. sql/oracle/ (user-defined or shared)
     """
     if ".." in rel_path or rel_path.startswith("/"):
         raise ValueError("Invalid script path")
 
-    # If the path already has v11g/ or v12c/ or common/, we don't need to resolve it
-    if rel_path.startswith("oracle/v11g/") or rel_path.startswith("oracle/v12c/") or rel_path.startswith("oracle/common/"):
-        return os.path.join(BASE_SQL_DIR, rel_path)
+    # If the path already has specialized folders, we don't need to resolve it
+    special_folders = ["oracle/v11g/", "oracle/v12c/", "oracle/common/", "oracle/rman/", 
+                       "oracle_internal/v11g/", "oracle_internal/v12c/", "oracle_internal/common/", "oracle_internal/rman/",
+                       "oracle_internal/sqlstatistics/"]
+    
+    for folder in special_folders:
+        if rel_path.startswith(folder):
+            return os.path.join(BASE_SQL_DIR, rel_path)
 
     # Resolve based on version
     version_prefix = "v12c"
     if version:
         try:
-            # Check if version is < 12.1
             v_num = float('.'.join(version.split('.')[:2]))
             if v_num < 12.1:
                 version_prefix = "v11g"
         except:
             pass
 
-    # 1. Try version-specific path
-    # rel_path is usually like 'oracle/table/sessions.sql'
-    # We want 'oracle/v11g/table/sessions.sql'
-    if rel_path.startswith("oracle/"):
-        v_path = rel_path.replace("oracle/", f"oracle/{version_prefix}/", 1)
+    # Search candidates in order of priority
+    prefixes = ["oracle_internal", "oracle"]
+    
+    # rel_path is usually like 'table/sessions.sql' or 'rman/rman_backup_status.sql'
+    # We want to check prefixes first
+    
+    for prefix in prefixes:
+        # 1. Try version-specific path
+        v_path = f"{prefix}/{version_prefix}/{rel_path}"
         full_v_path = os.path.join(BASE_SQL_DIR, v_path)
         if os.path.exists(full_v_path):
             return full_v_path
 
         # 2. Try common path
-        c_path = rel_path.replace("oracle/", "oracle/common/", 1)
+        c_path = f"{prefix}/common/{rel_path}"
         full_c_path = os.path.join(BASE_SQL_DIR, c_path)
         if os.path.exists(full_c_path):
             return full_c_path
+            
+        # 3. Try specifically for RMAN if it's an rman script
+        if "rman" in rel_path:
+            r_path = f"{prefix}/rman/{rel_path.split('/')[-1]}"
+            full_r_path = os.path.join(BASE_SQL_DIR, r_path)
+            if os.path.exists(full_r_path):
+                return full_r_path
 
-    # 3. Default/Legacy path
+    # 4. Default/Legacy path
     return os.path.join(BASE_SQL_DIR, rel_path)
 
 def parse_sql_variables(content, variables):
@@ -85,8 +99,13 @@ def parse_sql_variables(content, variables):
     # We use a negative lookbehind (?<!\w) to ensure we don't match $ in internal views like gv$sql
     return re.sub(r'(?<!\w)([$:&])(\w+)', replace_match, content)
 
-def get_sql_content(rel_path, version=None, variables=None):
+def get_sql_content(rel_path, version=None, variables=None, is_internal=False):
+    # Security check: Prevent SQL Central from reading oracle_internal scripts
+    if not is_internal and ("oracle_internal/" in rel_path or "oracle_internal" in rel_path.split(os.sep)):
+        raise PermissionError(f"Access denied to internal script: {rel_path}")
+
     full_path = get_versioned_sql_path(rel_path, version)
+    print(f"DEBUG: SQL Central loading script from: {full_path}")
     if not os.path.exists(full_path):
         raise FileNotFoundError(f"Script not found: {rel_path}")
     
@@ -98,10 +117,14 @@ def get_sql_content(rel_path, version=None, variables=None):
         
     return content
 
-def save_sql_content(rel_path, content):
+def save_sql_content(rel_path, content, is_internal=False):
     if ".." in rel_path or rel_path.startswith("/"):
         raise ValueError("Invalid script path")
     
+    # Security check
+    if not is_internal and ("oracle_internal/" in rel_path or "oracle_internal" in rel_path.split(os.sep)):
+        raise PermissionError(f"Cannot modify internal script: {rel_path}")
+
     full_path = os.path.join(BASE_SQL_DIR, rel_path)
     
     # Ensure directory exists (though it should)
@@ -111,11 +134,15 @@ def save_sql_content(rel_path, content):
         f.write(content)
     return True
 
-def create_sql_script(folder, name, label, codmenutype, content=None):
+def create_sql_script(folder, name, label, codmenutype, content=None, is_internal=False):
     # Sanitize inputs
     if not name or not folder:
         raise ValueError("Name and folder are required")
     
+    # Security check
+    if not is_internal and ("oracle_internal" in folder or "oracle_internal" in name):
+        raise PermissionError("Cannot create scripts in internal directories")
+
     # Ensure filename ends with .sql
     if not name.endswith('.sql'):
         filename = f"{name}.sql"
@@ -162,10 +189,14 @@ def create_sql_script(folder, name, label, codmenutype, content=None):
     
     return rel_path
 
-def delete_sql_script(rel_path):
+def delete_sql_script(rel_path, is_internal=False):
     if ".." in rel_path or rel_path.startswith("/"):
         raise ValueError("Invalid script path")
     
+    # Security check
+    if not is_internal and ("oracle_internal/" in rel_path or "oracle_internal" in rel_path.split(os.sep)):
+        raise PermissionError(f"Cannot delete internal script: {rel_path}")
+
     full_path = os.path.join(BASE_SQL_DIR, rel_path)
     
     # 1. Remove from Disk
@@ -231,33 +262,61 @@ def execute_generic_sql(conn_info, sql_text, auto_commit=False, bind_vars=None):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         
-        # Split script if multiple statements (simple split by semicolon)
-        statements = [s.strip() for s in sql_text.split(';') if s.strip()]
+        # 1. Clean up SQL*Plus artifacts (SET, COL, COLUMN, etc)
+        # 2. Support / as terminator alongside ;
+        lines = sql_text.splitlines()
+        clean_lines = []
+        for line in lines:
+            trimmed = line.strip()
+            # Skip SQL*Plus commands
+            if trimmed.upper().startswith(('SET ', 'COL ', 'COLUMN ', 'PROMPT ', 'SHOW ')):
+                continue
+            if trimmed == '/':
+                clean_lines.append(';') # Replace lone / with ; for splitting
+            else:
+                clean_lines.append(line)
+        
+        cleaned_sql = "\n".join(clean_lines)
+        
+        # Split script into separate statements
+        statements = [s.strip() for s in cleaned_sql.split(';') if s.strip()]
         
         results = []
         for stmt in statements:
+            # Final cleanup: remove trailing / if present within a statement
+            if stmt.endswith('/'):
+                stmt = stmt[:-1].strip()
+            
             try:
+                print(f"DEBUG: Executing statement: {stmt}")
                 if bind_vars:
                     # Support $VAR string substitution for legacy scripts/compatibility
                     for k, v in bind_vars.items():
+                        # Handle cases where value might be string that needs quotes if not already there
+                        # but parse_sql_variables usually handles this or the SQL does
                         stmt = stmt.replace(f"${k}", str(v))
                     
                     # Filter bind vars that actually exist in the statement
                     # Oracle oracledb uses :name syntax
                     stmt_binds = {k: v for k, v in bind_vars.items() if f":{k}" in stmt}
                     if stmt_binds:
+                        print(f"DEBUG: Using binds: {stmt_binds}")
                         cursor.execute(stmt, stmt_binds)
                     else:
                         cursor.execute(stmt)
                 else:
                     cursor.execute(stmt)
+                    
                 if cursor.description:
                     columns = [col[0].lower() for col in cursor.description]
                     rows = [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
+                    print(f"DEBUG: Statement returned {len(rows)} rows.")
                     results.append({"type": "grid", "data": rows, "sql": stmt})
                 else:
+                    print("DEBUG: Statement executed successfully (no result set).")
                     results.append({"type": "message", "text": "Statement executed successfully", "sql": stmt})
             except Exception as stmt_err:
+                print(f"DEBUG: Statement failed: {stmt_err}")
                 results.append({"type": "error", "message": str(stmt_err), "sql": stmt})
         
         if auto_commit:
@@ -296,6 +355,10 @@ def seed_sql_scripts():
         scripts_to_insert = []
         
         for root, dirs, files in os.walk(BASE_SQL_DIR):
+            # Skip internal scripts and hidden directories
+            if "oracle_internal" in root or "__pycache__" in root:
+                continue
+            
             for file in files:
                 if file.endswith('.sql'):
                     rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)
@@ -322,6 +385,9 @@ def seed_sql_scripts():
                         'Y' # active
                     ))
         
+        # Cleanup and Sync
+        cursor.execute("DELETE FROM cfgmenu WHERE link_url LIKE 'oracle_internal/%'")
+        
         if scripts_to_insert:
             print(f"Syncing {len(scripts_to_insert)} scripts to cfgmenu...", flush=True)
             cursor.executemany("""
@@ -330,22 +396,6 @@ def seed_sql_scripts():
             """, scripts_to_insert)
         
         # Always ensure example tools are registered (including non-.sql extensions)
-        tool_scripts = [
-            ('SQLcl Example', 'oracle/tools/sqlcl_example.sql', 8),
-            ('RMAN Example', 'oracle/tools/rman_example.rcv', 8),
-            ('DGMGRL Example', 'oracle/tools/dgmgrl_example.txt', 8),
-            ('SQLLDR Example', 'oracle/tools/sqlldr_example.ctl', 8),
-        ]
-        
-        for label, rel_path, ctype in tool_scripts:
-            name = os.path.basename(rel_path)
-            cursor.execute("SELECT id FROM cfgmenu WHERE link_url = ?", (rel_path,))
-            if not cursor.fetchone():
-                cursor.execute("""
-                    INSERT INTO cfgmenu (name, link_label, link_url, icon_url, codmenutype, codmenutype_icon_url, active)
-                    VALUES (?, ?, ?, 'file', ?, 'monitor', 'Y')
-                """, (name, label, rel_path, ctype))
-        
         conn.commit()
     finally:
         conn.close()
@@ -358,6 +408,9 @@ def search_sql_content(query):
     query_lower = query.lower()
     
     for root, dirs, files in os.walk(BASE_SQL_DIR):
+        if "oracle_internal" in root:
+            continue
+            
         for file in files:
             if file.endswith('.sql'):
                 rel_path = os.path.relpath(os.path.join(root, file), BASE_SQL_DIR)

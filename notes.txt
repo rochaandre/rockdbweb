@@ -1,0 +1,1 @@
+tenho este script na pasta scripts/sshUserSetup.sh ele basicamente ajuda a fazer o ssh para fazer o ssh sem senha a um servidor remoto. A ideia e utilizar este script para que possamos instruir o usuario para criar um novo 

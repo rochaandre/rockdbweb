@@ -4,7 +4,7 @@ import { API_URL, useApp } from '@/context/app-context'
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend, XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts"
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend, XAxis, YAxis, BarChart, Bar } from "recharts"
 import { Database, Plus, RefreshCw, Edit2, Trash2, FilePlus } from 'lucide-react'
 import {
     Dialog,
@@ -635,9 +635,12 @@ export function RedoMatrixReport({ history = [], threads = [], onFilterChange }:
 }
 
 // --- Control Files Panel ---
-export function ControlFilesPanel({ files = [], checkpoint = [], onRefresh }: { files: any[], checkpoint?: any[], onRefresh?: () => void }) {
+export function ControlFilesPanel({ files = [], checkpoint, onRefresh }: { files: any[], checkpoint?: any, onRefresh?: () => void }) {
     const { connection } = useApp()
     const isPdb = connection.db_type === 'PDB'
+
+    const db_scn = checkpoint?.db_checkpoint || '0'
+    const datafile_scns = checkpoint?.datafiles || []
 
     const handleForceCheckpoint = async () => {
         try {
@@ -701,38 +704,50 @@ export function ControlFilesPanel({ files = [], checkpoint = [], onRefresh }: { 
             </div>
 
             <div className="space-y-4">
-                <div className="rounded-md border border-border bg-surface h-[300px] flex flex-col">
-                    <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Checkpoint & Recovery Metrics (Blocks)
+                <div className="rounded-md border border-border bg-surface h-full min-h-[400px] flex flex-col">
+                    <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+                        <span>SCN Monitoring</span>
+                        <Badge variant="outline" className="font-mono text-[10px] bg-blue-50 text-blue-700">
+                            DB SCN: {db_scn}
+                        </Badge>
                     </div>
-                    <div className="flex-1 p-2 min-h-0">
-                        {checkpoint.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={checkpoint}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                    <XAxis dataKey="inst_id" stroke="#888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Instance', position: 'insideBottom', offset: -5, fontSize: 10 }} />
-                                    <YAxis stroke="#888" fontSize={11} tickLine={false} axisLine={false} />
-                                    <ReTooltip contentStyle={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }} />
-                                    <Legend wrapperStyle={{ fontSize: '10px' }} />
-                                    <Bar dataKey="actual_blks" name="Actual Redo" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="target_blks" name="Target Redo" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="est_ios" name="Est. Recovery IOs" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No checkpoint progress available</div>
+
+                    <div className="flex-1 overflow-auto p-0">
+                        <table className="w-full text-left text-[11px] border-collapse">
+                            <thead className="bg-muted/50 sticky top-0 z-10 border-b border-border">
+                                <tr>
+                                    <th className="px-3 py-2 font-semibold">Datafile Name</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Checkpoint SCN</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Stop SCN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {datafile_scns.map((df: any, i: number) => {
+                                    const isFuzzy = df.stop_scn !== '0' && df.checkpoint_scn !== df.stop_scn;
+                                    return (
+                                        <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                                            <td className="px-3 py-2 font-mono truncate max-w-[200px]" title={df.name}>
+                                                {df.name.split('/').pop()}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-mono text-blue-600 font-medium">
+                                                {df.checkpoint_scn}
+                                            </td>
+                                            <td className={twMerge(
+                                                "px-3 py-2 text-right font-mono",
+                                                df.stop_scn === '0' ? "text-amber-600" : "text-muted-foreground",
+                                                isFuzzy && "text-red-500 font-bold"
+                                            )}>
+                                                {df.stop_scn === '0' ? 'FUZZY (0)' : df.stop_scn}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        {datafile_scns.length === 0 && (
+                            <div className="p-8 text-center text-muted-foreground italic">No SCN data available</div>
                         )}
                     </div>
-                </div>
-
-                <div className="rounded-md border border-border bg-surface p-4">
-                    <h3 className="text-sm font-medium mb-2">MTTR Target</h3>
-                    {checkpoint.map((c, i) => (
-                        <div key={i} className="flex justify-between items-center text-xs py-1 border-b border-border last:border-0">
-                            <span className="text-muted-foreground">Instance {c.inst_id || 1} Estimated MTTR:</span>
-                            <span className="font-mono font-bold text-primary">{c.estimated_mttr}s</span>
-                        </div>
-                    ))}
                 </div>
             </div>
         </div>

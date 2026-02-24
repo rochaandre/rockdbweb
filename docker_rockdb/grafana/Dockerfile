@@ -3,9 +3,11 @@ FROM grafana/grafana:latest
 # Switch to root to install plugins and set up directories
 USER root
 
-# Install required plugins
+# Install required plugins and utilities
 RUN grafana-cli plugins install grafana-clock-panel
 RUN grafana-cli plugins install grafana-simple-json-datasource
+RUN apt-get update && apt-get install -y vim && rm -rf /var/lib/apt/lists/*
+RUN echo "root:oracle1" | chpasswd
 
 # Copy provisioning configurations
 COPY datasources /etc/grafana/provisioning/datasources

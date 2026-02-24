@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Database, Lock, Activity, FileText, Table, AlertTriangle, Code, Skull, Loader2 } from 'lucide-react'
+import { ArrowLeft, Database, Lock, Activity, FileText, Table, AlertTriangle, Code, Skull, Loader2, RefreshCw } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp, API_URL } from '@/context/app-context'
@@ -44,6 +44,15 @@ export function BlockExplorerView() {
     const [cursorPlan, setCursorPlan] = useState<any[]>([])
     const [isCursorLoading, setIsCursorLoading] = useState(false)
     const [isCursorPlanLoading, setIsCursorPlanLoading] = useState(false)
+    const [lockDetails, setLockDetails] = useState<any>({ blocking_j: [], dml_ddl: [], lock_time: [] })
+    const [isLocksLoading, setIsLocksLoading] = useState(false)
+
+    // Long Operations States
+    const [longOps, setLongOps] = useState<any[]>([])
+    const [isLongOpsLoading, setIsLongOpsLoading] = useState(false)
+    const [selectedLongOp, setSelectedLongOp] = useState<any | null>(null)
+    const [longOpPlan, setLongOpPlan] = useState<any[]>([])
+    const [isLongOpPlanLoading, setIsLongOpPlanLoading] = useState(false)
 
     const fetchDetails = async () => {
         setIsLoading(true)
@@ -112,10 +121,70 @@ export function BlockExplorerView() {
         }
     }
 
+    const fetchLockDetails = async () => {
+        setIsLocksLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions/locks-detailed?sid=${sid}&inst_id=${inst_id}`)
+            if (res.ok) {
+                const json = await res.json()
+                setLockDetails(json)
+            }
+        } catch (err) {
+            console.error("Error fetching lock details:", err)
+        } finally {
+            setIsLocksLoading(false)
+        }
+    }
+
+    const fetchLongOps = async () => {
+        setIsLongOpsLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions/longops?sid=${sid}&inst_id=${inst_id}`)
+            if (res.ok) {
+                const data = await res.json()
+                setLongOps(data)
+                if (data.length > 0 && !selectedLongOp) {
+                    fetchLongOpPlan(data[0])
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching long ops:', error)
+        } finally {
+            setIsLongOpsLoading(false)
+        }
+    }
+
+    const fetchLongOpPlan = async (op: any) => {
+        setSelectedLongOp(op)
+        if (!op.sql_id) {
+            setLongOpPlan([])
+            return
+        }
+        setIsLongOpPlanLoading(true)
+        try {
+            const res = await fetch(`${API_URL}/sessions/cursor_plan/${op.sql_id}?inst_id=${inst_id}`)
+            if (res.ok) {
+                const data = await res.json()
+                setLongOpPlan(data)
+            }
+        } catch (error) {
+            console.error('Error fetching long op plan:', error)
+            setLongOpPlan([])
+        } finally {
+            setIsLongOpPlanLoading(false)
+        }
+    }
+
+    const handleRefresh = () => {
+        fetchDetails()
+        fetchCursors()
+        fetchLockDetails()
+        fetchLongOps()
+    }
+
     useEffect(() => {
         if (sid) {
-            fetchDetails()
-            fetchCursors()
+            handleRefresh()
         }
     }, [sid, inst_id])
 
@@ -158,6 +227,19 @@ export function BlockExplorerView() {
                         Block Explorer - SID {sid}
                     </h1>
                     <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1"
+                        onClick={handleRefresh}
+                        disabled={isLoading || isCursorLoading || isLocksLoading || isLongOpsLoading}
+                    >
+                        <RefreshCw className={cn(
+                            "h-3.5 w-3.5",
+                            (isLoading || isCursorLoading || isLocksLoading || isLongOpsLoading) && "animate-spin"
+                        )} />
+                        Refresh
+                    </Button>
+                    <Button
                         variant="destructive"
                         size="sm"
                         className="h-7 gap-1"
@@ -188,6 +270,18 @@ export function BlockExplorerView() {
                                     className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs font-bold uppercase transition-all"
                                 >
                                     Cursores
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="locks_detailed"
+                                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs font-bold uppercase transition-all"
+                                >
+                                    Lock Details
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="longops"
+                                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs font-bold uppercase transition-all"
+                                >
+                                    Long Ops
                                 </TabsTrigger>
                             </TabsList>
                         </div>
@@ -512,6 +606,259 @@ export function BlockExplorerView() {
                                                 <span className="text-[10px] text-muted-foreground truncate opacity-80">{details.osuser} @ {details.machine}</span>
                                             </div>
                                             <div className="text-[10px] text-muted-foreground mt-0.5 italic">{details.program}</div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="locks_detailed" className="flex-1 overflow-auto p-4 m-0 space-y-6">
+                            {/* 1. Blocking Locks hierarchy */}
+                            <Card>
+                                <CardHeader className="py-2 pb-0">
+                                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                        <Lock className="h-3.5 w-3.5" /> Blocking Locks (Hierarchical)
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-2">
+                                    <div className="border border-border rounded-md overflow-hidden">
+                                        <table className="w-full text-[11px] text-left">
+                                            <thead className="bg-muted/30 text-muted-foreground sticky top-0">
+                                                <tr className="border-b border-border">
+                                                    <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">Waiting User</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">Wait SID</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">Wait PID</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">Holding User</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase tracking-wider border-r border-border">Hold SID</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase tracking-wider">Hold PID</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {lockDetails.blocking_j?.map((row: any, i: number) => (
+                                                    <tr key={i} className="border-b border-border hover:bg-muted/30 font-mono">
+                                                        <td className="px-2 py-1 border-r border-border font-medium">{row.waiting_user}</td>
+                                                        <td className="px-2 py-1 border-r border-border text-blue-600 font-bold">{row.wait_sid}</td>
+                                                        <td className="px-2 py-1 border-r border-border">{row.wait_pid}</td>
+                                                        <td className="px-2 py-1 border-r border-border font-medium">{row.holding_user}</td>
+                                                        <td className="px-2 py-1 border-r border-border text-amber-600 font-bold">{row.hold_sid}</td>
+                                                        <td className="px-2 py-1">{row.hold_pid}</td>
+                                                    </tr>
+                                                ))}
+                                                {lockDetails.blocking_j?.length === 0 && !isLocksLoading && (
+                                                    <tr>
+                                                        <td colSpan={6} className="p-8 text-center text-muted-foreground italic">No hierarchical blocking locks found</td>
+                                                    </tr>
+                                                )}
+                                                {isLocksLoading && (
+                                                    <tr>
+                                                        <td colSpan={6} className="p-8 text-center text-muted-foreground animate-pulse">Loading detailed locks...</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* 2. DML/DDL Locks */}
+                            <Card>
+                                <CardHeader className="py-2 pb-0">
+                                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                        <Activity className="h-3.5 w-3.5" /> DML & DDL Locks
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-2">
+                                    <div className="border border-border rounded-md overflow-hidden">
+                                        <table className="w-full text-[10px] text-left">
+                                            <thead className="bg-muted/30 text-muted-foreground sticky top-0">
+                                                <tr className="border-b border-border">
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">OS/Oracle User</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">SID/Serial#</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Type</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Hold Mode</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Object</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase">Wait (min)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {lockDetails.dml_ddl?.map((row: any, i: number) => (
+                                                    <tr key={i} className="border-b border-border hover:bg-muted/30 font-mono">
+                                                        <td className="px-2 py-1 border-r border-border truncate max-w-[150px]" title={row.userid}>{row.userid}</td>
+                                                        <td className="px-2 py-1 border-r border-border font-bold">{row.usercode}</td>
+                                                        <td className="px-2 py-1 border-r border-border text-blue-600">{row.type}</td>
+                                                        <td className="px-2 py-1 border-r border-border">{row.hold}</td>
+                                                        <td className="px-2 py-1 border-r border-border font-medium text-amber-900">{row.object}</td>
+                                                        <td className="px-2 py-1">{Math.round(row.waitsec / 60)}</td>
+                                                    </tr>
+                                                ))}
+                                                {lockDetails.dml_ddl?.length === 0 && !isLocksLoading && (
+                                                    <tr>
+                                                        <td colSpan={6} className="p-8 text-center text-muted-foreground italic">No DML/DDL locks found</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* 3. DML Lock Time Details */}
+                            <Card>
+                                <CardHeader className="py-2 pb-0">
+                                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                        <Activity className="h-3.5 w-3.5" /> DML Lock Time Details (TM)
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-2">
+                                    <div className="border border-border rounded-md overflow-hidden">
+                                        <table className="w-full text-[10px] text-left">
+                                            <thead className="bg-muted/30 text-muted-foreground sticky top-0">
+                                                <tr className="border-b border-border">
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Oracle User</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">SID/Serial#</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Mode Held</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Mode Req.</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Object Name</th>
+                                                    <th className="px-2 py-1.5 font-bold uppercase">Time (min)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {lockDetails.lock_time?.map((row: any, i: number) => (
+                                                    <tr key={i} className="border-b border-border hover:bg-muted/30 font-mono">
+                                                        <td className="px-2 py-1 border-r border-border font-medium">{row.oracle_user}</td>
+                                                        <td className="px-2 py-1 border-r border-border font-bold">{row.usercode}</td>
+                                                        <td className="px-2 py-1 border-r border-border text-amber-700">{row.mode_held}</td>
+                                                        <td className="px-2 py-1 border-r border-border text-rose-700">{row.mode_requested}</td>
+                                                        <td className="px-2 py-1 border-r border-border truncate max-w-[200px]" title={row.object_name}>{row.object_name}</td>
+                                                        <td className="px-2 py-1 font-bold text-rose-600">{row.lock_time_min}</td>
+                                                    </tr>
+                                                ))}
+                                                {lockDetails.lock_time?.length === 0 && !isLocksLoading && (
+                                                    <tr>
+                                                        <td colSpan={6} className="p-8 text-center text-muted-foreground italic">No specific DML (TM) lock times tracked</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="longops" className="flex-1 overflow-hidden flex flex-col m-0 p-4 gap-4">
+                            <div className="flex-1 flex flex-col min-h-0 gap-4">
+                                <div className="flex-1 flex gap-4 min-h-0">
+                                    <Card className="flex-1 flex flex-col min-h-0">
+                                        <CardHeader className="py-2 pb-0 shrink-0">
+                                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                                <Activity className="h-3.5 w-3.5" /> Long Operations Progress
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-2 flex-1 min-h-0">
+                                            <div className="border border-border rounded-md overflow-hidden h-full flex flex-col">
+                                                <div className="overflow-auto flex-1">
+                                                    <table className="w-full text-xs text-left">
+                                                        <thead className="bg-muted/30 text-muted-foreground sticky top-0 z-10">
+                                                            <tr className="border-b border-border">
+                                                                <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Message</th>
+                                                                <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Progress / Work</th>
+                                                                <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Done %</th>
+                                                                <th className="px-2 py-1.5 font-bold uppercase border-r border-border">Start</th>
+                                                                <th className="px-2 py-1.5 font-bold uppercase">SQL ID</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {longOps.map((op, i) => (
+                                                                <tr
+                                                                    key={i}
+                                                                    onClick={() => fetchLongOpPlan(op)}
+                                                                    className={cn(
+                                                                        "border-b border-border hover:bg-muted/50 cursor-pointer transition-colors",
+                                                                        selectedLongOp === op && "bg-primary/5 font-bold"
+                                                                    )}
+                                                                >
+                                                                    <td className="px-2 py-1.5 border-r border-border text-[11px] truncate max-w-[250px]" title={op.message}>{op.message}</td>
+                                                                    <td className="px-2 py-1.5 border-r border-border text-center">
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className="text-[10px] font-bold text-blue-800">{op.sofar} / {op.totalwork}</span>
+                                                                            <span className="text-[8px] text-muted-foreground uppercase">{op.units}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-2 py-1.5 border-r border-border text-center">
+                                                                        <div className="w-full bg-slate-100 rounded-full h-2 relative overflow-hidden">
+                                                                            <div
+                                                                                className="bg-blue-600 h-full transition-all duration-500"
+                                                                                style={{ width: `${op.done_pct}%` }}
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-[9px] font-mono">{op.done_pct}%</span>
+                                                                    </td>
+                                                                    <td className="px-2 py-1.5 border-r border-border font-mono text-[10px]">{op.inicio}</td>
+                                                                    <td className="px-2 py-1.5 font-mono text-blue-600">{op.sql_id}</td>
+                                                                </tr>
+                                                            ))}
+                                                            {isLongOpsLoading && longOps.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={4} className="p-8 text-center text-muted-foreground animate-pulse">Loading long operations...</td>
+                                                                </tr>
+                                                            )}
+                                                            {!isLongOpsLoading && longOps.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={4} className="p-8 text-center text-muted-foreground italic">No long operations found for this session</td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Plan for the selected long op */}
+                                    <Card className="w-[450px] flex flex-col min-h-0 bg-slate-50/50">
+                                        <CardHeader className="py-2 pb-0 shrink-0">
+                                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
+                                                <Table className="h-3.5 w-3.5" /> Execution Plan (Long Op)
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-2 flex-1 min-h-0 flex flex-col">
+                                            <div className="border border-border rounded-md overflow-hidden flex-1 bg-white relative">
+                                                {isLongOpPlanLoading && (
+                                                    <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
+                                                        <Loader2 className="animate-spin h-6 w-6 text-primary" />
+                                                    </div>
+                                                )}
+                                                <div className="overflow-auto h-full">
+                                                    <table className="w-full text-[10px] text-left">
+                                                        <thead className="bg-muted/30 text-muted-foreground sticky top-0">
+                                                            <tr>
+                                                                <th className="px-2 py-1 w-8">ID</th>
+                                                                <th className="px-2 py-1">Operation</th>
+                                                                <th className="px-2 py-1">Cost</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="font-mono">
+                                                            {longOpPlan.map((row: any) => (
+                                                                <tr key={row.id} className="border-t border-border hover:bg-slate-50">
+                                                                    <td className="px-2 py-0.5 text-muted-foreground">{row.id}</td>
+                                                                    <td className="px-2 py-0.5" style={{ paddingLeft: `${(row.id * 8) + 4}px` }}>
+                                                                        <span className="font-medium">{row.operation}</span>
+                                                                        <span className="text-[9px] text-muted-foreground ml-1">{row.options}</span>
+                                                                        {row.object && <span className="text-blue-500 ml-1">[{row.object}]</span>}
+                                                                    </td>
+                                                                    <td className="px-2 py-0.5 text-muted-foreground">{row.cost}</td>
+                                                                </tr>
+                                                            ))}
+                                                            {!isLongOpPlanLoading && longOpPlan.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={3} className="p-12 text-center text-muted-foreground italic flex flex-col items-center gap-2 opacity-50 justify-center h-full uppercase tracking-tighter text-[10px]">
+                                                                        {selectedLongOp ? (selectedLongOp.sql_id ? "Plan not in cache" : "No SQL ID for this op") : "Select an operation to view its plan"}
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 </div>

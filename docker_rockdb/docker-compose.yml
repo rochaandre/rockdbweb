@@ -20,6 +20,8 @@ services:
       - ./prometheus:/etc/prometheus
       # Shared monitoring directory for Ansible/Jenkins
       - ../monitoring:/app/monitoring
+      # Development: mount backend code for debugging
+      - ../backend:/app/backend
     environment:
       - ROCKDB_DATA_DIR=/opt/rockdbweb
       - ROCKDB_SCRIPTS_DIR=/app/sql

@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 import os
+import oracledb
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Union
@@ -24,7 +25,7 @@ from .dashboard_mod import (
 from .sessions_mod import (
     get_sessions, kill_session, get_session_sql, get_blocking_sessions, 
     get_long_ops, get_blocker_details, get_object_ddl, get_instances,
-    simulate_long_op, get_long_ops_stats, get_sql_statistics
+    simulate_long_op, get_long_ops_stats, get_sql_statistics, get_detailed_locks
 )
 from .storage_mod import (
     get_tablespaces_detailed, get_data_files, get_segments, 
@@ -45,7 +46,7 @@ from .timemachine_mod import store_snapshot, get_history_range, get_snapshot_at_
 import asyncio
 from .backups_mod import (
     get_backup_jobs, get_backup_summary, get_backup_sets, 
-    get_backup_datafiles, get_nls_parameters,
+    get_backup_info, get_backup_datafiles, get_nls_parameters,
     get_recovery_summary, get_incarnations, get_datafiles_detailed,
     execute_rman_sql_report, get_rman_progress
 )
@@ -502,12 +503,12 @@ def read_session_sql(sql_id: str, inst_id: Optional[int] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sessions/sql-statistics/{sql_id}")
-def read_sql_statistics(sql_id: str, inst_id: int = 1, child_number: int = 0):
+def read_sql_statistics(sql_id: str, inst_id: int = 1):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_sql_statistics(active, sql_id, inst_id, child_number)
+        return get_sql_statistics(active, sql_id, inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -538,6 +539,16 @@ def read_long_ops_stats():
         raise HTTPException(status_code=404, detail="No active connection")
     try:
         return get_long_ops_stats(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sessions/locks-detailed")
+def read_detailed_locks(sid: Optional[int] = None, inst_id: Optional[int] = None):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_detailed_locks(active, sid=sid, inst_id=inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -685,6 +696,15 @@ def read_backup_summary(days: int = 30):
         return get_backup_summary(active, days)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/backups/info")
+def read_backup_info(days: int = 30):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_backup_info(active, days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/backups/sets/{session_key}")
 def read_backup_sets(session_key: int):
@@ -754,7 +774,7 @@ def read_rman_summary(days: int = 7):
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_days.sql', variables={"NUMBER_OF_DAYS": days})
+        return execute_rman_sql_report(active, 'oracle_internal/rman/rman_backup_days.sql', variables={"days": days})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -764,17 +784,29 @@ def read_rman_config():
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_configuration.sql')
+        return execute_rman_sql_report(active, 'oracle_internal/rman/rman_backup_configuration.sql')
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/backups/rman/files")
-def read_rman_files():
+@app.get("/api/backups/rman/size")
+def read_rman_size(days: int = 30):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, 'oracle/rman/rman_list_backup_files.sql')
+        from .backups_mod import execute_rman_sql_report
+        return execute_rman_sql_report(active, 'oracle_internal/rman/rman_backup_size.sql', variables={"days": days})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backups/rman/files")
+def read_rman_files(days: int = 30):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        from .backups_mod import execute_rman_sql_report
+        return execute_rman_sql_report(active, 'oracle_internal/rman/rman_list_backup_files.sql', variables={"days": days})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -784,27 +816,29 @@ def read_rman_datafiles():
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_datafiles.sql')
+        return execute_rman_sql_report(active, 'oracle_internal/rman/rman_backup_datafiles.sql')
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/backups/rman/pieces")
-def read_rman_pieces():
+def read_rman_pieces(days: int = 30):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, 'oracle/rman/rman_backup_pieces.sql')
+        from .backups_mod import execute_rman_sql_report
+        return execute_rman_sql_report(active, 'oracle_internal/rman/rman_backup_pieces.sql', variables={"days": days})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/backups/rman/status")
-def read_rman_status():
+def read_rman_status(days: int = 30):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, "oracle/rman/rman_backup_status.sql")
+        from .backups_mod import execute_rman_sql_report
+        return execute_rman_sql_report(active, "oracle_internal/rman/rman_backup_status.sql", variables={"days": days})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -814,7 +848,7 @@ def read_rman_configuration():
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return execute_rman_sql_report(active, "oracle/rman/rman_backup_configuration.sql")
+        return execute_rman_sql_report(active, "oracle_internal/rman/rman_backup_configuration.sql")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

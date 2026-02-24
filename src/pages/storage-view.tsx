@@ -28,7 +28,7 @@ export function StorageView() {
     const [sysauxData, setSysauxData] = useState<any>({ occupants: [], top_objects: [], availability: 'N/A' })
     const [undoData, setUndoData] = useState<any>({ stats: [], retention: 0, max_query_len: 0 })
     const [tempUsage, setTempUsage] = useState<any[]>([])
-    const [checkpointProgress, setCheckpointProgress] = useState<any[]>([])
+    const [checkpointProgress, setCheckpointProgress] = useState<any>({ db_checkpoint: '0', datafiles: [] })
 
     const [selectedTs, setSelectedTs] = useState<string | null>(null)
     const [editTs, setEditTs] = useState<any | null>(null)

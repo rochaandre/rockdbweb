@@ -51,8 +51,8 @@ WHERE sid = $SID;
 
 
 -- All blocked sessions
-SELECT inst_id, sid, serial, username, blocking_session, sql_id, status, 
-'ALTER SYSTEM KILL SESSION ''$SID,$SERIAL,@$INST_ID'' IMMEDIATE;' AS kill_command
+SELECT inst_id, sid, serial#, username, blocking_session, sql_id, status,
+'ALTER SYSTEM KILL SESSION '||''''||'$SID,$SERIAL,@$INST_ID'||''''||' IMMEDIATE ' AS kill_command
 FROM gv$session
 WHERE blocking_session IS NOT NULL;
 
@@ -137,3 +137,88 @@ select
     xid
 from
     v$transaction;
+
+-- Show hierachical mode for all locks
+WITH session_tree AS (
+  SELECT 
+    LEVEL lvl,
+    sid,
+    blocking_session,
+    username,
+    sql_id,
+    event,
+    seconds_in_wait,
+    LPAD(' ', (LEVEL - 1) * 2) || sid AS session_tree
+  FROM v$session
+  WHERE sid IN (
+    SELECT blocking_session FROM v$session
+    UNION
+    SELECT sid FROM v$session WHERE blocking_session IS NOT NULL
+  )
+  CONNECT BY PRIOR sid = blocking_session
+  START WITH blocking_session IS NULL
+)
+SELECT session_tree, username, sql_id, event, seconds_in_wait
+FROM session_tree
+ORDER BY lvl;       
+
+
+SELECT DECODE(request,0,'Holder: ','Waiter: ') || sid sess,
+  id1,
+  id2,
+  lmode,
+  request,
+  type
+FROM v$lock
+WHERE (id1, id2, type) IN
+  (SELECT id1, id2, type FROM v$lock WHERE request > 0
+  )
+ORDER BY id1,
+  request;
+
+-- Find Blocked Sessions
+select s1.username || '@' || s1.machine
+ || ' ( SID=' || s1.sid || ' ) is blocking '
+ || s2.username || '@' || s2.machine 
+ || ' ( SID=' || s2.sid || ' ) ' AS blocking_status
+ from v$lock l1, v$session s1, v$lock l2, v$session s2
+ where s1.sid=l1.sid and s2.sid=l2.sid
+ and l1.BLOCK=1 and l2.request > 0
+ and l1.id1 = l2.id1
+ and l2.id2 = l2.id2 ;
+
+
+-- Find Blocked SQL
+
+SELECT SES.SID, SES.SERIAL# SER#, SES.PROCESS OS_ID, SES.STATUS, SQL.SQL_FULLTEXT
+FROM V$SESSION SES, V$SQL SQL, V$PROCESS PRC
+WHERE
+   SES.SQL_ID=SQL.SQL_ID AND
+   SES.SQL_HASH_VALUE=SQL.HASH_VALUE AND 
+   SES.PADDR=PRC.ADDR AND
+   SES.SID=$SID;
+
+-- Find Lock Wait Time
+SELECT 
+  blocking_session "BLOCKING_SESSION",
+  sid "BLOCKED_SESSION",
+  serial# "BLOCKED_SERIAL#", 
+  seconds_in_wait/60 "WAIT_TIME(MINUTES)"
+FROM v$session
+WHERE blocking_session is not NULL
+and sid=$SID
+ORDER BY blocking_session;
+
+
+-- Show locked table
+
+select lo.session_id,lo.oracle_username,lo.os_user_name,
+lo.process,do.object_name,do.owner,
+decode(lo.locked_mode,0, 'None',1, 'Null',2, 'Row Share (SS)',
+3, 'Row Excl (SX)',4, 'Share',5, 'Share Row Excl (SSX)',6, 'Exclusive',
+to_char(lo.locked_mode)) mode_held
+from gv$locked_object lo, dba_objects do
+where lo.object_id = do.object_id
+order by 5
+/
+

@@ -118,7 +118,10 @@ export function DetailSidebar({ session, sqlText }: DetailSidebarProps) {
                                                             console.log('Sidebar SQL Statistics Click:', { sql_id, inst, child });
 
                                                             if (sql_id && sql_id !== 'undefined') {
-                                                                navigate(`/sql-report/statistics/${sql_id}?inst_id=${inst}&child_number=${child}`);
+                                                                const sid = session.sid || session.SID || '';
+                                                                const serial = session['serial#'] || session.serial || '';
+                                                                const spid = session.spid || session.SPID || '';
+                                                                navigate(`/sql-report/statistics/${sql_id}?inst_id=${inst}&child_number=${child}&sid=${sid}&serial=${serial}&spid=${spid}`);
                                                             } else {
                                                                 alert('Cannot open report: SQL ID is missing or invalid.');
                                                             }

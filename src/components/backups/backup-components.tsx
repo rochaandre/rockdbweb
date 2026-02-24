@@ -802,6 +802,41 @@ export function DatafileDetailedTable({ datafiles = [] }: { datafiles: any[] }) 
         </div>
     )
 }
+// --- Backup Size History Table ---
+export function BackupSizeHistoryTable({ data = [] }: { data: any[] }) {
+    return (
+        <div className="rounded-md border border-border bg-surface">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <HardDrive className="size-3.5" /> Backup Size History (Daily Summary)
+            </div>
+            <div className="grid grid-cols-4 gap-4 border-b border-border bg-muted/50 p-3 text-xs font-medium text-muted-foreground">
+                <div>Date</div>
+                <div>Type</div>
+                <div className="text-right">Size (MB)</div>
+                <div className="text-right">Time (Min)</div>
+            </div>
+            <div className="max-h-[300px] overflow-auto divide-y divide-border">
+                {data.map((item, i) => (
+                    <div key={i} className="grid grid-cols-4 gap-4 p-3 text-xs hover:bg-muted/30 items-center transition-colors">
+                        <div className="font-mono text-muted-foreground">{item.completion_time}</div>
+                        <div className="font-bold flex items-center gap-1.5">
+                            <span className={twMerge(
+                                "size-1.5 rounded-full",
+                                item.type === 'LEVEL0' ? "bg-purple-500" :
+                                    item.type === 'LEVEL1' ? "bg-blue-500" :
+                                        item.type === 'ARCHIVELOG' ? "bg-amber-500" : "bg-gray-400"
+                            )} />
+                            {item.type}
+                        </div>
+                        <div className="text-right font-mono font-bold text-primary">{Math.round(item.mb).toLocaleString()}</div>
+                        <div className="text-right font-mono text-muted-foreground">{item.min}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 // --- RMAN Status Table ---
 export function RmanStatusTable({ data = [] }: { data: any[] }) {
     return (
@@ -850,7 +885,7 @@ export function RmanConfigTable({ data = [] }: { data: any[] }) {
                 <div className="col-span-6">Value</div>
             </div>
             <div className="divide-y divide-border">
-                {data.map((item, i) => (
+                {data.length > 0 ? data.map((item, i) => (
                     <div key={i} className="grid grid-cols-12 gap-4 p-3 text-xs hover:bg-muted/30 items-center transition-colors">
                         <div className="col-span-2 font-mono text-muted-foreground">{item['conf#']}</div>
                         <div className="col-span-4 font-bold text-primary">{item.name}</div>
@@ -858,7 +893,11 @@ export function RmanConfigTable({ data = [] }: { data: any[] }) {
                             {item.value}
                         </div>
                     </div>
-                ))}
+                )) : (
+                    <div className="p-8 text-center bg-amber-500/5 text-amber-600 text-xs font-medium border-t border-amber-500/10">
+                        Default configuration - Only non-default settings are shown.
+                    </div>
+                )}
             </div>
         </div>
     )

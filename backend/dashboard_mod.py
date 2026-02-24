@@ -10,7 +10,7 @@ def get_dashboard_metrics(conn_info):
 
         # Load version-aware SQL
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/dashboard_metrics.sql", version)
+        sql_text = get_sql_content("dashboard_metrics.sql", version, is_internal=True)
         
         # Split by semicolon and execute
         statements = [s.strip() for s in sql_text.split(';') if s.strip()]
@@ -108,7 +108,7 @@ def get_top_queries(conn_info, owner_filter="%"):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/top_queries.sql", version)
+        sql_text = get_sql_content("top_queries.sql", version, is_internal=True)
         
         # Simple LIKE filter
         cursor.execute(sql_text, owner_filter=owner_filter)
@@ -128,7 +128,7 @@ def get_top_wait_events(conn_info, owner_filter="%", event_filter="%"):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/wait_events.sql", version)
+        sql_text = get_sql_content("wait_events.sql", version, is_internal=True)
         
         cursor.execute(sql_text, owner_filter=owner_filter, event_filter=event_filter)
         columns = [col[0].lower() for col in cursor.description]
@@ -151,7 +151,7 @@ def get_invalid_triggers(conn_info, owner_filter="%"):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/invalid_triggers.sql", version)
+        sql_text = get_sql_content("invalid_triggers.sql", version, is_internal=True)
         
         cursor.execute(sql_text, owner_filter=owner_filter)
         columns = [col[0].lower() for col in cursor.description]
@@ -170,7 +170,7 @@ def get_valid_objects(conn_info, owner_filter="%"):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/valid_objects.sql", version)
+        sql_text = get_sql_content("valid_objects.sql", version, is_internal=True)
         
         cursor.execute(sql_text, owner_filter=owner_filter)
         columns = [col[0].lower() for col in cursor.description]
@@ -189,7 +189,7 @@ def get_open_cursors(conn_info, owner_filter="%"):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/open_cursors.sql", version)
+        sql_text = get_sql_content("open_cursors.sql", version, is_internal=True)
         
         cursor.execute(sql_text, owner_filter=owner_filter)
         columns = [col[0].lower() for col in cursor.description]
@@ -208,7 +208,7 @@ def get_dashboard_sysaux_occupants(conn_info):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/sysaux_occupants.sql", version)
+        sql_text = get_sql_content("sysaux_occupants.sql", version, is_internal=True)
         
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
@@ -227,7 +227,7 @@ def get_active_schemas(conn_info):
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/active_schemas.sql", version)
+        sql_text = get_sql_content("active_schemas.sql", version, is_internal=True)
         
         cursor.execute(sql_text)
         return [row[0] for row in cursor.fetchall()]
@@ -247,7 +247,7 @@ def get_tablespace_summary(conn_info):
         
         # Load version-aware SQL
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/tablespace_summary.sql", version)
+        sql_text = get_sql_content("tablespace_summary.sql", version, is_internal=True)
         
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]

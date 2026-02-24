@@ -22,8 +22,9 @@ FROM ${BASE_IMAGE}
 USER root
 
 # Install Python 3.11, basic utilities, and connectivity tools
-RUN microdnf install -y python3.11 python3.11-pip tar gzip iputils procps curl && \
-    microdnf clean all
+RUN microdnf install -y python3.11 python3.11-pip tar gzip iputils procps curl vim-minimal && \
+    microdnf clean all && \
+    echo "root:oracle1" | chpasswd
 
 # Ensure python3 points to 3.11
 RUN alternatives --set python3 /usr/bin/python3.11
@@ -80,6 +81,8 @@ python3.11 -m uvicorn backend.main:app --host 0.0.0.0 --port 8080 --log-level in
 EOF
 
 RUN chmod +x /app/start.sh
+COPY docker_rockdb/restart.sh /app/restart.sh
+RUN chmod +x /app/restart.sh
 
 # Switch back to the non-privileged user (if defined in base, or use 1000)
 USER 1000

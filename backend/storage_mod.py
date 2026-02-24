@@ -76,7 +76,7 @@ def get_segments(conn_info, tablespace_name):
         # Load version-aware SQL
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/segments.sql", version)
+        sql_text = get_sql_content("segments.sql", version, is_internal=True)
         
         cursor.execute(sql_text, ts=tablespace_name)
         columns = [col[0].lower() for col in cursor.description]
@@ -146,7 +146,7 @@ def get_undo_stats(conn_info):
         # Load version-aware SQL
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_text = get_sql_content("oracle/undo_stats.sql", version)
+        sql_text = get_sql_content("undo_stats.sql", version, is_internal=True)
         
         cursor.execute(sql_text)
         columns = [col[0].lower() for col in cursor.description]
@@ -215,19 +215,29 @@ def get_checkpoint_progress(conn_info):
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        # Recovery metrics for chart
+        
+        # 1. System checkpoint SCN
+        cursor.execute("SELECT checkpoint_change# FROM v$database")
+        db_row = cursor.fetchone()
+        db_checkpoint = str(db_row[0]) if db_row else "0"
+        
+        # 2. Datafile SCNs (Combining checkpoint and stop SCN)
         cursor.execute("""
-            SELECT recovery_estimated_ios as est_ios, 
-                   actual_redo_blks as actual_blks, 
-                   target_redo_blks as target_blks,
-                   estimated_mttr
-            FROM v$inst_recovery
+            SELECT name, checkpoint_change# as checkpoint_scn, last_change# as stop_scn 
+            FROM v$datafile
+            ORDER BY file#
         """)
         columns = [col[0].lower() for col in cursor.description]
-        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
+        datafiles = [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
+        
+        return {
+            "db_checkpoint": db_checkpoint,
+            "datafiles": datafiles
+        }
     except Exception as e:
         print(f"Error fetching checkpoint progress: {e}")
-        raise e
+        # Return empty structure on error to prevent 500
+        return {"db_checkpoint": "Error/No Access", "datafiles": []}
     finally:
         if connection:
             connection.close()

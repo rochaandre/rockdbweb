@@ -1,0 +1,2 @@
+SELECT plan_table_output
+FROM table(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ALLSTATS LAST +PEEKED_BINDS'))

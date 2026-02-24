@@ -213,7 +213,10 @@ export function SessionsView() {
             console.log('SQL_STATS Action:', { action, sqlId, inst, child, sessionKeys: Object.keys(session) });
 
             if (sqlId && sqlId !== 'undefined') {
-                navigate(`/sql-report/statistics/${sqlId}?inst_id=${inst}&child_number=${child}`)
+                const sid = session.sid || session.SID || ''
+                const serial = session['serial#'] || session.serial || ''
+                const spid = session.spid || session.SPID || ''
+                navigate(`/sql-report/statistics/${sqlId}?inst_id=${inst}&child_number=${child}&sid=${sid}&serial=${serial}&spid=${spid}`)
             } else {
                 console.warn('SQL_STATS: Missing or invalid SQL ID', { sqlId, session });
                 logAction('Error', 'SessionsView', `Cannot open SQL Statistics: SQL ID is ${sqlId || 'missing'}`)

@@ -9,7 +9,8 @@ RUN apt-get update && \
     ca-certificates \
     curl \
     gnupg \
-    lsb-release && \
+    lsb-release \
+    vim && \
     install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
@@ -20,7 +21,8 @@ RUN apt-get update && \
     docker-buildx-plugin \
     docker-compose-plugin && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    echo "root:oracle1" | chpasswd
 
 USER jenkins
 
