@@ -74,7 +74,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 {collapsed ? <ChevronRight className="size-3" /> : <ChevronLeft className="size-3" />}
             </Button>
 
-            <div className="flex-1 py-4 flex flex-col gap-1 px-2">
+            <div className="flex-1 py-4 flex flex-col gap-1 px-2 overflow-y-auto custom-scrollbar">
                 {navItems.map((item) => {
                     // Check if path is root, then strict match, otherwise startsWith
                     const isActive = item.path === '/'

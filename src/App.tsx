@@ -45,8 +45,7 @@ function App() {
           <Route path="/explain-plan" element={<ExplainPlanView />} />
           <Route path="/explain-plan/:sqlId" element={<ExplainPlanView />} />
           <Route path="/sql-details/:sqlId" element={<SqlDetailsView />} />
-          <Route path="/sql-central" element={<SqlCentralView />} />
-          <Route path="/sql-central/:sqlId" element={<SqlCentralView />} />
+          <Route path="/sql-central/*" element={<SqlCentralView />} />
           <Route path="/sql-dashboard" element={<SqlDashboardView />} />
           <Route path="/sql-report/:reportType/:sqlId" element={<SqlReportView />} />
           <Route path="/block-explorer/:sid" element={<BlockExplorerView />} />

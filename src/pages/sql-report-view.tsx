@@ -38,7 +38,6 @@ export function SqlReportView() {
                 setData({ statistics: { error: errorJson.detail || 'Internal Server Error' } })
             }
         } catch (error) {
-            console.error('Error fetching report:', error)
             setData({ statistics: { error: 'Connection failure. Check backend logs.' } })
         } finally {
             setIsLoading(false)

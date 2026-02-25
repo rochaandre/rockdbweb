@@ -327,7 +327,7 @@ export function SqlCentralView() {
     const [newScriptFolder, setNewScriptFolder] = useState('root')
     const [toolOutput, setToolOutput] = useState<any>(null)
     const [contentSearchPaths, setContentSearchPaths] = useState<string[]>([])
-    const { sqlId } = useParams()
+    const { "*": sqlId } = useParams()
     const hasAutoExecuted = useRef<string | boolean>(false)
     const editorRef = useRef<HTMLTextAreaElement>(null)
     const [freeSqlContent, setFreeSqlContent] = usePersistentState('sql-central', 'freeSqlContent', '-- Scratchpad\nSELECT * FROM dual;')
@@ -397,17 +397,38 @@ export function SqlCentralView() {
     // Handle sqlId selection from URL
     useEffect(() => {
         if (sqlId && registry.length > 0) {
-            const script = registry.find(s => s.name.toLowerCase() === sqlId.toLowerCase() || s.link_url.toLowerCase().endsWith(sqlId.toLowerCase()))
+            let script = registry.find(s => s.name.toLowerCase() === sqlId.toLowerCase() || s.link_url.toLowerCase().endsWith(sqlId.toLowerCase()))
+
+            let node: TreeNode | null = null;
 
             if (script) {
-                const node: TreeNode = {
+                node = {
                     id: `script-${script.id}`,
                     name: script.link_label,
                     type: 'file',
                     icon: script.type_icon,
                     script: script
                 }
+            } else if (sqlId.toLowerCase().includes('/') || sqlId.toLowerCase().endsWith('.sql')) {
+                // Path fallback for scripts not in registry (e.g. internal diagnostic scripts)
+                node = {
+                    id: `virtual-${sqlId}`,
+                    name: sqlId.split('/').pop()?.replace('.sql', '') || sqlId,
+                    type: 'file',
+                    script: {
+                        id: -1,
+                        name: sqlId,
+                        link_label: sqlId.split('/').pop() || sqlId,
+                        link_url: sqlId,
+                        icon_url: 'file-text',
+                        codmenutype: 1,
+                        type_name: 'Grid',
+                        type_icon: 'file-text'
+                    }
+                }
+            }
 
+            if (node) {
                 const currentParams = searchParams.toString()
                 const trackingKey = `${sqlId}?${currentParams}`
                 const shouldExecute = hasAutoExecuted.current !== trackingKey

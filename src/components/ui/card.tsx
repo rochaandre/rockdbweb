@@ -25,9 +25,8 @@ export function CardContent({ className, ...props }: ComponentProps<'div'>) {
     return <div data-slot="card-content" className={className} {...props} />
 }
 
-
 export function CardFooter({ className, ...props }: ComponentProps<'div'>) {
-    return <div data-slot="card-content" className={className} {...props} />
+    return <div data-slot="card-footer" className={className} {...props} />
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<'p'>) {

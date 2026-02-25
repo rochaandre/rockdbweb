@@ -1,4 +1,4 @@
---Active sessions (Lab128 Style)
+--Active sessions (Lab Style)
 select sid, inst_id,serial#,saddr,paddr,
 sql_address sqladdr,sql_hash_value,sql_id,sql_child_number,
 prev_sql_addr,prev_hash_value,prev_sql_id,prev_child_number,
@@ -53,3 +53,28 @@ select /*+ordered*/ name, value
    where a.statistic#=b.statistic# and value>0 and a.sid=c.sid and a.inst_id=c.inst_id
    and a.inst_id=$INST_ID and a.sid=$sid and c.serial#=$SERIAL;
 select * from gv$sql_workarea_active where sid=$SID and inst_id=$INST_ID;
+
+
+declare
+   Stmt_Str varchar2(50);
+BEGIN
+  
+    FOR usr in (
+	select l1.sid, v$session.SERIAL# serial
+        from v$lock l1, v$lock l2, v$session
+        where l1.block =1 and l2.request > 0
+        and l1.id1=l2.id1
+        and l1.id2=l2.id2
+        and l1.sid = v$session.sid and  l1.sid=$SID and l1.inst_id=$INST_ID
+		)
+    LOOP
+      Stmt_Str  := 'ALTER SYSTEM KILL SESSION ''' || usr.sid || ',' ||
+                   usr.serial || '''' || ' IMMEDIATE';
+      Execute Immediate (stmt_str);
+    END LOOP;
+    Commit;
+END;
+
+/
+
+ 

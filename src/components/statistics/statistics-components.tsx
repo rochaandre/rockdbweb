@@ -317,7 +317,7 @@ export function StatisticsMaintenancePanel({ onRefresh }: { onRefresh: () => voi
                     setAvailableSchemas(await res.json())
                 }
             } catch (err) {
-                console.error('Error fetching user schemas:', err)
+                // Silently handle schema fetch errors in background
             }
         }
         fetchSchemas()
@@ -332,7 +332,7 @@ export function StatisticsMaintenancePanel({ onRefresh }: { onRefresh: () => voi
                         setAvailableTables(await res.json())
                     }
                 } catch (err) {
-                    console.error('Error fetching tables:', err)
+                    // Silently handle table fetch errors in background
                 }
             }
             fetchTables()
@@ -441,7 +441,6 @@ export function StatisticsMaintenancePanel({ onRefresh }: { onRefresh: () => voi
                 toast.error(`Error: ${errJson.detail}`)
             }
         } catch (err) {
-            console.error(err)
             toast.error(`Failed to execute ${type} action`)
         } finally {
             setIsProcessing(false)

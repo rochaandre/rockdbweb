@@ -608,6 +608,7 @@ def read_object_ddl(obj_type: str, owner: str, name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/storage/tablespaces")
 def read_storage_tablespaces(inst_id: Optional[int] = None):
     active = get_active_connection()
@@ -1237,8 +1238,9 @@ def read_sql_content(request: Request, path: str, vars: Optional[str] = None):
         active = get_active_connection()
         version = active.get('version') if active else None
         
+        is_internal_path = "oracle_internal" in path
         # get_sql_content handles the actual substitution using variables dict
-        return {"content": get_sql_content(path, version, variables)}
+        return {"content": get_sql_content(path, version, variables, is_internal=is_internal_path)}
     except FileNotFoundError as fe:
         raise HTTPException(status_code=404, detail=str(fe))
     except Exception as e:

@@ -1,4 +1,4 @@
-import { tv } from 'tailwind-variants'
+import { tv, type VariantProps } from 'tailwind-variants'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 
@@ -26,10 +26,9 @@ export const buttonVariants = tv({
     defaultVariants: { variant: 'primary', size: 'md' },
 })
 
-export interface ButtonProps extends ComponentProps<'button'> {
-    variant?: 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline'
-    size?: 'sm' | 'md' | 'lg' | 'icon'
-}
+export interface ButtonProps
+    extends ComponentProps<'button'>,
+    VariantProps<typeof buttonVariants> { }
 
 export function Button({ className, variant, size, disabled, children, ...props }: ButtonProps) {
     return (

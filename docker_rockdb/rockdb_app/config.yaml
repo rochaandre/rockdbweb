@@ -6,10 +6,10 @@ databases:
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
-  db_192_168_0_56_ORCL:
+  db_192_168_68_185_ORCL:
     username: dbajobs
     password: dbajobs
-    url: oracle://192.168.0.56:1521/ORCL
+    url: oracle://192.168.68.185:1521/ORCL
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10

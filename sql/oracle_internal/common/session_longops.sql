@@ -19,7 +19,7 @@ SELECT
     CASE WHEN totalwork > 0 THEN ROUND(sofar/totalwork*100,2) ELSE 0 END as done_pct,
     CASE WHEN totalwork > 0 THEN ROUND(sofar/totalwork*100,2) ELSE 0 END as pct
 FROM gv$session_longops l
-WHERE (TO_CHAR(sid) LIKE :sid OR TO_CHAR(qcsid) LIKE :sid)
+WHERE (TO_CHAR(sid) LIKE :sid OR TO_CHAR(qcsid) LIKE :sid )
   AND (inst_id = :inst_id OR :inst_id = 0)
   AND (sofar < totalwork OR last_update_time > sysdate - (5/1440)) -- Active OR updated in last 5 min
 ORDER BY last_update_time DESC

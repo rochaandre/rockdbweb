@@ -1,11 +1,12 @@
 import { twMerge } from 'tailwind-merge'
-import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
-import { Skull, Activity, FileCode, Lock, Loader2, Database } from 'lucide-react'
+import { Skull, Activity, Lock, Database, ChevronRight, FileCode } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { API_URL } from '@/context/app-context'
+import { Button } from '@/components/ui/button'
+import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 
-interface BlockingSession {
+export interface BlockingSession {
     inst_id: number
     sid: number
     serial: number
@@ -28,6 +29,23 @@ export function BlockingTable({ onAction, instId, refreshKey, data: propData }: 
     const navigate = useNavigate()
     const [data, setData] = useState<BlockingSession[]>(propData || [])
     const [isLoading, setIsLoading] = useState(!propData)
+    const [menuOpen, setMenuOpen] = useState(false)
+    const [selectedSession, setSelectedSession] = useState<BlockingSession | null>(null)
+    const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
+
+    const virtualAnchor = {
+        getBoundingClientRect: () => ({
+            width: 0,
+            height: 0,
+            x: menuPosition.x,
+            y: menuPosition.y,
+            top: menuPosition.y,
+            left: menuPosition.x,
+            right: menuPosition.x,
+            bottom: menuPosition.y,
+            toJSON: () => { }
+        })
+    }
 
     const fetchBlockingData = async () => {
         setIsLoading(true)
@@ -54,120 +72,163 @@ export function BlockingTable({ onAction, instId, refreshKey, data: propData }: 
         }
     }, [instId, refreshKey, propData])
 
+    const handleContextMenu = (e: React.MouseEvent, session: BlockingSession) => {
+        e.preventDefault()
+        setMenuPosition({ x: e.clientX, y: e.clientY })
+        setSelectedSession(session)
+        setMenuOpen(true)
+    }
+
     return (
-        <div className="flex-1 overflow-auto border border-border bg-white rounded-md shadow-sm">
-            <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-surface-raised sticky top-0 z-10 text-foreground font-medium shadow-sm">
+        <div className="flex-1 overflow-auto border border-border/40 bg-surface/30 backdrop-blur-sm rounded-xl shadow-inner relative ring-1 ring-white/10 group/table">
+            <table className="min-w-full text-[11px] text-left border-collapse isolate">
+                <thead className="bg-surface-raised/80 backdrop-blur-md sticky top-0 z-20 text-muted-foreground font-black uppercase tracking-widest shadow-sm ring-1 ring-black/5">
                     <tr>
-                        <th className="border-b border-r border-border px-1 py-1 w-10">INST</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-12">SID</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-16">SERIAL#</th>
-                        <th className="border-b border-r border-border px-1 py-1">USERNAME</th>
-                        <th className="border-b border-r border-border px-1 py-1 w-20">STATUS</th>
-                        <th className="border-b border-r border-border px-1 py-1">EVENT</th>
-                        <th className="border-b border-border px-1 py-1 w-32">ACTIONS</th>
+                        <th className="px-3 py-2 border-r border-border/10 w-12 text-center">INST</th>
+                        <th className="px-3 py-2 border-r border-border/10 w-16 text-center">SID</th>
+                        <th className="px-3 py-2 border-r border-border/10 w-20 text-center">SERIAL#</th>
+                        <th className="px-3 py-2 border-r border-border/10">USERNAME</th>
+                        <th className="px-3 py-2 border-r border-border/10 w-24">STATUS</th>
+                        <th className="px-3 py-2 border-r border-border/10">EVENT</th>
+                        <th className="px-3 py-2 w-36 text-center">ACTIONS</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border/20">
                     {isLoading && (
                         <tr>
-                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                                <Loader2 className="mx-auto size-6 animate-spin mb-2" />
-                                Loading blocking data...
+                            <td colSpan={7} className="py-20 text-center">
+                                <Activity className="mx-auto size-8 text-primary animate-pulse mb-4" />
+                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 animate-pulse">Analyzing locking hierarchy...</p>
                             </td>
                         </tr>
                     )}
                     {!isLoading && data.length === 0 && (
                         <tr>
-                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                                No blocking or waiting sessions found.
+                            <td colSpan={7} className="py-20 text-center">
+                                <div className="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20 shadow-sm">
+                                    <Activity className="size-6 text-emerald-500" />
+                                </div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60">No Blocks Detected</h3>
+                                <p className="text-[10px] text-muted-foreground/40 mt-1">SGA is currently free of significant contention.</p>
                             </td>
                         </tr>
                     )}
                     {!isLoading && data.length > 0 && data.map((session, idx) => (
-                        <tr key={`${session.sid}-${idx}`}>
-                            <td colSpan={7} className="p-0 border-0">
-                                <ContextMenu
-                                    trigger={
-                                        <div
-                                            className={twMerge(
-                                                "grid grid-cols-[2.5rem_3rem_4rem_1fr_5rem_1fr_8rem] w-full border-b border-border cursor-context-menu hover:brightness-95 transition-colors items-center",
-                                                session.type === 'blocker'
-                                                    ? "bg-red-100 text-red-900 font-medium"
-                                                    : "bg-yellow-50 text-foreground"
-                                            )}
-                                        >
-                                            <div className="px-1 py-0.5 border-r border-border/50 flex items-center h-full justify-center font-mono opacity-60">
-                                                {session.inst_id}
-                                            </div>
-                                            <div className={twMerge("px-1 py-0.5 border-r border-border/50 flex items-center h-full", (session.level ?? 0) > 0 && "pl-4")}>
-                                                {(session.level ?? 0) > 0 && <span className="text-muted-foreground mr-1">└</span>}
-                                                {session.sid}
-                                            </div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.serial}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.username}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.status}</div>
-                                            <div className="px-1 py-0.5 border-r border-border/50 h-full flex items-center">{session.event}</div>
-                                            <div className="px-1 py-0.5 h-full flex items-center justify-center gap-1">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onAction('KILL_SESSION', session);
-                                                    }}
-                                                    className="p-1 hover:bg-red-600 hover:text-white rounded flex items-center gap-1 text-[10px] border border-red-200 text-red-700 bg-red-50/50"
-                                                    title="Kill Session"
-                                                >
-                                                    <Skull className="w-3 h-3" /> Kill
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`);
-                                                    }}
-                                                    className="p-1 hover:bg-black/10 rounded flex items-center gap-1 text-[10px] border border-black/20"
-                                                    title="Open Block Explorer"
-                                                >
-                                                    <Lock className="w-3 h-3" /> Explorer
-                                                </button>
-                                            </div>
-                                        </div>
-                                    }
+                        <tr
+                            key={`${session.sid}-${idx}`}
+                            onContextMenu={(e) => handleContextMenu(e, session)}
+                            className={twMerge(
+                                "group transition-all duration-75 select-none",
+                                session.type === 'blocker'
+                                    ? "bg-rose-500/10 text-rose-700 font-bold shadow-[inset_0_0_20px_rgba(244,63,94,0.05)] ring-1 ring-rose-500/20"
+                                    : "bg-amber-500/5 text-amber-700 hover:bg-amber-500/10"
+                            )}
+                        >
+                            <td className="px-3 py-2 border-r border-black/5 text-center font-mono opacity-60">{session.inst_id}</td>
+                            <td className={twMerge("px-3 py-2 border-r border-black/5", (session.level ?? 0) > 0 && "pl-8")}>
+                                <div className="flex items-center">
+                                    {(session.level ?? 0) > 0 && <ChevronRight className="size-3 text-muted-foreground/40 mr-1" />}
+                                    <span className="font-mono">{session.sid}</span>
+                                </div>
+                            </td>
+                            <td className="px-3 py-2 border-r border-black/5 text-center font-mono opacity-80">{session.serial}</td>
+                            <td className="px-3 py-2 border-r border-black/5 font-bold tracking-tight">{session.username || 'SYSTEM'}</td>
+                            <td className="px-3 py-2 border-r border-black/5">
+                                <span className={twMerge(
+                                    "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter",
+                                    session.status === 'ACTIVE' ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30 text-muted-foreground"
+                                )}>
+                                    {session.status}
+                                </span>
+                            </td>
+                            <td className="px-3 py-2 border-r border-black/5 truncate opacity-80 font-mono text-[10px]" title={session.event}>
+                                {session.event}
+                            </td>
+                            <td className="px-3 py-2 flex items-center justify-center gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onAction('KILL_SESSION', session);
+                                    }}
+                                    className="h-7 px-2 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg border border-rose-500/20 transition-all"
                                 >
-                                    <ContextMenuItem onClick={() => onAction('KILL_SESSION', session)}>
-                                        <Skull className="mr-2 size-3.5 text-destructive" />
-                                        Kill Session
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('KILL_COMMANDS', session)}>
-                                        <Skull className="mr-2 size-3.5 text-destructive animate-pulse" />
-                                        Kill Commands (Manual)
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('TRACE_SESSION', session)}>
-                                        <Activity className="mr-2 size-3.5" />
-                                        Trace Session
-                                    </ContextMenuItem>
-                                    <ContextMenuSeparator />
-                                    <ContextMenuItem onClick={() => navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`)}>
-                                        <Lock className="mr-2 size-3.5 text-amber-600" />
-                                        Block Explorer
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('SHOW_SQL', session)}>
-                                        <FileCode className="mr-2 size-3.5" />
-                                        Show SQL
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('SQL_CENTRAL', session)}>
-                                        <Database className="mr-2 h-4 w-4 text-primary" />
-                                        Show in SQL Central
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => onAction('SHOW_KILL_SQL_CENTRAL', session)}>
-                                        <Database className="mr-2 h-4 w-4 text-amber-600 animate-pulse" />
-                                        Show Kill Session in SQL Central
-                                    </ContextMenuItem>
-                                </ContextMenu>
+                                    <Skull className="size-3 mr-1" /> Kill
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/block-explorer/${session.sid}?inst_id=${session.inst_id}`);
+                                    }}
+                                    className="h-7 px-2 text-[9px] font-black uppercase tracking-widest bg-surface/50 border-border/40 hover:bg-surface rounded-lg transition-all shadow-sm"
+                                >
+                                    <Lock className="size-3 mr-1" /> Map
+                                </Button>
                             </td>
                         </tr>
                     ))}
                 </tbody>
             </table>
+
+            {/* Premium Context Menu */}
+            <MenuPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                <MenuPrimitive.Portal>
+                    <MenuPrimitive.Positioner
+                        anchor={virtualAnchor}
+                        side="right"
+                        align="start"
+                        sideOffset={2}
+                    >
+                        <MenuPrimitive.Popup className="z-50 min-w-[200px] overflow-hidden rounded-2xl border border-border/40 bg-surface/80 backdrop-blur-2xl p-1.5 text-foreground shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100 focus:outline-none">
+                            {selectedSession && (
+                                <>
+                                    <MenuPrimitive.Item
+                                        className="flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-[11px] font-bold outline-none transition-colors hover:bg-rose-500/10 hover:text-rose-600 focus:bg-rose-500/10 focus:text-rose-600"
+                                        onClick={() => onAction('KILL_SESSION', selectedSession)}
+                                    >
+                                        <Skull className="size-4 text-rose-500" />
+                                        <span>Kill Session Now</span>
+                                    </MenuPrimitive.Item>
+                                    <MenuPrimitive.Item
+                                        className="flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-[11px] font-bold outline-none transition-colors hover:bg-rose-500/10 hover:text-rose-600 focus:bg-rose-500/10 focus:text-rose-600"
+                                        onClick={() => onAction('KILL_COMMANDS', selectedSession)}
+                                    >
+                                        <Skull className="size-4 text-rose-500 animate-pulse" />
+                                        <span>Generate Kill Scripts</span>
+                                    </MenuPrimitive.Item>
+
+                                    <MenuPrimitive.Separator className="my-1 h-px bg-border/20 mx-2" />
+
+                                    <MenuPrimitive.Item
+                                        className="flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-[11px] font-bold outline-none transition-colors hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary"
+                                        onClick={() => navigate(`/block-explorer/${selectedSession.sid}?inst_id=${selectedSession.inst_id}`)}
+                                    >
+                                        <Lock className="size-4 text-amber-500" />
+                                        <span>Hierarchical Map</span>
+                                    </MenuPrimitive.Item>
+                                    <MenuPrimitive.Item
+                                        className="flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-[11px] font-bold outline-none transition-colors hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary"
+                                        onClick={() => onAction('SHOW_SQL', selectedSession)}
+                                    >
+                                        <FileCode className="size-4 text-primary" />
+                                        <span>SQL Content Trace</span>
+                                    </MenuPrimitive.Item>
+                                    <MenuPrimitive.Item
+                                        className="flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-[11px] font-bold outline-none transition-colors hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary"
+                                        onClick={() => onAction('SQL_CENTRAL', selectedSession)}
+                                    >
+                                        <Database className="size-4 text-primary" />
+                                        <span>Analyze in SQL Central</span>
+                                    </MenuPrimitive.Item>
+                                </>
+                            )}
+                        </MenuPrimitive.Popup>
+                    </MenuPrimitive.Positioner>
+                </MenuPrimitive.Portal>
+            </MenuPrimitive.Root>
         </div>
     )
 }

@@ -17,6 +17,7 @@ export function SessionsView() {
     const [sessions, setSessions] = useState<any[]>([])
     const [selectedSid, setSelectedSid] = useState<number | null>(null)
     const [blockingSessions, setBlockingSessions] = useState<any[]>([])
+    const [longOpsSessions, setLongOpsSessions] = useState<any[]>([])
     const [instances, setInstances] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
@@ -28,13 +29,19 @@ export function SessionsView() {
     const [activeTab, setActiveTab] = usePersistentState('sessions', 'activeTab', 'sessions')
     const [selectedInstance, setSelectedInstance] = usePersistentState('sessions', 'selectedInstance', 'both')
     const [refreshInterval, setRefreshInterval] = usePersistentState('sessions', 'refreshInterval', 10)
-    const [filters, setFilters] = usePersistentState<FilterState>('sessions', 'filters', {
+    const [filters, setFilters] = usePersistentState<FilterState>('sessions', 'filters_v1', {
         active: true,
+        blocking: true,
+        system: true,
         inactive: true,
+        waiting: true,
+        user: true,
         background: true,
-        killed: true,
-        parallel: true
+        parallel: true,
+        killed: true
     })
+
+    const [searchQuery, setSearchQuery] = useState('')
 
     // Refresh Control State
     const [isPaused, setIsPaused] = useState(false)
@@ -63,6 +70,13 @@ export function SessionsView() {
             if (zombieRes.ok) {
                 const zombieData = await zombieRes.json()
                 setZombies(zombieData.count || 0)
+            }
+
+            // Fetch longops
+            const longRes = await fetch(`${API_URL}/sessions/longops${instParam}`)
+            if (longRes.ok) {
+                const longData = await longRes.json()
+                setLongOpsSessions(Array.isArray(longData) ? longData : [])
             }
         } catch (error) {
             console.error('Error fetching sessions:', error)
@@ -104,10 +118,14 @@ export function SessionsView() {
     const counts = useMemo(() => {
         return {
             active: sessions.filter(s => s.status === 'ACTIVE').length,
+            blocking: sessions.filter(s => (s.lck_obj && s.lck_obj > 0) || s.blocking_session).length,
+            system: sessions.filter(s => ['SYS', 'SYSTEM'].includes(s.username)).length,
             inactive: sessions.filter(s => s.status === 'INACTIVE').length,
+            waiting: sessions.filter(s => s.status === 'ACTIVE' && (s.state === 'WAITING' || s.wait_class !== 'Idle')).length,
+            user: sessions.filter(s => !['SYS', 'SYSTEM'].includes(s.username)).length,
             background: sessions.filter(s => s.type === 'BACKGROUND').length,
+            parallel: sessions.filter(s => s.program?.includes('(P') || s.px_server_id).length,
             killed: sessions.filter(s => s.status === 'KILLED').length,
-            parallel: 0, // TODO: backend should return parallel info
             zombies: zombies
         }
     }, [sessions, zombies])
@@ -115,6 +133,20 @@ export function SessionsView() {
     // Filter Logic (Client-Side)
     const filteredData = useMemo(() => {
         return sessions.filter(s => {
+            // Search Filter
+            if (searchQuery) {
+                const search = searchQuery.toLowerCase()
+                const matches = [
+                    s.sid?.toString(),
+                    s.username?.toLowerCase(),
+                    s.program?.toLowerCase(),
+                    s.machine?.toLowerCase(),
+                    s.sql_id?.toLowerCase(),
+                    s.event?.toLowerCase()
+                ].some(val => val?.includes(search))
+                if (!matches) return false
+            }
+
             // Status Filters
             if (!filters.active && s.status === 'ACTIVE') return false
             if (!filters.inactive && s.status === 'INACTIVE') return false
@@ -124,12 +156,26 @@ export function SessionsView() {
             const isBackground = s.type === 'BACKGROUND'
             if (!filters.background && isBackground) return false
 
+            // System vs User
+            const isSystem = ['SYS', 'SYSTEM'].includes(s.username)
+            if (!filters.system && isSystem) return false
+            if (!filters.user && !isSystem && !isBackground) return false
+
+            // Waiting
+            const isWaiting = s.status === 'ACTIVE' && (s.state === 'WAITING' || s.wait_class !== 'Idle')
+            if (!filters.waiting && isWaiting) return false
+
+            // Blocking
+            const isBlocking = (s.lck_obj && s.lck_obj > 0) || s.blocking_session
+            if (!filters.blocking && isBlocking) return false
+
             // Parallel
-            // if (!filters.parallel && isParallel) return false
+            const isParallel = s.program?.includes('(P') || s.px_server_id
+            if (!filters.parallel && isParallel) return false
 
             return true
         })
-    }, [filters, sessions])
+    }, [filters, sessions, searchQuery])
 
     // Generate SQL WHERE Clause for Filters Tab
     const filtersSql = useMemo(() => {
@@ -141,27 +187,24 @@ export function SessionsView() {
             conditions.push(`inst_id = ${selectedInstance}`)
         }
 
-        // Status
-        const statusIn: string[] = []
-        if (filters.active) statusIn.push("'ACTIVE'")
-        if (filters.inactive) statusIn.push("'INACTIVE'")
-        if (filters.killed) statusIn.push("'KILLED'")
+        // Status filters mapping
+        if (!filters.active) conditions.push("status != 'ACTIVE'")
+        if (!filters.inactive) conditions.push("status != 'INACTIVE'")
+        if (!filters.killed) conditions.push("status != 'KILLED'")
 
-        if (statusIn.length > 0) {
-            conditions.push(`status IN (${statusIn.join(', ')})`)
-        } else {
-            conditions.push("1=0") // No status selected
-        }
+        // Category filters
+        if (!filters.background) conditions.push("type != 'BACKGROUND'")
+        if (!filters.system) conditions.push("username NOT IN ('SYS', 'SYSTEM')")
+        if (!filters.user) conditions.push("username IN ('SYS', 'SYSTEM')")
 
-        // Background
-        if (!filters.background) {
-            conditions.push("type != 'BACKGROUND'")
-        }
+        // Wait state
+        if (!filters.waiting) conditions.push("NOT (status = 'ACTIVE' AND (state = 'WAITING' OR wait_class != 'Idle'))")
 
-        // Parallel (simplified logic for demo)
-        if (!filters.parallel) {
-            conditions.push("degree = 1")
-        }
+        // Parallel
+        if (!filters.parallel) conditions.push("NOT (program LIKE '%(P%)' OR px_server_id IS NOT NULL)")
+
+        // Blocker
+        if (!filters.blocking) conditions.push("NOT ((lck_obj IS NOT NULL AND lck_obj > 0) OR blocking_session IS NOT NULL)")
 
         return conditions.length > 0
             ? `SELECT * FROM ${table}\nWHERE ${conditions.join('\n  AND ')}`
@@ -221,6 +264,14 @@ export function SessionsView() {
                 console.warn('SQL_STATS: Missing or invalid SQL ID', { sqlId, session });
                 logAction('Error', 'SessionsView', `Cannot open SQL Statistics: SQL ID is ${sqlId || 'missing'}`)
             }
+        } else if (action === 'EXPLORE_SQL_DETAILS') {
+            const sqlId = session.sql_id || session.SQL_ID || session.sqlId
+            const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+            navigate(`/sql-central/oracle_internal/common/sql_details.sql?sql_id=${sqlId}&inst_id=${inst}`)
+        } else if (action === 'CREATE_TUNING_TASK') {
+            const sqlId = session.sql_id || session.SQL_ID || session.sqlId
+            const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
+            navigate(`/sql-central/oracle_internal/common/sql_profile.sql?sql_id=${sqlId}&inst_id=${inst}`)
         } else if (action === 'BLOCK_EXPLORER') {
             const inst = session.inst_id || (selectedInstance !== "both" ? selectedInstance : 1)
             navigate(`/block-explorer/${session.sid}?inst_id=${inst}`)
@@ -265,8 +316,8 @@ export function SessionsView() {
         logAction('Manual Update', 'ControlBar', 'Forcing data refresh across all tabs...')
     }
 
-    const handleSearch = () => {
-        logAction('Navigation', 'ControlBar', 'Opening Search Dialog...')
+    const handleSearch = (val: string) => {
+        setSearchQuery(val)
     }
 
     const handleSettings = () => {
@@ -276,144 +327,159 @@ export function SessionsView() {
     const selectedSession = sessions.find(s => s.sid === selectedSid) || null
 
     return (
-        <MainLayout>
-            <ControlBar
-                filters={filters}
-                counts={counts}
-                onFilterChange={handleFilterChange}
-                isPaused={isPaused}
-                refreshInterval={refreshInterval}
-                onPauseToggle={() => setIsPaused(p => !p)}
-                onUpdate={handleUpdate}
-                onIntervalChange={setRefreshInterval}
-                onSearch={handleSearch}
-                onSettings={handleSettings}
-                selectedInstance={selectedInstance}
-                onInstanceChange={setSelectedInstance}
-                instances={instances}
-                isLoading={isLoading}
-            />
+        <MainLayout className="p-0 overflow-hidden bg-white dark:bg-slate-950">
+            <div className="flex h-full w-full">
+                <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950">
+                    <ControlBar
+                        filters={filters}
+                        counts={counts}
+                        onFilterChange={handleFilterChange}
+                        isPaused={isPaused}
+                        refreshInterval={refreshInterval}
+                        onPauseToggle={() => setIsPaused(p => !p)}
+                        onUpdate={handleUpdate}
+                        onIntervalChange={setRefreshInterval}
+                        onSearch={handleSearch}
+                        onSettings={handleSettings}
+                        selectedInstance={selectedInstance}
+                        onInstanceChange={setSelectedInstance}
+                        instances={instances}
+                        isLoading={isLoading}
+                        searchQuery={searchQuery}
+                        totalSessions={sessions.length}
+                        filteredCount={filteredData.length}
+                    />
 
-            <div className="flex flex-1 gap-2 overflow-hidden h-full">
-                <div className="flex flex-1 flex-col overflow-hidden gap-2">
-                    {/* Main Tabs Area */}
-                    <Tabs
-                        value={activeTab}
-                        onValueChange={setActiveTab}
-                        className="flex-1 flex flex-col overflow-hidden"
-                    >
-                        <div className="flex items-center gap-1 border-b border-border bg-muted/40 px-2 pt-1">
-                            <TabsList className="h-8 bg-transparent p-0 gap-1">
-                                <TabsTrigger
-                                    value="sessions"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold relative -bottom-px"
-                                >
-                                    Sessions
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="blocking"
-                                    className={twMerge(
-                                        "h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all relative -bottom-px",
-                                        "data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold",
-                                        blockingSessions.length > 0 && "bg-rose-100 text-rose-700 data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:border-rose-500"
-                                    )}
-                                >
-                                    Blocking and Waiting Sessions - {blockingSessions.length}
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="longops"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold relative -bottom-px"
-                                >
-                                    Long Operations
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="filters"
-                                    className="h-8 rounded-t-lg rounded-b-none border border-b-0 border-transparent bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground transition-all 
-                    data-[state=active]:border-border data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold relative -bottom-px"
-                                >
-                                    Filters
-                                </TabsTrigger>
-                            </TabsList>
-                        </div>
-
-                        <TabsContent value="sessions" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                            <SessionsTable
-                                data={filteredData}
-                                selectedId={selectedSid}
-                                onSelect={handleSelect}
-                                onAction={handleAction}
-                            />
-                        </TabsContent>
-                        <TabsContent value="blocking" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                            <BlockingTable
-                                onAction={handleAction}
-                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
-                                refreshKey={refreshKey}
-                                data={blockingSessions}
-                            />
-                        </TabsContent>
-                        <TabsContent value="longops" className="flex-1 mt-0 p-0 border border-t-0 border-border bg-surface data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                            <LongOpsTable
-                                onSelect={handleSelect}
-                                onAction={handleAction}
-                                selectedId={selectedSid}
-                                instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
-                                refreshKey={refreshKey}
-                            />
-                        </TabsContent>
-                        <TabsContent value="filters" className="flex-1 mt-0 p-4 border border-t-0 border-border bg-surface font-mono text-sm overflow-auto">
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                                        Active Filters SQL Preview
-                                    </h3>
-                                    <div className="rounded-md bg-muted p-4 border border-border">
-                                        <pre className="whitespace-pre-wrap text-foreground">{filtersSql}</pre>
-                                    </div>
-                                    <p className="mt-2 text-xs text-muted-foreground">
-                                        This SQL clause represents the current active filters applied to the session list.
-                                    </p>
-                                </div>
-
-                                {instances.length > 0 && (
-                                    <div>
-                                        <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                                            Cluster Instances (gv$instance)
-                                        </h3>
-                                        <div className="border border-border rounded-md overflow-hidden bg-white">
-                                            <table className="w-full text-left text-xs">
-                                                <thead className="bg-muted text-muted-foreground font-medium border-b border-border">
-                                                    <tr>
-                                                        <th className="px-3 py-2">ID</th>
-                                                        <th className="px-3 py-2">Instance Name</th>
-                                                        <th className="px-3 py-2">Host Name</th>
-                                                        <th className="px-3 py-2 text-right">Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {instances.map((inst: any) => (
-                                                        <tr key={inst.inst_id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
-                                                            <td className="px-3 py-2 font-mono">{inst.inst_id}</td>
-                                                            <td className="px-3 py-2">{inst.instance_name}</td>
-                                                            <td className="px-3 py-2">{inst.host_name}</td>
-                                                            <td className="px-3 py-2 text-right">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] uppercase font-bold ${inst.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                                    {inst.status}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                )}
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                        {/* Main Tabs Area */}
+                        {/* Main Tabs Area */}
+                        <Tabs
+                            value={activeTab}
+                            onValueChange={setActiveTab}
+                            className="flex-1 flex flex-col overflow-hidden"
+                        >
+                            <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 shrink-0">
+                                <TabsList className="h-10 bg-transparent p-0 flex gap-8">
+                                    <TabsTrigger
+                                        value="sessions"
+                                        className="px-1 py-4 text-[11px] font-bold uppercase tracking-tight transition-all border-b-2 bg-transparent rounded-none h-auto
+                                        data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 
+                                        data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                    >
+                                        Sessions ({filteredData.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger
+                                        value="blocking"
+                                        className={twMerge(
+                                            "px-1 py-4 text-[11px] font-bold uppercase tracking-tight transition-all border-b-2 bg-transparent rounded-none h-auto",
+                                            "data-[state=active]:border-rose-600 data-[state=active]:text-rose-600",
+                                            "data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300",
+                                            blockingSessions.length > 0 && "text-rose-500 animate-pulse"
+                                        )}
+                                    >
+                                        Blocks ({blockingSessions.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger
+                                        value="longops"
+                                        className="px-1 py-4 text-[11px] font-bold uppercase tracking-tight transition-all border-b-2 bg-transparent rounded-none h-auto
+                                        data-[state=active]:border-amber-600 data-[state=active]:text-amber-600
+                                        data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                    >
+                                        Long Ops ({longOpsSessions.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger
+                                        value="filters"
+                                        className="px-1 py-4 text-[11px] font-bold uppercase tracking-tight transition-all border-b-2 bg-transparent rounded-none h-auto
+                                        data-[state=active]:border-zinc-500 data-[state=active]:text-zinc-600
+                                        data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                    >
+                                        Filters SQL
+                                    </TabsTrigger>
+                                </TabsList>
                             </div>
-                        </TabsContent>
-                    </Tabs>
-                </div>
+
+                            <div className="flex-1 overflow-auto relative bg-white dark:bg-slate-950">
+                                <TabsContent value="sessions" className="flex-1 h-full m-0 p-0 overflow-hidden data-[state=active]:flex">
+                                    <SessionsTable
+                                        data={filteredData}
+                                        selectedId={selectedSid}
+                                        onSelect={handleSelect}
+                                        onAction={handleAction}
+                                    />
+                                </TabsContent>
+                                <TabsContent value="blocking" className="flex-1 h-full m-0 p-0 overflow-hidden data-[state=active]:flex">
+                                    <BlockingTable
+                                        onAction={handleAction}
+                                        instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
+                                        refreshKey={refreshKey}
+                                        data={blockingSessions}
+                                    />
+                                </TabsContent>
+                                <TabsContent value="longops" className="flex-1 h-full m-0 p-0 overflow-hidden data-[state=active]:flex">
+                                    <LongOpsTable
+                                        onSelect={handleSelect}
+                                        onAction={handleAction}
+                                        selectedId={selectedSid}
+                                        instId={selectedInstance !== "both" ? Number(selectedInstance) : undefined}
+                                        refreshKey={refreshKey}
+                                        data={longOpsSessions}
+                                    />
+                                </TabsContent>
+                                <TabsContent value="filters" className="flex-1 h-full m-0 p-6 overflow-auto data-[state=active]:block">
+                                    <div className="space-y-8 max-w-4xl mx-auto">
+                                        <div className="bg-surface/40 backdrop-blur-md rounded-2xl border border-border/40 overflow-hidden shadow-lg ring-1 ring-white/5">
+                                            <div className="px-5 py-3 border-b border-border/20 bg-muted/20">
+                                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Active Filters SQL Projection</h3>
+                                            </div>
+                                            <div className="p-6 font-mono text-xs leading-relaxed text-primary/80 selection:bg-primary/20 bg-black/5">
+                                                <pre className="whitespace-pre-wrap">{filtersSql}</pre>
+                                            </div>
+                                        </div>
+
+                                        {instances.length > 0 && (
+                                            <div className="bg-surface/40 backdrop-blur-md rounded-2xl border border-border/40 overflow-hidden shadow-lg ring-1 ring-white/5">
+                                                <div className="px-5 py-3 border-b border-border/20 bg-muted/20">
+                                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Cluster Topology Analysis</h3>
+                                                </div>
+                                                <div className="p-0 overflow-hidden">
+                                                    <table className="w-full text-left text-[11px] border-collapse">
+                                                        <thead className="bg-muted/10 text-muted-foreground font-black uppercase tracking-widest border-b border-border/20">
+                                                            <tr>
+                                                                <th className="px-5 py-3 w-16">ID</th>
+                                                                <th className="px-5 py-3">Instance Name</th>
+                                                                <th className="px-5 py-3">Host Name</th>
+                                                                <th className="px-5 py-3 text-right">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-border/10">
+                                                            {instances.map((inst: any) => (
+                                                                <tr key={inst.inst_id} className="hover:bg-primary/5 transition-colors group">
+                                                                    <td className="px-5 py-3 font-mono font-bold text-primary">{inst.inst_id}</td>
+                                                                    <td className="px-5 py-3 font-medium">{inst.instance_name}</td>
+                                                                    <td className="px-5 py-3 text-muted-foreground">{inst.host_name}</td>
+                                                                    <td className="px-5 py-3 text-right">
+                                                                        <span className={twMerge(
+                                                                            "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border",
+                                                                            inst.status === 'OPEN'
+                                                                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                                                : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                                                                        )}>
+                                                                            {inst.status}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </TabsContent>
+                            </div>
+                        </Tabs>
+                    </div>
+                </main>
 
                 <DetailSidebar session={selectedSession} sqlText={sessionSql} />
 

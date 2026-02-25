@@ -63,28 +63,25 @@ export function StatisticsView() {
             if (excludeSystem) queryParams.append('exclude_system', 'true')
             const queryString = queryParams.toString() ? `?${queryParams.toString()}` : ''
 
-            console.log(`DEBUG: Fetching from ${API_URL}/statistics/${activeTab === 'stale' ? 'stale' : 'dml'}${queryString}`)
             if (activeTab === 'stale') {
                 const res = await fetch(`${API_URL}/statistics/stale${queryString}`)
                 if (res.ok) {
                     const data = await res.json()
-                    console.log('DEBUG: Stale Stats Data:', data)
                     setStaleStats(data)
                 } else {
-                    console.error('DEBUG: Stale Stats Fetch Failed:', res.status)
+                    toast.error('Failed to fetch stale statistics')
                 }
             } else if (activeTab === 'dml') {
                 const res = await fetch(`${API_URL}/statistics/dml${queryString}`)
                 if (res.ok) {
                     const data = await res.json()
-                    console.log('DEBUG: DML Changes Data:', data)
                     setDmlChanges(data)
                 } else {
-                    console.error('DEBUG: DML Changes Fetch Failed:', res.status)
+                    toast.error('Failed to fetch DML activity')
                 }
             }
         } catch (error) {
-            console.error('Error fetching statistics data:', error)
+            toast.error('Error connecting to database stats API')
         } finally {
             setIsRefreshing(false)
         }

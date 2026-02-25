@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './sidebar'
+import { twMerge } from 'tailwind-merge'
 import { TopBar } from './top-bar'
 import { StatusBar } from './status-bar'
 import { useApp } from '@/context/app-context'
@@ -9,9 +10,10 @@ import { Button } from '@/components/ui/button'
 
 interface MainLayoutProps {
     children: React.ReactNode
+    className?: string
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+export function MainLayout({ children, className }: MainLayoutProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const { connection } = useApp()
     const navigate = useNavigate()
@@ -40,7 +42,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
                 {/* Main Content Area */}
                 <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                    <div className="flex-1 overflow-auto p-2">
+                    <div className={twMerge("flex-1 overflow-auto p-2", className)}>
                         {!isConnected && !isDatabasesPage ? (
                             <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
                                 <div className="border border-border p-4 rounded-xl flex flex-col items-center bg-white shadow-sm">
