@@ -31,10 +31,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: Database, label: 'Databases', path: '/databases' },
         { icon: Activity, label: 'Sessions', path: '/sessions' },
         { icon: Clock, label: 'Long Operations', path: '/long-operations' },
         { icon: Archive, label: 'Backups', path: '/backups' },
-        { icon: Database, label: 'Databases', path: '/databases' },
         { icon: HardDrive, label: 'Storage', path: '/storage' },
         { icon: FileText, label: 'Logs', path: '/logs' },
         { icon: ShieldCheck, label: 'Healthcheck', path: '/healthcheck' },

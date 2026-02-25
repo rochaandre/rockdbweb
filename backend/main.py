@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 import os
 import oracledb
+import traceback
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Union
@@ -28,7 +29,7 @@ from .sessions_mod import (
     simulate_long_op, get_long_ops_stats, get_sql_statistics, get_detailed_locks
 )
 from .storage_mod import (
-    get_tablespaces_detailed, get_data_files, get_segments, 
+    get_tablespaces_detailed, get_data_files, get_segments, get_extents, get_tablespace_map,
     get_control_files, get_sysaux_occupants, get_undo_stats, get_temp_usage,
     resize_datafile, add_datafile, get_checkpoint_progress, force_checkpoint,
     get_stats_history_retention, set_stats_history_retention
@@ -608,22 +609,23 @@ def read_object_ddl(obj_type: str, owner: str, name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/storage/tablespaces")
-def read_storage_tablespaces():
+def read_storage_tablespaces(inst_id: Optional[int] = None):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_tablespaces_detailed(active)
+        return get_tablespaces_detailed(active, inst_id=inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/storage/files")
-def read_storage_files():
+@app.get("/api/storage/datafiles")
+def read_storage_files(inst_id: Optional[int] = None):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_data_files(active)
+        return get_data_files(active, inst_id=inst_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -892,14 +894,37 @@ def read_backups_nls():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/storage/segments/{tablespace_name}")
-def read_storage_segments(tablespace_name: str):
+@app.get("/api/storage/segments")
+def read_storage_segments(ts_name: Optional[str] = None, search: Optional[str] = None):
     active = get_active_connection()
     if not active:
         raise HTTPException(status_code=404, detail="No active connection")
     try:
-        return get_segments(active, tablespace_name)
+        return get_segments(active, tablespace_name=ts_name, search_query=search)
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/extents")
+def read_storage_extents(owner: str, segment_name: str):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        data = get_extents(active, owner, segment_name)
+        return data
+    except Exception as e:
+        print(f"API Error in read_storage_extents: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storage/tablespace-map")
+def read_storage_tablespace_map(ts_name: str, file_id: Optional[int] = None):
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_tablespace_map(active, ts_name, file_id)
+    except Exception as e:
+        print(f"API Error in read_storage_tablespace_map: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/storage/redo")

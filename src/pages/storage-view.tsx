@@ -3,6 +3,8 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TablespaceCard, TablespaceDetail, ControlFilesPanel } from '@/components/storage/storage-components'
 import { SysauxPanel, UndoPanel, TempPanel, StorageCharts } from '@/components/storage/advanced-panels'
+import { TablespacesPanel } from '@/components/storage/tablespaces-panel'
+import { SegmentsPanel } from '@/components/storage/segments-panel'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -16,30 +18,38 @@ import { API_URL, useApp } from '@/context/app-context'
 export function StorageView() {
     const { connection } = useApp()
     const isPdb = connection.db_type === 'PDB'
-    const [activeTab, setActiveTab] = useState('tablespaces')
 
-    // State
+    // UI Layout State
+    const [currentTab, setCurrentTab] = useState('tablespaces')
+
+    // Data State
     const [tablespaces, setTablespaces] = useState<any[]>([])
     const [files, setFiles] = useState<any[]>([])
     const [segments, setSegments] = useState<any[]>([])
 
-    // Storage States
+    // Storage Details States
     const [controlFiles, setControlFiles] = useState<any[]>([])
     const [sysauxData, setSysauxData] = useState<any>({ occupants: [], top_objects: [], availability: 'N/A' })
     const [undoData, setUndoData] = useState<any>({ stats: [], retention: 0, max_query_len: 0 })
     const [tempUsage, setTempUsage] = useState<any[]>([])
     const [checkpointProgress, setCheckpointProgress] = useState<any>({ db_checkpoint: '0', datafiles: [] })
 
-    const [selectedTs, setSelectedTs] = useState<string | null>(null)
+    // View Interaction States
+    const [selectedTs, setSelectedTs] = useState<string | undefined>(undefined)
     const [editTs, setEditTs] = useState<any | null>(null)
     const [isRefreshing, setIsRefreshing] = useState(false)
+    const [instId, setInstId] = useState<string | number>('')
+    const [segmentsTs, setSegmentsTs] = useState<string | undefined>(undefined)
 
-    const fetchData = async () => {
+    const fetchData = async (targetId?: string | number) => {
         setIsRefreshing(true)
+        const currentId = targetId !== undefined ? targetId : instId
+        const params = currentId ? `?inst_id=${currentId}` : ''
+
         try {
             const [tsRes, filesRes, ctrlRes, sysRes, undoRes, tempRes, ckptRes] = await Promise.all([
-                fetch(`${API_URL}/storage/tablespaces`),
-                fetch(`${API_URL}/storage/files`),
+                fetch(`${API_URL}/storage/tablespaces${params}`),
+                fetch(`${API_URL}/storage/files${params}`),
                 fetch(`${API_URL}/storage/control`),
                 fetch(`${API_URL}/storage/sysaux`),
                 fetch(`${API_URL}/storage/undo`),
@@ -64,11 +74,11 @@ export function StorageView() {
 
     useEffect(() => {
         fetchData()
-    }, [activeTab])
+    }, [])
 
     useEffect(() => {
         if (selectedTs) {
-            fetch(`${API_URL}/storage/segments/${selectedTs}`)
+            fetch(`${API_URL}/storage/segments?ts_name=${selectedTs}`)
                 .then(res => res.json())
                 .then(data => setSegments(data))
                 .catch(err => console.error(err))
@@ -79,7 +89,7 @@ export function StorageView() {
 
     // Handlers
     const handleTsClick = (name: string) => {
-        setSelectedTs(selectedTs === name ? null : name)
+        setSelectedTs(selectedTs === name ? undefined : name)
     }
 
     const handleEditTs = (ts: any) => {
@@ -107,14 +117,26 @@ export function StorageView() {
                     </Button>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                    <div className="border-b border-border shrink-0">
-                        <TabsList className="bg-transparent p-0 gap-6">
+                <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col p-6 overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-border mb-2">
+                        <TabsList className="bg-transparent h-auto p-0 gap-6">
                             <TabsTrigger
                                 value="tablespaces"
                                 className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                             >
                                 Tablespaces
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="segments"
+                                className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                Segments and Extents
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="tabdat"
+                                className="rounded-none border-b-2 border-transparent px-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                TabDat
                             </TabsTrigger>
                             <TabsTrigger
                                 value="control"
@@ -149,8 +171,29 @@ export function StorageView() {
                         </TabsList>
                     </div>
 
-                    {/* Tablespaces Content */}
-                    <TabsContent value="tablespaces" className="flex-1 mt-4 overflow-auto space-y-6">
+                    <TabsContent value="tablespaces" className="flex-1 mt-4 overflow-auto">
+                        <TablespacesPanel
+                            tablespaces={tablespaces}
+                            files={files}
+                            onRefresh={(id) => {
+                                if (id !== undefined) setInstId(id)
+                                fetchData(id)
+                            }}
+                            onShowSegments={(ts: string) => {
+                                setSegmentsTs(ts)
+                                setCurrentTab('segments')
+                            }}
+                            instanceName={connection.inst_name || 'AAATESTE'}
+                        />
+                    </TabsContent>
+
+                    {/* Segments and Extents Monitoring */}
+                    <TabsContent value="segments" className="flex-1 mt-4 overflow-auto">
+                        <SegmentsPanel initialTablespace={segmentsTs} />
+                    </TabsContent>
+
+                    {/* TabDat (Legacy Tablespaces View) */}
+                    <TabsContent value="tabdat" className="flex-1 mt-4 overflow-auto space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {tablespaces.map((ts, i) => (
                                 <div key={i} className={selectedTs === ts.tablespace_name ? "ring-2 ring-primary rounded-lg" : ""}>

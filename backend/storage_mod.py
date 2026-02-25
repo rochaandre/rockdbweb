@@ -1,37 +1,18 @@
 import oracledb
 from .utils import get_oracle_connection, safe_value
+import traceback
 
-def get_tablespaces_detailed(conn_info):
+def get_tablespaces_detailed(conn_info, inst_id=None):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        cursor.execute("""
-            SELECT 
-                t.tablespace_name,
-                t.block_size,
-                t.initial_extent,
-                t.next_extent,
-                t.min_extents,
-                t.max_extents,
-                t.pct_increase,
-                t.status,
-                t.contents,
-                t.logging,
-                t.allocation_type,
-                t.segment_space_management,
-                df.total_bytes / 1024 / 1024 as total_mb,
-                (df.total_bytes - nvl(fs.free_bytes, 0)) / 1024 / 1024 as used_mb,
-                nvl(fs.free_bytes, 0) / 1024 / 1024 as free_mb,
-                ROUND((df.total_bytes - nvl(fs.free_bytes, 0)) / df.total_bytes * 100, 2) as used_pct
-            FROM 
-                dba_tablespaces t
-                JOIN (SELECT tablespace_name, SUM(bytes) total_bytes FROM dba_data_files GROUP BY tablespace_name) df
-                  ON t.tablespace_name = df.tablespace_name
-                LEFT JOIN (SELECT tablespace_name, SUM(bytes) free_bytes FROM dba_free_space GROUP BY tablespace_name) fs
-                  ON t.tablespace_name = fs.tablespace_name
-            ORDER BY t.tablespace_name
-        """)
+        
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_text = get_sql_content("oracle_internal/storage/tablespaces.sql", version, is_internal=True)
+        
+        cursor.execute(sql_text, inst_id=inst_id)
         columns = [col[0].lower() for col in cursor.description]
         return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
@@ -41,24 +22,17 @@ def get_tablespaces_detailed(conn_info):
         if connection:
             connection.close()
 
-def get_data_files(conn_info):
+def get_data_files(conn_info, inst_id=None):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        cursor.execute("""
-            SELECT 
-                file_name,
-                file_id,
-                tablespace_name,
-                bytes / 1024 / 1024 as size_mb,
-                status,
-                autoextensible,
-                maxbytes / 1024 / 1024 as max_mb,
-                increment_by * (SELECT value FROM v$parameter WHERE name = 'db_block_size') / 1024 / 1024 as next_mb
-            FROM dba_data_files
-            ORDER BY tablespace_name, file_name
-        """)
+        
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_text = get_sql_content("oracle_internal/storage/datafiles.sql", version, is_internal=True)
+        
+        cursor.execute(sql_text, inst_id=inst_id)
         columns = [col[0].lower() for col in cursor.description]
         return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
@@ -68,21 +42,80 @@ def get_data_files(conn_info):
         if connection:
             connection.close()
 
-def get_segments(conn_info, tablespace_name):
+def get_segments(conn_info, tablespace_name=None, search_query=None):
     connection = None
     try:
         connection = get_oracle_connection(conn_info)
         cursor = connection.cursor()
-        # Load version-aware SQL
         from .sql_central_mod import get_sql_content
         version = conn_info.get('version')
-        sql_text = get_sql_content("segments.sql", version, is_internal=True)
+        sql_text = get_sql_content("oracle_internal/storage/segments.sql", version, is_internal=True)
         
-        cursor.execute(sql_text, ts=tablespace_name)
+        print(f"DEBUG: Fetching segments for TS: {tablespace_name}, search: {search_query}")
+        cursor.execute(sql_text, ts_name=tablespace_name, search_query=search_query)
         columns = [col[0].lower() for col in cursor.description]
         return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
     except Exception as e:
         print(f"Error fetching segments: {e}")
+        traceback.print_exc()
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+def get_extents(conn_info, owner, segment_name):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        sql_text = get_sql_content("oracle_internal/storage/extents.sql", version, is_internal=True)
+        
+        if not sql_text or len(sql_text.strip()) == 0:
+            raise FileNotFoundError("extents.sql is empty or not found")
+            
+        print(f"DEBUG: Executing extents SQL for {owner}.{segment_name}")
+        cursor.execute(sql_text, owner=owner, segment_name=segment_name)
+        
+        if cursor.description is None:
+             return []
+             
+        columns = [col[0].lower() for col in cursor.description]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching extents for {owner}.{segment_name}: {e}")
+        traceback.print_exc()
+        raise Exception(f"Failed to fetch extents for {owner}.{segment_name}: {str(e)}")
+    finally:
+        if connection:
+            connection.close()
+
+def get_tablespace_map(conn_info, tablespace_name, file_id=None):
+    connection = None
+    try:
+        connection = get_oracle_connection(conn_info)
+        cursor = connection.cursor()
+        from .sql_central_mod import get_sql_content
+        version = conn_info.get('version')
+        
+        # Check if it's a temporary tablespace
+        cursor.execute("SELECT contents FROM dba_tablespaces WHERE tablespace_name = :ts", ts=tablespace_name)
+        row = cursor.fetchone()
+        is_temp = row[0] == 'TEMPORARY' if row else False
+        
+        sql_file = "oracle_internal/storage/tablespace_temp_map.sql" if is_temp else "oracle_internal/storage/tablespace_map.sql"
+        sql_text = get_sql_content(sql_file, version, is_internal=True)
+        
+        cursor.execute(sql_text, ts_name=tablespace_name, file_id=file_id)
+        if cursor.description is None:
+            return []
+            
+        columns = [col[0].lower() for col in cursor.description]
+        return [{k: safe_value(v) for k, v in zip(columns, row)} for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching tablespace map: {e}")
+        traceback.print_exc()
         raise e
     finally:
         if connection:
