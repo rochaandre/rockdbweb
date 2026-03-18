@@ -24,12 +24,12 @@ from .utils import get_db_path
 
 # Paths
 PROMETHEUS_CONFIG_PATH = os.getenv("PROMETHEUS_CONFIG_PATH", "/etc/prometheus/prometheus.yaml")
-INFLUX_URL = os.getenv("INFLUX_URL", "http://rockdb_influxdb:8086")
+INFLUX_URL = os.getenv("INFLUX_URL", "http://rockdb_victoriametrics:8428")
 INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "rockdb_super_secret_token_change_me")
 INFLUX_ORG = os.getenv("INFLUX_ORG", "rockdb")
 
 def sync_scrapers():
-    """Sync servers with Prometheus and InfluxDB."""
+    """Sync servers with Prometheus and VictoriaMetrics."""
     db_path = get_db_path()
     if not os.path.exists(db_path):
         return
@@ -42,12 +42,13 @@ def sync_scrapers():
         servers = [dict(row) for row in cursor.fetchall()]
         conn.close()
 
-        # 1. Update Prometheus
+        # 1. Update Prometheus (VictoriaMetrics is compatible with Prometheus targets)
         update_prometheus(servers)
 
-        # 2. Update InfluxDB (Buckets and Scrapers)
-        for server in servers:
-            update_influxdb_for_server(server)
+        # 2. InfluxDB Scraper API is not supported by VictoriaMetrics.
+        # Data ingestion should happen via Prometheus scraping or direct Influx line protocol writes.
+        # for server in servers:
+        #     update_influxdb_for_server(server)
 
     except Exception as e:
         print(f"Scraper Sync Error: {e}")

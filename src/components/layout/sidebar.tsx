@@ -15,7 +15,8 @@ import {
     Plus,
     Clock,
     ShieldCheck,
-    BarChart3
+    BarChart3,
+    Copy
 } from "lucide-react"
 import { useNavigate, useLocation } from 'react-router-dom'
 import { MOCK_ASM_DATA } from '@/components/storage/asm-data'
@@ -35,6 +36,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { icon: Activity, label: 'Sessions', path: '/sessions' },
         { icon: Clock, label: 'Long Operations', path: '/long-operations' },
         { icon: Archive, label: 'Backups', path: '/backups' },
+        { icon: Copy, label: 'Duplicate DB', path: '/duplicate' },
         { icon: HardDrive, label: 'Storage', path: '/storage' },
         { icon: FileText, label: 'Logs', path: '/logs' },
         { icon: ShieldCheck, label: 'Healthcheck', path: '/healthcheck' },

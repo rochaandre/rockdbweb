@@ -39,7 +39,7 @@ services:
     command: [ "--config.file=/exporter/config.yaml", "--web.listen-address=:9161" ]
     restart: always
     depends_on:
-      - rockdb_influxdb
+      - rockdb_victoriametrics
     env_file:
       - .env
 
@@ -52,6 +52,17 @@ services:
     volumes:
       - ./docs:/opt/docusaurus
     command: sh -c "apt-get update && apt-get install -y iputils-ping && if [ ! -f 'package.json' ]; then npx -y create-docusaurus@latest tmp_doc classic --typescript --skip-install && cp -r tmp_doc/. . && rm -rf tmp_doc; fi && npm install && npm run start -- --host 0.0.0.0 --port 3005"
+    restart: unless-stopped
+
+  rockdb_victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: rockdb_victoriametrics
+    ports:
+      - "8428:8428"
+    volumes:
+      - vm_data:/victoria-metrics-data
+    command:
+      - '--retentionPeriod=1' # 1 month
     restart: unless-stopped
 
   rockdb_influxdb:
@@ -87,27 +98,38 @@ services:
     depends_on:
       - rockdb-app
 
+  rockdb_otel_collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: rockdb_otel_collector
+    command: [ "--config=/etc/otelcol-contrib/config.yaml" ]
+    volumes:
+      - ./otel/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8888:8888" # Metrics endpoint
+    restart: unless-stopped
+    depends_on:
+      - rockdb-app
+      - rockdb_victoriametrics
+
   grafana:
-    build: ./grafana
+    image: grafana/grafana:latest
     container_name: grafana
-    user: "0" # Run as root to allow password reset via CLI if needed
     ports:
       - "3000:3000"
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
     volumes:
       - grafana_data:/var/lib/grafana
-    # Command to reset password and then run the original entrypoint
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        grafana-cli admin reset-admin-password admin
-        /run.sh
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
-      - rockdb_prometheus
+      - rockdb_victoriametrics
 
   rockdb-jenkins:
     build:
@@ -128,13 +150,13 @@ services:
 volumes:
   rockdb_data:
     driver: local
-  influxdb_data:
-    driver: local
-  influxdb_config:
+  vm_data:
     driver: local
   prom_data:
     driver: local
   grafana_data:
     driver: local
   jenkins_data:
+    driver: local
+  influxdb_data:
     driver: local

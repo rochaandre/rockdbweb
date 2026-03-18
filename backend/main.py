@@ -51,6 +51,7 @@ from .backups_mod import (
     get_recovery_summary, get_incarnations, get_datafiles_detailed,
     execute_rman_sql_report, get_rman_progress
 )
+from .duplicate_mod import get_duplicate_source_info
 from .sql_central_mod import (
     get_sql_registry, get_sql_content, execute_generic_sql, 
     seed_sql_scripts, delete_sql_script, execute_external_tool,
@@ -84,7 +85,7 @@ async def timemachine_worker():
                     long_ops = get_long_ops(active_conn)
                     blocking = get_blocking_sessions(active_conn)
                     
-                    # 2. Store in InfluxDB
+                    # 2. Store in VictoriaMetrics (Time Machine)
                     store_snapshot(sessions, long_ops, blocking)
                     # print(f"Time Machine: Captured snapshot for {active_conn['name']}")
                 except Exception as db_err:
@@ -767,6 +768,17 @@ def read_recovery_datafiles():
         raise HTTPException(status_code=404, detail="No active connection")
     try:
         return get_datafiles_detailed(active)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- DUPLICATE ENDPOINTS ---
+@app.get("/api/duplicate/source-info")
+def read_duplicate_source_info():
+    active = get_active_connection()
+    if not active:
+        raise HTTPException(status_code=404, detail="No active connection")
+    try:
+        return get_duplicate_source_info(active)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -8,18 +8,23 @@ datasources:
   access: proxy
   editable: true
 
+- name: VictoriaMetrics
+  uid: victoriametrics
+  type: prometheus
+  url: http://rockdb_victoriametrics:8428
+  access: proxy
+  editable: true
+
 - name: rockdb_influxdb
   uid: cfca5jww9ysxsa
   type: influxdb
   access: proxy
-  url: http://rockdb_influxdb:8086
-  basicAuth: true
+  url: http://rockdb_victoriametrics:8428
+  basicAuth: false
   jsonData:
-    version: Flux
+    version: InfluxQL
     organization: rockdb
     defaultBucket: timemachine
     httpMode: POST
     tlsSkipVerify: true
-  secureJsonData:
-    token: rockdb_super_secret_token_change_me
   editable: true

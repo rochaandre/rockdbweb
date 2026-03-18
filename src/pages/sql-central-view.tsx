@@ -591,6 +591,40 @@ export function SqlCentralView() {
 
     const currentResult = execResults[0] // Simplify for now: show first result grid
 
+    const formattedScript = useMemo(() => {
+        if (!currentResult?.data || currentResult.data.length === 0) return ''
+
+        const keys = Object.keys(currentResult.data[0])
+        const colWidths: Record<string, number> = {}
+
+        // Initialize with header lengths
+        keys.forEach(key => {
+            colWidths[key] = key.length
+        })
+
+        // Find max length for each column
+        currentResult.data.forEach((row: any) => {
+            keys.forEach(key => {
+                const val = String(row[key] ?? '')
+                if (val.length > colWidths[key]) {
+                    colWidths[key] = val.length
+                }
+            })
+        })
+
+        // Build header
+        const header = keys.map(key => key.toUpperCase().padEnd(colWidths[key])).join('  ')
+        const separator = keys.map(key => '-'.repeat(colWidths[key])).join('  ')
+
+        // Build rows
+        const rows = currentResult.data.map((row: any) => {
+            return keys.map(key => String(row[key] ?? '').padEnd(colWidths[key])).join('  ')
+        })
+
+        return [header, separator, ...rows].join('\n')
+    }, [currentResult])
+
+
     return (
         <MainLayout>
             <div className="flex h-full flex-col bg-surface overflow-hidden">
@@ -774,13 +808,17 @@ export function SqlCentralView() {
                         </div>
 
                         {/* Bottom Results */}
-                        <div className="h-1/2 min-h-[200px] flex flex-col bg-surface shadow-inner shrink-0 overflow-hidden">
+                        <div className="h-[75%] min-h-[450px] flex flex-col bg-surface shadow-inner shrink-0 overflow-hidden">
                             <div className="flex items-center justify-between border-b border-border bg-muted/20 px-2 h-9 shrink-0">
                                 <Tabs value={bottomTab} onValueChange={setBottomTab} className="h-full">
                                     <TabsList className="h-full bg-transparent p-0 gap-1">
                                         <TabsTrigger value="grid" className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background/50 text-[10px] font-bold uppercase px-3 shadow-none gap-1.5 transition-all">
                                             <TableIcon className="h-3 w-3" /> Data Grid
                                         </TabsTrigger>
+                                        <TabsTrigger value="script" className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background/50 text-[10px] font-bold uppercase px-3 shadow-none gap-1.5 transition-all">
+                                            <FileText className="h-3 w-3" /> Script
+                                        </TabsTrigger>
+
                                         {(selectedNode?.script?.codmenutype === 8 || toolOutput) && (
                                             <TabsTrigger value="console" className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background/50 text-[10px] font-bold uppercase px-3 shadow-none gap-1.5 transition-all">
                                                 <Monitor className="h-3 w-3" /> Console
@@ -868,6 +906,26 @@ export function SqlCentralView() {
                                     </div>
                                 )}
 
+
+                                {bottomTab === 'script' && (
+                                    <div className="flex-1 overflow-auto bg-background relative group/script">
+                                        <div className="absolute top-4 right-6 opacity-0 group-hover/script:opacity-100 transition-opacity">
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                className="h-8 text-[10px] font-black uppercase tracking-widest rounded-xl bg-surface/50 border border-border/30 hover:bg-surface shadow-lg"
+                                                onClick={() => navigator.clipboard.writeText(formattedScript)}
+                                            >
+                                                <Save className="h-3 w-3 mr-2" /> Copy Output
+                                            </Button>
+                                        </div>
+                                        <div className="p-3 font-mono text-[11px] leading-tight selection:bg-primary/20 whitespace-pre text-slate-700 dark:text-slate-300">
+                                            {formattedScript || <span className="italic text-muted-foreground opacity-30">// No data formatted for script output</span>}
+                                        </div>
+
+                                    </div>
+                                )}
+
                                 {bottomTab === 'console' && (
                                     <div className="flex-1 flex flex-col bg-slate-950 text-slate-50 relative overflow-hidden">
                                         <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
@@ -903,7 +961,8 @@ export function SqlCentralView() {
                                     </div>
                                 )}
 
-                                <div className={cn("flex-1 bg-muted/5 p-4 overflow-auto", bottomTab === 'grid' && "hidden")}>
+                                <div className={cn("flex-1 bg-muted/5 p-4 overflow-auto", (bottomTab === 'grid' || bottomTab === 'script' || bottomTab === 'console') && "hidden")}>
+
                                     <div className="max-w-4xl mx-auto h-full">
                                         {currentResult?.data?.length > 0 ? (
                                             <>

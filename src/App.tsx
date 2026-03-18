@@ -3,6 +3,7 @@ import { DashboardView } from '@/pages/dashboard-view'
 import { DatabasesView } from '@/pages/databases-view'
 import { SettingsView } from '@/pages/settings-view'
 import { BackupsView } from '@/pages/backups-view'
+import { DuplicateView } from '@/pages/duplicate-view'
 import { StorageView } from '@/pages/storage-view'
 import { LogsView } from '@/pages/logs-view'
 import { ConfigurationView } from '@/pages/configuration-view'
@@ -34,6 +35,7 @@ function App() {
           <Route path="/" element={<DashboardView />} />
           <Route path="/sessions" element={<SessionsView />} />
           <Route path="/backups" element={<BackupsView />} />
+          <Route path="/duplicate" element={<DuplicateView />} />
           <Route path="/databases" element={<DatabasesView />} />
           <Route path="/storage" element={<StorageView />} />
           <Route path="/logs" element={<LogsView />} />

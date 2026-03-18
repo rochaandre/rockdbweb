@@ -65,6 +65,31 @@ To change the password for the `admin` user via CLI:
 docker exec rockdb_influxdb influx user password --name admin -p nova_senha_123
 ```
 
+### Recreating the Database (Full Reset)
+If the database was deleted or corrupted, you can completely recreate the InfluxDB instance and its configuration by following these steps:
+
+1. Stop and remove the existing container:
+   ```bash
+   cd docker_rockdb
+   docker-compose stop rockdb_influxdb
+   docker-compose rm -f rockdb_influxdb
+   ```
+2. Remove the persistent volume to ensure a clean slate (WARNING: This destroys all time-series data!):
+   ```bash
+   # Make sure you are in the rockdb root or where the volume was created
+   docker volume rm docker_rockdb_influxdb_data 
+   # Note: the exact volume name prefix depends on the directory name, typically docker_rockdb_influxdb_data
+   ```
+3. Recreate the container (the setup script will run automatically to provision the bucket and token):
+   ```bash
+   docker-compose process rockdb_influxdb
+   docker-compose up -d rockdb_influxdb
+   ```
+4. Restart the backend application so it reconnects:
+   ```bash
+   docker-compose restart rockdb-app
+   ```
+
 ---
 
 ## �️ Manual CLI Inspection (Inside Container)

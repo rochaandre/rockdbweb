@@ -74,9 +74,9 @@ def sync_exporter_config():
                 url = f"{target_host}:{port}/{service}"
                 entry_key = f"db_{target_host.replace('.', '_')}_{service}"
             
-            # Ensure URL has the oracle:// prefix
-            if not url.startswith("oracle://"):
-                url = f"oracle://{url}"
+            # Clean up URL (Oracle drivers crash if 'oracle://' is passed as the DSN)
+            if url.startswith("oracle://"):
+                url = url.replace("oracle://", "", 1)
             
             # Decrypt the password
             try:

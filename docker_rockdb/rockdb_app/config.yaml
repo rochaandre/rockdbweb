@@ -2,28 +2,28 @@ databases:
   db_192_168_0_56_ORCLCDB:
     username: system
     password: oracle_4U
-    url: oracle://192.168.0.56:1521/ORCLCDB
+    url: 192.168.0.56:1521/ORCLCDB
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
-  db_192_168_68_185_ORCL:
+  db_192_168_0_69_ORCL:
     username: dbajobs
     password: dbajobs
-    url: oracle://192.168.68.185:1521/ORCL
+    url: 192.168.0.69:1521/ORCL
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
   db_db-rep-01_REP:
     username: report
     password: U2FsdGVkX19ozOp+KQ85z0o2j1h8XahFpZ3SwuCZ7aI=
-    url: oracle://db-rep-01:1521/REP
+    url: db-rep-01:1521/REP
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
   db_host_docker_internal_ORCLPDB1:
     username: dbajobs
     password: dbajobs
-    url: oracle://host.docker.internal:1521/ORCLPDB1
+    url: host.docker.internal:1521/ORCLPDB1
     queryTimeout: 5
     maxOpenConns: 10
     maxIdleConns: 10
