@@ -1,0 +1,77 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet author="root (generated)" id="1776870687839-1">
+        <createTable tableName="PROSPECTS">
+            <column name="PERSON_ID" type="NUMBER(6, 0)"/>
+            <column name="FIRST_NAME" type="VARCHAR2(20 BYTE)"/>
+            <column name="LAST_NAME" type="VARCHAR2(25 BYTE)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="EMAIL" type="VARCHAR2(37 BYTE)"/>
+            <column name="PHONE_NUMBER" type="VARCHAR2(20 BYTE)"/>
+            <column name="BIRTH_DATE" type="date"/>
+            <column name="SAVINGS" type="NUMBER"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="root (generated)" id="1776870687839-2">
+        <createTable tableName="DATABASECHANGELOG_EXPORT">
+            <column name="OBJECT_RANK" type="NUMBER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="OBJECT_SEQUENCE" type="NUMBER"/>
+            <column name="OBJECT_NAME" type="VARCHAR2(2000 BYTE)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="DATABASECHANGELOG_EXPORT_PK"/>
+            </column>
+            <column name="OBJECT_DEPS" type="VARCHAR2(4000 BYTE)"/>
+            <column name="OBJECT_TYPE" type="VARCHAR2(2000 BYTE)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="DATABASECHANGELOG_EXPORT_PK"/>
+            </column>
+            <column name="OBJECT_DOC" type="CLOB"/>
+            <column name="FILE_NAME" type="VARCHAR2(2000 BYTE)"/>
+            <column defaultValueNumeric="0" name="WRITTEN" type="NUMBER"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="root (generated)" id="1776870687839-3">
+        <createTable tableName="DATABASECHANGELOG_ACTIONS">
+            <column name="ID" type="VARCHAR2(255 BYTE)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="SEQUENCE" type="NUMBER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="SQL" type="CLOB"/>
+            <column name="SXML" type="CLOB"/>
+            <column name="AUTHOR" type="VARCHAR2(255 BYTE)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="FILENAME" type="VARCHAR2(255 BYTE)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="DEPLOYMENT_ID" type="VARCHAR2(10 BYTE)"/>
+            <column name="STATUS" type="VARCHAR2(20 BYTE)"/>
+            <column name="MD5SUM" type="VARCHAR2(35 BYTE)"/>
+            <column name="DATEEXECUTED" type="VARCHAR2(50 BYTE)"/>
+            <column name="EXECTYPE" type="VARCHAR2(10 BYTE)"/>
+            <column name="DESCRIPTION" type="VARCHAR2(255 BYTE)"/>
+            <column name="COMMENTS" type="VARCHAR2(255 BYTE)"/>
+            <column name="TAG" type="VARCHAR2(255 BYTE)"/>
+            <column name="CONTEXTS" type="VARCHAR2(255 BYTE)"/>
+            <column name="LABELS" type="VARCHAR2(255 BYTE)"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="root (generated)" id="1776870687839-4">
+        <createView fullDefinition="true" viewName="DATABASECHANGELOG_DETAILS">CREATE OR REPLACE FORCE VIEW "DATABASECHANGELOG_DETAILS" ("DEPLOYMENT_ID", "ID", "AUTHOR", "FILENAME", "SEQUENCE", "DATEEXECUTED", "STATUS", "MD5SUM", "DESCRIPTION", "COMMENTS", "LIQUIBASE", "CONTEXTS", "LABELS", "SQL", "SXML", "EXECTYPE", "TAG") AS SELECT da.deployment_id, da.id, da.author, da.filename, da.sequence, da.dateexecuted, da.status, da.md5sum, da.description, da.comments,    d.liquibase,    da.contexts,    da.labels , da.sql,     da.sxml, da.EXECTYPE, da.DESCRIPTION, da.COMMENTS, da.TAG, da.CONTEXTS, da.LABELS   
+FROM MIGRA1.DATABASECHANGELOG d   LEFT JOIN MIGRA1.DATABASECHANGELOG_ACTIONS da ON d.id = da.id AND d.author = da.author AND d.filename = da.filename ORDER BY   1,7</createView>
+    </changeSet>
+    <changeSet author="root (generated)" id="1776870687839-5">
+        <createIndex indexName="DATABASECHANGELOG_ACTIONS_PK" tableName="DATABASECHANGELOG_ACTIONS" unique="true">
+            <column name="ID"/>
+            <column name="AUTHOR"/>
+            <column name="FILENAME"/>
+            <column name="SEQUENCE"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="root (generated)" id="1776870687839-6">
+        <addPrimaryKey columnNames="ID, AUTHOR, FILENAME, SEQUENCE" constraintName="DATABASECHANGELOG_ACTIONS_PK" forIndexName="DATABASECHANGELOG_ACTIONS_PK" tableName="DATABASECHANGELOG_ACTIONS"/>
+    </changeSet>
+</databaseChangeLog>
